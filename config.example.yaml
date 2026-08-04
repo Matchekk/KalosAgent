@@ -1,0 +1,36 @@
+window:
+  title_contains: "Azahar"
+
+capture:
+  # VLM image is resized to this maximum width before being sent to Ollama.
+  vlm_max_width: 1024
+  jpeg_quality: 82
+  debug_dir: "debug"
+
+ocr:
+  enabled: true
+  # Surya OCR 2 uses vLLM on NVIDIA and llama.cpp otherwise.
+  backend: "auto"
+  # Set this to an existing OpenAI-compatible Surya server, if desired.
+  inference_url: null
+  parallel: 1
+  min_score: 0.45
+  upscale: 2.0
+
+planner:
+  model: "qwen3.5:9b"
+  host: "http://localhost:11434"
+  use_vision: true
+  temperature: 0.10
+  recent_memory_items: 8
+
+agent:
+  decision_interval_seconds: 1.0
+  unchanged_wait_seconds: 0.7
+  max_steps_per_plan: 6
+  max_action_duration_ms: 1000
+  repeated_frame_limit: 8
+  dry_run: true
+
+memory:
+  database_path: "data/kalos_agent.sqlite3"

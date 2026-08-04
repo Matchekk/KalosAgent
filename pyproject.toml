@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kalos-agent"
+version = "0.1.0"
+description = "Local-first LLM agent scaffold for Pokémon X/Y in Azahar"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "mss>=10.0,<12",
+  "numpy>=1.26,<3",
+  "opencv-python-headless==4.11.0.86",
+  "pydantic>=2.8,<3",
+  "PyYAML>=6,<7",
+  "ollama>=0.5,<1",
+  "surya-ocr>=0.22.1,<0.23",
+  "Pillow>=10,<13",
+  "pywin32>=306; platform_system == 'Windows'",
+  "vgamepad>=0.1.0; platform_system == 'Windows'",
+  "rich>=13,<15"
+]
+
+[project.scripts]
+kalos-agent = "kalos_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kalos_agent*"]
