@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kalos-agent"
-version = "0.1.0"
-description = "Local-first LLM agent scaffold for Pokémon X/Y in Azahar"
+version = "0.3.0"
+description = "Knowledge-augmented local agent runtime for Pokémon X/Y in Azahar"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,11 +15,26 @@ dependencies = [
   "pydantic>=2.8,<3",
   "PyYAML>=6,<7",
   "ollama>=0.5,<1",
-  "surya-ocr>=0.22.1,<0.23",
+  "httpx>=0.27,<1",
   "Pillow>=10,<13",
   "pywin32>=306; platform_system == 'Windows'",
   "vgamepad>=0.1.0; platform_system == 'Windows'",
   "rich>=13,<15"
+]
+
+[project.optional-dependencies]
+ocr = [
+  "paddleocr>=3.3,<4",
+  "paddlepaddle>=3.2,<4"
+]
+showdown = [
+  "poke-env>=0.10,<1"
+]
+dev = [
+  "mypy>=1.11,<2",
+  "pytest>=8.3,<10",
+  "ruff>=0.12,<1",
+  "types-PyYAML>=6.0,<7"
 ]
 
 [project.scripts]
@@ -28,3 +43,21 @@ kalos-agent = "kalos_agent.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["kalos_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["build", "dist"]

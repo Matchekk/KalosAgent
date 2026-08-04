@@ -1,120 +1,107 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from typing import Any
 
-from .models import ActionName, ActionPlan, ActionStep
-
-try:
-    import vgamepad as vg
-except ImportError:
-    vg = None
+from .models import AtomicAction, AtomicActionKind, Button, Direction
 
 
-@dataclass(frozen=True)
-class SafetyLimits:
-    max_steps_per_plan: int
-    max_action_duration_ms: int
+class ControllerUnavailableError(RuntimeError):
+    """Raised when live input was requested but vgamepad is unavailable."""
 
 
-class VirtualController:
-    def __init__(self, *, dry_run: bool, limits: SafetyLimits) -> None:
+class VirtualGamepadActionBackend:
+    """Safety-bounded vgamepad adapter. It never decides which action to run."""
+
+    def __init__(self, *, dry_run: bool = True, max_duration_ms: int = 1000) -> None:
         self.dry_run = dry_run
-        self.limits = limits
-        self.gamepad = None
+        self.max_duration_ms = max_duration_ms
+        self._gamepad: Any | None = None
+        self._vg: Any | None = None
+        if not dry_run:
+            try:
+                import vgamepad as vg
+            except ImportError as exc:  # pragma: no cover - hardware dependency
+                raise ControllerUnavailableError(
+                    "Live mode needs vgamepad. Install the controller extra first."
+                ) from exc
+            self._vg = vg
+            self._gamepad = vg.VX360Gamepad()
+            self.reset()
 
-        if not self.dry_run:
-            if vg is None:
-                raise RuntimeError(
-                    "vgamepad is not installed or is unavailable on this platform."
-                )
-            self.gamepad = vg.VX360Gamepad()
-
-    def _button(self, action: ActionName):
-        assert vg is not None
-        mapping = {
-            ActionName.A: vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
-            ActionName.B: vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
-            ActionName.X: vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
-            ActionName.Y: vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
-            ActionName.START: vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
-            ActionName.SELECT: vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
-            ActionName.L: vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
-            ActionName.R: vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
-            ActionName.DPAD_UP: vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
-            ActionName.DPAD_DOWN: vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
-            ActionName.DPAD_LEFT: vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
-            ActionName.DPAD_RIGHT: vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
-        }
-        return mapping.get(action)
+    def is_ready(self) -> bool:
+        return self.dry_run or self._gamepad is not None
 
     def reset(self) -> None:
-        if self.gamepad is not None:
-            self.gamepad.reset()
-            self.gamepad.update()
-
-    def _execute_live(self, step: ActionStep) -> None:
-        assert self.gamepad is not None
-        duration = min(step.duration_ms, self.limits.max_action_duration_ms) / 1000.0
-
-        if step.action == ActionName.WAIT:
-            time.sleep(duration)
+        if self._gamepad is None:
             return
+        self._gamepad.reset()
+        self._gamepad.update()
 
-        movement = {
-            ActionName.MOVE_UP: (0.0, 1.0),
-            ActionName.MOVE_DOWN: (0.0, -1.0),
-            ActionName.MOVE_LEFT: (-1.0, 0.0),
-            ActionName.MOVE_RIGHT: (1.0, 0.0),
+    def perform(self, action: AtomicAction) -> None:
+        duration_ms = min(action.duration_ms, self.max_duration_ms)
+        if self.dry_run:
+            return
+        if self._gamepad is None or self._vg is None:
+            raise ControllerUnavailableError("The virtual controller is not initialized.")
+
+        self.reset()
+        if action.kind == AtomicActionKind.WAIT:
+            time.sleep(duration_ms / 1000)
+            return
+        if action.kind in {
+            AtomicActionKind.WAIT_FOR_STABLE,
+            AtomicActionKind.WAIT_FOR_STATE_CHANGE,
+        }:
+            return
+        if action.kind == AtomicActionKind.PRESS_BUTTON:
+            button = self._button(action.button)
+            self._gamepad.press_button(button=button)
+            self._gamepad.update()
+            time.sleep(duration_ms / 1000)
+            self.reset()
+            return
+        if action.kind == AtomicActionKind.MOVE:
+            x, y = self._direction(action.direction)
+            self._gamepad.left_joystick(x_value=x, y_value=y)
+            self._gamepad.update()
+            time.sleep(duration_ms / 1000)
+            self.reset()
+
+    def _button(self, button: Button | None) -> Any:
+        assert self._vg is not None
+        mapping = {
+            Button.A: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
+            Button.B: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
+            Button.X: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
+            Button.Y: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
+            Button.START: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
+            Button.SELECT: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+            Button.L: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+            Button.R: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+            Button.DPAD_UP: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
+            Button.DPAD_DOWN: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
+            Button.DPAD_LEFT: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
+            Button.DPAD_RIGHT: self._vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
         }
-        if step.action in movement:
-            x_value, y_value = movement[step.action]
-            self.gamepad.left_joystick_float(
-                x_value_float=x_value, y_value_float=y_value
-            )
-            self.gamepad.update()
-            time.sleep(duration)
-            self.reset()
-            time.sleep(0.08)
-            return
+        if button not in mapping:
+            raise ValueError(f"Unsupported button: {button}")
+        return mapping[button]
 
-        button = self._button(step.action)
-        if button is None:
-            raise ValueError(f"Unsupported action: {step.action}")
+    @staticmethod
+    def _direction(direction: Direction | None) -> tuple[int, int]:
+        mapping = {
+            Direction.UP: (0, 32767),
+            Direction.DOWN: (0, -32768),
+            Direction.LEFT: (-32768, 0),
+            Direction.RIGHT: (32767, 0),
+        }
+        if direction not in mapping:
+            raise ValueError(f"Unsupported direction: {direction}")
+        return mapping[direction]
 
-        self.gamepad.press_button(button=button)
-        self.gamepad.update()
-        time.sleep(duration)
-        self.gamepad.release_button(button=button)
-        self.gamepad.update()
-        time.sleep(0.08)
-
-    def execute(self, plan: ActionPlan) -> list[dict[str, str | int]]:
-        results: list[dict[str, str | int]] = []
-        steps = plan.steps[: self.limits.max_steps_per_plan]
-
+    def close(self) -> None:
         try:
-            for step in steps:
-                safe_duration = min(
-                    step.duration_ms, self.limits.max_action_duration_ms
-                )
-                if self.dry_run:
-                    print(
-                        f"[DRY RUN] {step.action.value:<12} "
-                        f"{safe_duration:>4} ms — {step.reason}"
-                    )
-                else:
-                    self._execute_live(
-                        step.model_copy(update={"duration_ms": safe_duration})
-                    )
-                results.append(
-                    {
-                        "action": step.action.value,
-                        "duration_ms": safe_duration,
-                        "status": "planned" if self.dry_run else "executed",
-                    }
-                )
-        finally:
             self.reset()
-
-        return results
+        finally:
+            self._gamepad = None

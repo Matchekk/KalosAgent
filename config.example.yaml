@@ -1,36 +1,139 @@
 window:
   title_contains: "Azahar"
+  min_width: 320
+  min_height: 400
 
 capture:
-  # VLM image is resized to this maximum width before being sent to Ollama.
-  vlm_max_width: 1024
-  jpeg_quality: 82
+  capture_hz: 10.0
+  vlm_max_width: 1280
+  jpeg_quality: 84
   debug_dir: "debug"
+  save_region_debug: false
+  layout:
+    # vertical, horizontal, or custom
+    mode: "vertical"
+    split_ratio: 0.5
+    # Required only for mode: custom. Values are normalized by default.
+    # top_crop: {x: 0.0, y: 0.0, width: 1.0, height: 0.48}
+    # bottom_crop: {x: 0.0, y: 0.52, width: 1.0, height: 0.48}
+    regions:
+      dialogue:
+        screen: "top"
+        rect: {x: 0.03, y: 0.66, width: 0.94, height: 0.31}
+        text_region: true
+      location_name:
+        screen: "top"
+        rect: {x: 0.12, y: 0.02, width: 0.76, height: 0.18}
+        text_region: true
+      battle_text:
+        screen: "top"
+        rect: {x: 0.02, y: 0.68, width: 0.96, height: 0.30}
+        text_region: true
+      battle_menu:
+        screen: "bottom"
+        rect: {x: 0.0, y: 0.0, width: 1.0, height: 1.0}
+        text_region: true
+      bottom_menu:
+        screen: "bottom"
+        rect: {x: 0.0, y: 0.0, width: 1.0, height: 1.0}
+        text_region: true
+
+change:
+  mean_delta_threshold: 0.018
+  stable_delta_threshold: 0.004
+  transition_delta_threshold: 0.12
+  perceptual_distance_threshold: 5
+  stable_frames_required: 3
+  animation_debounce_frames: 3
 
 ocr:
   enabled: true
-  # Surya OCR 2 uses vLLM on NVIDIA and llama.cpp otherwise.
-  backend: "auto"
-  # Set this to an existing OpenAI-compatible Surya server, if desired.
-  inference_url: null
-  parallel: 1
-  min_score: 0.45
+  provider: "paddle"
+  device: "cpu"
+  detection_model: "PP-OCRv6_small_det"
+  recognition_model: "PP-OCRv6_small_rec"
+  min_score: 0.50
   upscale: 2.0
+  worker_threads: 1
+  text_regions:
+    - "dialogue"
+    - "location_name"
+    - "battle_text"
+    - "battle_menu"
+    - "bottom_menu"
+
+vision:
+  enabled: true
+  model: "gemma4:12b"
+  host: "http://localhost:11434"
+  temperature: 0.10
+  keep_alive: "30m"
+  context_size: 8192
+  uncertainty_threshold: 0.38
+  no_progress_trigger: 3
 
 planner:
-  model: "qwen3.5:9b"
+  backend: "ollama" # ollama, openai, or fake in tests
+  model: "gemma4:12b"
   host: "http://localhost:11434"
+  api_key: ""
   use_vision: true
   temperature: 0.10
+  context_size: 8192
+  keep_alive: "30m"
+  max_output_tokens: 1200
   recent_memory_items: 8
+  repair_invalid_json: true
+  thinking: true
 
 agent:
-  decision_interval_seconds: 1.0
-  unchanged_wait_seconds: 0.7
-  max_steps_per_plan: 6
-  max_action_duration_ms: 1000
-  repeated_frame_limit: 8
   dry_run: true
+  stop_file: "STOP"
+  arm_countdown_seconds: 3
+  state_hysteresis_frames: 2
+  high_confidence_scene_switch: 0.90
+  initial_objective: "Reach the starter-selection sequence safely."
+  action:
+    max_steps_per_plan: 6
+    max_action_duration_ms: 1000
+    max_ineffective_inputs: 3
+    macro_timeout_seconds: 8.0
+    post_input_observation_delay_ms: 180
 
 memory:
   database_path: "data/kalos_agent.sqlite3"
+  working_memory_size: 12
+
+replay:
+  root_dir: "data/replays"
+  save_screenshots: true
+  save_regions: true
+
+# Built once with `python -m kalos_agent knowledge-import`; battles remain offline.
+knowledge:
+  database_path: "data/knowledge/gen6-xy.sqlite3"
+  cache_dir: "data/knowledge/pokeapi-cache"
+  base_url: "https://pokeapi.co/api/v2"
+
+battle_intelligence:
+  enabled: true
+  # Optional bounded strategic tie-breaker; mechanics always remain deterministic.
+  use_llm_strategy: false
+  learning_database_path: "data/battle-learning.sqlite3"
+  beam_width: 4
+  opponent_width: 4
+  search_horizon: 1
+
+navigation:
+  enabled: true
+  database_path: "data/navigation.sqlite3"
+  keyframe_dir: "data/navigation-keyframes"
+  node_match_threshold: 0.92
+  landmark_match_threshold: 0.94
+  stable_recognitions: 3
+
+showdown:
+  enabled: false
+  battle_format: "gen6randombattle"
+  server_url: "ws://localhost:8000/showdown/websocket"
+  authentication_url: "http://localhost:8000/action.php?"
