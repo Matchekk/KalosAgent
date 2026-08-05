@@ -5,6 +5,7 @@ import { isValidButton, parseMultiplePlans } from './action-parser.js';
 import { RewardCalculator } from './reward-calculator.js';
 import { ExperienceBuffer, ActionStatistics } from './experience-buffer.js';
 import { curriculumTracker } from './curriculum.js';
+import { getDialogAdvanceDecision, getDialogPlanBias } from './dialog-advance.js';
 
 /**
  * System prompt that asks LLM to generate multiple candidate plans
@@ -19,15 +20,15 @@ CONTROLS: up, down, left, right, a, b, start
 
 CRITICAL RULES:
 1. If the game is at startup/title: press 'start', then 'a' to begin
-2. If showing dialog/text: press 'a' 2-3 times to advance, then MOVE
+2. If showing dialog/text: press 'a' 4-6 times to advance it quickly; consecutive 'a' is allowed here
 3. If in a building: navigate to exit (usually down then through door)
 4. If outdoors: move toward your next objective location
-5. Use no more than 8 buttons and never repeat a button more than 3 times
+5. Use no more than 8 buttons; outside dialog, never repeat a button more than 3 times
 6. Always include movement when the game is past startup or dialog
 
 COMMON SEQUENCES:
 - Exit house: down, down, down, down, a (walk to door, exit)
-- Talk to someone: a, a, a (then move away)
+- Talk to someone: a, a, a, a, a, a (then move away)
 - Navigate route: Mix of directions toward destination
 
 OUTPUT EXACTLY TWO LINES, with no extra commentary:
@@ -79,6 +80,7 @@ export class RLAgent {
         this.prevState = null;
         this.prevActions = null;
         this.llmCallCount = 0;
+        this.dialogAdvanceTracker = { lastDialog: '', unchangedPresses: 0 };
 
         // Policy parameters (simple weighted selection)
         this.explorationRate = 0.2;  // 20% random exploration
@@ -272,10 +274,10 @@ export class RLAgent {
         let score = 0;
         const actions = plan.actions;
 
-        // Prefer movement over button mashing
+        // Prefer movement over button mashing outside dialog.
         const movements = actions.filter(a =>
             ['up', 'down', 'left', 'right'].includes(a)).length;
-        score += movements * 0.5;
+        score += movements * (state.dialog?.trim() ? 0 : 0.5);
 
         // Penalize too many repeated actions
         const uniqueActions = new Set(actions).size;
@@ -287,10 +289,9 @@ export class RLAgent {
             score += aCount * 0.5;
         }
 
-        // If dialog showing, prefer 'a' to advance
+        // During dialog, strongly prefer enough A presses to clear a full page.
         if (state.dialog?.trim()) {
-            const aCount = actions.filter(a => a === 'a').length;
-            score += aCount * 0.3;
+            score += getDialogPlanBias(actions);
         }
 
         // Early-game plans must be able to leave ROM warning/title screens.
@@ -306,6 +307,37 @@ export class RLAgent {
      * Execute one step of the agent
      */
     async step() {
+        const observedState = this.reader.getGameState();
+        const dialogDecision = getDialogAdvanceDecision(observedState, this.dialogAdvanceTracker);
+        this.dialogAdvanceTracker = dialogDecision.tracker;
+
+        if (dialogDecision.shouldAdvance) {
+            // Count this as the next queued A when the LLM already planned one,
+            // while keeping any movement ready for after the dialog closes.
+            if (this.actionQueue[0] === 'a') {
+                this.actionQueue.shift();
+            }
+
+            this.emu.pressButton('a');
+            this.stepCount++;
+            this.prevState = observedState;
+            this.prevActions = ['a'];
+
+            if (this.onUpdate) {
+                this.onUpdate({
+                    action: ['a'],
+                    executed: true,
+                    phase: 'acting',
+                    currentAction: 'a',
+                    currentPlan: 'Advance dialog automatically',
+                    reasoning: 'Dialog detected — advancing locally without an LLM call',
+                    state: this.reader.getGameState(),
+                    rlStats: this.getStats(),
+                });
+            }
+            return;
+        }
+
         // Execute queued actions first
         if (this.actionQueue.length > 0) {
             const action = this.actionQueue.shift();
@@ -329,7 +361,7 @@ export class RLAgent {
         }
 
         // Get current state and compute reward for previous actions
-        const currState = this.reader.getGameState();
+        const currState = observedState;
 
         if (this.prevState && this.prevActions) {
             // Compute base reward from reward calculator
@@ -469,6 +501,7 @@ export class RLAgent {
     stop() {
         this.running = false;
         this.actionQueue = [];
+        this.dialogAdvanceTracker = { lastDialog: '', unchangedPresses: 0 };
     }
 
     /**
