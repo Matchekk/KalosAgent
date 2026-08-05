@@ -1,6 +1,7 @@
 <script>
     import { gameState } from '$lib/stores/game';
-    import { MapPin, Users, Award } from 'lucide-svelte';
+    import { stats } from '$lib/stores/agent';
+    import { MapPin, Users, Award, Swords } from 'lucide-svelte';
 
     $: state = $gameState;
     $: partyDisplay = (state.party || []).map(p => `${p.species} Lv${p.level}`).join(', ');
@@ -33,6 +34,12 @@
         <Award size={14} />
         <span class="label">Badges</span>
         <span class="value badge-count">{badgeCount}/8</span>
+    </div>
+
+    <div class="state-item" title="Confirmed wins read from Red++ battle result memory">
+        <Swords size={14} />
+        <span class="label">Wins</span>
+        <span class="value battle-wins">{$stats.battleWins || 0}</span>
     </div>
 </div>
 
@@ -73,4 +80,9 @@
     .badge-count {
         color: var(--accent-primary);
     }
+
+    .battle-wins {
+        color: var(--success, #4ade80);
+    }
+
 </style>

@@ -570,7 +570,7 @@
                 </button>
                 {#if howItWorksExpanded}
                     <p class="how-desc">
-                        Pure reinforcement learning with REINFORCE. The agent samples actions from a policy network, collects rewards from game events (movement, new maps, badges), and updates weights via policy gradient after each rollout. Learned weights autosave in this browser and are included in Export.
+                        Pure reinforcement learning for Red++. The policy chooses every button itself, including Start and party menus. Rewards use WRAM battle, type, move and durable progress data; novel exploration replaces circle-farming. Policies and milestone checkpoints autosave locally.
                     </p>
                 {/if}
 
@@ -589,6 +589,18 @@
                     <div class="metric-row">
                         <span class="metric-label">Updates</span>
                         <span class="metric-value mono">{$pureRLMetrics.trainSteps}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Episode</span>
+                        <span class="metric-value mono">{$pureRLMetrics.episode} / {$pureRLMetrics.episodeSteps} steps</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Confirmed wins</span>
+                        <span class="metric-value mono">{$pureRLMetrics.confirmedWins}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Checkpoints</span>
+                        <span class="metric-value mono">{$pureRLMetrics.checkpointCount}</span>
                     </div>
                 </div>
 

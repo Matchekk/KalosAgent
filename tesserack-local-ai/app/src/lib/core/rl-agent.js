@@ -5,7 +5,11 @@ import { isValidButton, parseMultiplePlans } from './action-parser.js';
 import { RewardCalculator, isPlayableState } from './reward-calculator.js';
 import { ExperienceBuffer, ActionStatistics } from './experience-buffer.js';
 import { curriculumTracker } from './curriculum.js';
-import { getDialogAdvanceDecision, getDialogPlanBias } from './dialog-advance.js';
+import {
+    getDialogAdvanceDecision,
+    getDialogPlanBias,
+    getMenuRecoveryAction,
+} from './dialog-advance.js';
 
 /**
  * System prompt that asks LLM to generate multiple candidate plans
@@ -25,6 +29,8 @@ CRITICAL RULES:
 4. If outdoors: move toward your next objective location
 5. Use no more than 8 buttons; outside dialog, never repeat a button more than 3 times
 6. Always include movement when the game is past startup or dialog
+7. Menus are allowed when they serve a purpose, such as choosing a stronger move,
+   switching to a Pokemon with a type advantage, healing, or occasional saving
 
 COMMON SEQUENCES:
 - Exit house: down, down, down, down, a (walk to door, exit)
@@ -73,7 +79,7 @@ export class RLAgent {
         this.loopGeneration = 0;
 
         // RL components
-        this.rewardCalc = new RewardCalculator();
+        this.rewardCalc = new RewardCalculator({ persistRun: true });
         this.expBuffer = new ExperienceBuffer(10000);
         this.actionStats = new ActionStatistics();
 
@@ -131,6 +137,7 @@ export class RLAgent {
             inBattle: state.inBattle || false,
             hasDialog: !!(state.dialog?.trim()),
             money: state.money || 0,
+            battle: state.battle || null,
         };
     }
 
@@ -154,9 +161,9 @@ export class RLAgent {
         // Add immediate action hints based on location
         const locUpper = state.location.toUpperCase();
         if (locUpper.includes('HOUSE') && locUpper.includes('2F')) {
-            lines.push('ACTION NEEDED: Go downstairs - walk DOWN to the stairs');
+            lines.push('ACTION NEEDED: The stairs are at (7,0): move RIGHT, then UP');
         } else if (locUpper.includes('HOUSE') && locUpper.includes('1F')) {
-            lines.push('ACTION NEEDED: Exit the house - walk DOWN to the door, press A');
+            lines.push('ACTION NEEDED: The front door is at (3,7): move LEFT, then DOWN');
         } else if (locUpper.includes('LAB') || locUpper.includes('OAKS')) {
             lines.push('ACTION NEEDED: Talk to Prof Oak or pick a starter Pokemon');
         } else if (locUpper.includes('ROUTE')) {
@@ -174,6 +181,20 @@ export class RLAgent {
         if (state.inBattle) {
             lines.push('');
             lines.push('[IN BATTLE] - Select moves with A, navigate with directions');
+            const battle = state.battle;
+            if (battle?.opponent) {
+                const opponentTypes = [battle.opponent.type1, battle.opponent.type2].filter(Boolean).join('/');
+                const activeTypes = [battle.active?.type1, battle.active?.type2].filter(Boolean).join('/');
+                lines.push(`Opponent: ${battle.opponent.species} Lv${battle.opponent.level} ${opponentTypes} HP ${battle.opponent.currentHP}/${battle.opponent.maxHP}`);
+                lines.push(`Active: ${battle.active?.species} Lv${battle.active?.level} ${activeTypes} HP ${battle.active?.currentHP}/${battle.active?.maxHP}`);
+                if (battle.active?.moves?.length) {
+                    lines.push(`Moves: ${battle.active.moves.map(move => move.name).join(', ')}`);
+                }
+                if (battle.lastMove?.id) {
+                    lines.push(`Last move: ${battle.lastMove.name} (${battle.lastMove.type}, ${battle.lastMove.effectiveness}${battle.lastMove.stab ? ', STAB' : ''}, ${battle.lastMove.damage} damage)`);
+                }
+                lines.push('Prefer super-effective damaging moves; avoid immune or not-very-effective moves. Switching Pokemon is allowed when it creates a real type advantage.');
+            }
         }
 
         lines.push('');
@@ -214,7 +235,7 @@ export class RLAgent {
         if (!isPlayableState(state) && !state.dialog?.trim()) {
             return {
                 plan: 'Advance startup screen before navigating',
-                actions: ['start', 'a', 'start', 'a'],
+                actions: ['start', 'a', 'a'],
                 selected: 'startup-guard',
             };
         }
@@ -377,7 +398,27 @@ export class RLAgent {
      */
     async step() {
         const observedState = this.reader.getGameState();
+        this.rewardCalc.syncProgressFlags(observedState);
         await this.settlePendingTransition(observedState);
+        const recoveryAction = getMenuRecoveryAction(observedState.dialog);
+        if (recoveryAction) {
+            this.actionQueue = [];
+            this.emu.pressButton(recoveryAction);
+            this.stepCount++;
+            this.rememberAction(observedState, recoveryAction, 'Close accidental trainer menu');
+
+            this.onUpdate?.({
+                action: [recoveryAction],
+                executed: true,
+                phase: 'acting',
+                currentAction: recoveryAction,
+                currentPlan: 'Close accidental trainer menu',
+                reasoning: 'Trainer card detected — returning to gameplay',
+                state: observedState,
+                rlStats: this.getStats(),
+            });
+            return;
+        }
         const dialogDecision = getDialogAdvanceDecision(observedState, this.dialogAdvanceTracker);
         this.dialogAdvanceTracker = dialogDecision.tracker;
 
@@ -513,7 +554,14 @@ export class RLAgent {
 
         while (this.running && generation === this.loopGeneration) {
             await this.step();
-            await this.sleep(150);
+            // A Red++ tile movement spans several frames. Reading RAM before
+            // it settles assigns the transition reward to the next button and
+            // can make waypoints oscillate around a target tile.
+            const settlingAction = this.pendingTransition?.action;
+            const settleDelay = ['up', 'down', 'left', 'right'].includes(settlingAction)
+                ? 320
+                : 150;
+            await this.sleep(settleDelay);
         }
     }
 

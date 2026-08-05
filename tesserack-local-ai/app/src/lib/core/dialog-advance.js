@@ -12,6 +12,14 @@ const INTERACTIVE_SCREEN_PATTERNS = [
     /\bNO\s+YES\b/i,
 ];
 
+const TRAINER_CARD_PATTERN = /\bNAME\b[\s\S]*\bMONEY\b[\s\S]*\bTIME\b[\s\S]*\bBADGES\b/i;
+const SAVE_COMPLETE_PATTERN = /\bSAVED\b[\s\S]*\bGAME\b|\bGAME\b[\s\S]*\bSAVED\b/i;
+
+export function getMenuRecoveryAction(dialog) {
+    const text = String(dialog || '').replace(/\s+/g, ' ').trim();
+    return TRAINER_CARD_PATTERN.test(text) || SAVE_COMPLETE_PATTERN.test(text) ? 'b' : null;
+}
+
 export function isInteractiveDialogScreen(dialog) {
     const text = String(dialog || '').replace(/\s+/g, ' ').trim();
     return text.length > 0 && INTERACTIVE_SCREEN_PATTERNS.some(pattern => pattern.test(text));
@@ -34,7 +42,8 @@ export function getDialogAdvanceDecision(state, tracker = {}) {
     const dialog = String(state?.dialog || '').replace(/\s+/g, ' ').trim();
     const reset = { lastDialog: '', unchangedPresses: 0 };
 
-    if (!dialog || state?.inBattle || isInteractiveDialogScreen(dialog)) {
+    if (!dialog || state?.inBattle || isInteractiveDialogScreen(dialog)
+        || getMenuRecoveryAction(dialog)) {
         return { shouldAdvance: false, tracker: reset };
     }
 

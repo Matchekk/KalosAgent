@@ -13,8 +13,6 @@
  * - Penalties: Stuck detection, whiteout
  */
 
-import { assetUrl } from '../asset-url.js';
-
 export class UnitTestRewards {
     constructor(config = {}) {
         this.config = {
@@ -34,7 +32,7 @@ export class UnitTestRewards {
             stuckThreshold: config.stuckThreshold ?? 30,
 
             // Bundle URL
-            bundlesUrl: config.bundlesUrl ?? assetUrl('data/test-bundles.json'),
+            bundlesUrl: config.bundlesUrl ?? '/data/test-bundles.json',
         };
 
         // Test bundles (loaded async)
@@ -49,9 +47,13 @@ export class UnitTestRewards {
         // Track state for tests that need history
         this.stuckCounter = 0;
         this.visitedLocations = new Set();
+        this.visitedPositions = new Set();
+        this.recentPositions = [];
         this.seenBadges = 0;
         this.seenPartyCount = 0;
         this.lastPartyLevels = [];
+        this.consecutiveStartActions = 0;
+        this.championReached = false;
 
         // Metrics
         this.totalRewards = {
@@ -155,7 +157,7 @@ export class UnitTestRewards {
     /**
      * Evaluate rewards for a state transition
      */
-    evaluate(prevState, currState) {
+    evaluate(prevState, currState, action = null) {
         // Ensure bundles are loaded (use defaults if not)
         if (!this.bundlesLoaded) {
             this.bundles = this._getDefaultBundles();
@@ -174,6 +176,17 @@ export class UnitTestRewards {
         let penalties = 0;
         const fired = [];
 
+        // Movement is useful only when it discovers state. Rewarding every
+        // coordinate change teaches profitable circles instead of progress.
+        const positionKey = this._positionKey(currState);
+        const moved = this._testCoordsChanged(prevState, currState);
+        const novelPosition = moved && positionKey && !this.visitedPositions.has(positionKey);
+        if (positionKey) {
+            this.visitedPositions.add(positionKey);
+            this.recentPositions.push(positionKey);
+            if (this.recentPositions.length > 24) this.recentPositions.shift();
+        }
+
         const bundle = this.currentBundle || this._getDefaultBundle();
 
         // Evaluate tests
@@ -189,7 +202,8 @@ export class UnitTestRewards {
                 if (tier === 3 && !this.config.enableTier3) continue;
 
                 // Evaluate test
-                if (this._evalTest(test, prevState, currState)) {
+                const isSpatialTier1 = tier === 1 && ['coords_changed', 'coord_delta'].includes(test.type);
+                if ((!isSpatialTier1 || novelPosition) && this._evalTest(test, prevState, currState)) {
                     const weight = this._getTierWeight(tier);
                     const reward = test.reward * weight;
 
@@ -205,6 +219,51 @@ export class UnitTestRewards {
                     }
                 }
             }
+        }
+
+        // Red++ battle shaping. These values come from its WRAM battle
+        // structs, so the policy can learn move/type choices without any
+        // scripted button sequence.
+        const battleReward = this._redppBattleReward(prevState, currState);
+        if (battleReward !== 0) {
+            tier3 += battleReward;
+            fired.push({ id: 'redpp_battle_progress', reward: battleReward, tier: 3 });
+        }
+
+        if (action === 'a' && this._testDialogChanged(prevState, currState)) {
+            tier2 += 0.2;
+            fired.push({ id: 'dialog_advanced', reward: 0.2, tier: 2 });
+        }
+
+        const worldChanged = moved || this._testLocationChanged(prevState, currState)
+            || this._testDialogChanged(prevState, currState)
+            || prevState?.inBattle !== currState?.inBattle;
+        if (['up', 'down', 'left', 'right'].includes(action) && !worldChanged) {
+            penalties -= 0.03;
+            fired.push({ id: 'blocked_movement', reward: -0.03, tier: 'penalty' });
+        }
+
+        if (action === 'start' && !currState?.inBattle) {
+            this.consecutiveStartActions++;
+            if (this.consecutiveStartActions > 2) {
+                const menuSpamPenalty = -Math.min(1, 0.15 * (this.consecutiveStartActions - 2));
+                penalties += menuSpamPenalty;
+                fired.push({ id: 'menu_spam', reward: menuSpamPenalty, tier: 'penalty' });
+            }
+        } else if (action !== 'start') {
+            this.consecutiveStartActions = 0;
+        }
+
+        if (moved && !novelPosition) {
+            penalties -= 0.02;
+            fired.push({ id: 'revisited_tile', reward: -0.02, tier: 'penalty' });
+        }
+
+        if (!this.championReached && this._isChampionState(currState)) {
+            this.championReached = true;
+            tier3 += 1000;
+            fired.push({ id: 'redpp_champion', reward: 1000, tier: 3 });
+            this.completedObjectives.push('redpp_champion');
         }
 
         // Evaluate penalties
@@ -390,11 +449,45 @@ export class UnitTestRewards {
     }
 
     _testBattleWon(prev, curr) {
-        // Detect battle ending with party still alive
-        const wasInBattle = prev?.inBattle ?? false;
-        const isInBattle = curr?.inBattle ?? false;
-        const partyAlive = curr?.party?.some(p => p.currentHP > 0) ?? false;
-        return wasInBattle && !isInBattle && partyAlive;
+        return Boolean(prev?.inBattle && !curr?.inBattle && curr?.battleResult === 0);
+    }
+
+    _redppBattleReward(prev, curr) {
+        let reward = 0;
+        const prevBattle = prev?.battle;
+        const currBattle = curr?.battle;
+
+        if (prev?.inBattle && curr?.inBattle && prevBattle && currBattle) {
+            if (prevBattle.opponent?.speciesId === currBattle.opponent?.speciesId) {
+                const damage = Math.max(0,
+                    (prevBattle.opponent?.currentHP ?? 0) - (currBattle.opponent?.currentHP ?? 0));
+                reward += Math.min(8, damage * 0.12);
+                if (damage > 0 && currBattle.lastMove?.effectiveness === 'super effective') reward += 1.5;
+                if (damage > 0 && currBattle.lastMove?.stab) reward += 0.35;
+            }
+
+            const ownDamage = Math.max(0,
+                (prevBattle.active?.currentHP ?? 0) - (currBattle.active?.currentHP ?? 0));
+            reward -= Math.min(6, ownDamage * 0.1);
+        }
+
+        if (prev?.inBattle && !curr?.inBattle) {
+            if (curr?.battleResult === 0) reward += prevBattle?.kind === 'trainer' ? 40 : 20;
+            else reward -= 2;
+        }
+        return reward;
+    }
+
+    _positionKey(state) {
+        if (!state?.location || !state?.coordinates) return null;
+        const maxLevel = Math.max(...(state.party || []).map(p => p.level || 0), 0);
+        const progress = `${state.badgeCount || 0}:${state.party?.length || 0}:${maxLevel}:${state.progressFlags?.battledRivalInOaksLab ? 1 : 0}`;
+        return `${progress}:${state.location}:${state.coordinates.x}:${state.coordinates.y}`;
+    }
+
+    _isChampionState(state) {
+        const location = String(state?.location || '').toUpperCase();
+        return location === 'HALL OF FAME' || location === 'CHAMPIONS ROOM';
     }
 
     _testPokemonEvolved(prev, curr) {
@@ -414,7 +507,11 @@ export class UnitTestRewards {
         this.seenBadges = 0;
         this.seenPartyCount = 0;
         this.visitedLocations.clear();
+        this.visitedPositions.clear();
+        this.recentPositions = [];
         this.firedOnce.clear();
+        this.consecutiveStartActions = 0;
+        this.championReached = false;
         this.completedObjectives = [];
         this.totalRewards = { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 };
         this.firedTests = [];
@@ -426,6 +523,7 @@ export class UnitTestRewards {
         return {
             totalRewards: { ...this.totalRewards },
             visitedLocations: this.visitedLocations.size,
+            visitedPositions: this.visitedPositions.size,
             stuckCounter: this.stuckCounter,
             completedObjectives: [...this.completedObjectives],
             currentLocation: this.currentLocation,

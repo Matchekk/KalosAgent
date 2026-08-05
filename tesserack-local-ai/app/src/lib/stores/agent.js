@@ -27,6 +27,7 @@ export const stats = writable({
     totalReward: 0,
     experiences: 0,
     mapsVisited: 0,
+    battleWins: 0,
     explorationSteps: 0,
     humanDemos: 0,
 });

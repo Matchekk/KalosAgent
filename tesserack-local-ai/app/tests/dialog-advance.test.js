@@ -6,6 +6,7 @@ import {
     getDialogPlanBias,
     isInteractiveDialogScreen,
     MAX_UNCHANGED_DIALOG_PRESSES,
+    getMenuRecoveryAction,
 } from '../src/lib/core/dialog-advance.js';
 
 test('changing dialog pages advance immediately without waiting for the LLM', () => {
@@ -60,4 +61,18 @@ test('dialog plans strongly favor A bursts over stale movement', () => {
     const movementScore = getDialogPlanBias(['down', 'down', 'left', 'right']);
 
     assert.ok(advanceScore > movementScore);
+});
+
+test('trainer card is closed instead of treated as dialog', () => {
+    const trainerCard = 'Name: KKKK Money ₽3000 Time 0:00 Badges 1 2 3 4 5 6 7 8';
+    assert.equal(getMenuRecoveryAction(trainerCard), 'b');
+    assert.equal(getDialogAdvanceDecision({ dialog: trainerCard }).shouldAdvance, false);
+});
+
+test('completed save dialog is closed instead of saved repeatedly', () => {
+    assert.equal(getMenuRecoveryAction('KKKK saved the game!'), 'b');
+    assert.equal(
+        getDialogAdvanceDecision({ dialog: 'KKKK saved the game!', inBattle: false }).shouldAdvance,
+        false,
+    );
 });

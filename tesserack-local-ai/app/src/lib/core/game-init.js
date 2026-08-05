@@ -4,6 +4,7 @@ import { Emulator } from './emulator.js';
 import { MemoryReader } from './memory-reader.js';
 import { GameAgent } from './agent.js';
 import { RLAgent } from './rl-agent.js';
+import { isPlayableState } from './reward-calculator.js';
 import { DataCollector } from './data-collector.js';
 import { CombinedRewardSystem } from './adaptive-rewards.js';
 import { TrainedPolicy, AutoTrainingManager } from './trained-policy.js';
@@ -318,6 +319,7 @@ function handleAgentUpdate(update) {
             totalReward: update.rlStats.reward?.totalReward || 0,
             // Note: experiences is updated by handleCollectorUpdate only (authoritative source)
             mapsVisited: update.rlStats.reward?.visitedMaps || 0,
+            battleWins: update.rlStats.reward?.battleWins || 0,
         });
     }
 }
@@ -400,6 +402,7 @@ function startRandomTrainingCollector() {
  */
 export async function startWatchMode() {
     if (!rlAgentInstance) return;
+    stopIntroSkip();
 
     const config = getConfig();
     const provider = PROVIDERS[config.provider];
@@ -462,6 +465,7 @@ export async function startWatchMode() {
  */
 export function startTrainMode() {
     if (!collector) return;
+    stopIntroSkip();
     rlAgentInstance?.stop();
     startRandomTrainingCollector();
     autoTrainerInstance?.startMonitoring(10000);
@@ -472,6 +476,7 @@ export function startTrainMode() {
  * Stop all agents
  */
 export function stopAll() {
+    stopIntroSkip();
     agent?.stop();
     rlAgentInstance?.stop();
     collector?.stop();
@@ -508,11 +513,13 @@ export function startIntroSkip() {
 
         stepCount++;
 
-        // Check if we have a Pokemon (intro complete)
+        // The intro helper is only responsible for reaching the controllable
+        // overworld. Continuing until a starter exists makes it open the pause
+        // menu and repeatedly select Save while the real agent is trying to play.
         try {
             const state = reader?.getGameState();
-            if (state?.party?.length > 0) {
-                feedSystem('Intro complete! You have your starter Pokemon.');
+            if (isPlayableState(state)) {
+                feedSystem('Quick Start complete! The AI can take over from here.');
                 stopIntroSkip();
                 return;
             }

@@ -35,4 +35,3 @@ npm run build --prefix app
 ROMs, save states, GGUF model weights, `llama.cpp` binaries, dependency folders,
 generated builds, and runtime logs are excluded. They must stay local and must
 not be committed to KalosAgent.
-

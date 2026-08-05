@@ -4,128 +4,97 @@
 // Memory addresses for Pokemon Red
 export const ADDRESSES = {
     // Player info
-    PLAYER_NAME: 0xD158,
-    PLAYER_NAME_END: 0xD163,
-    RIVAL_NAME: 0xD34A,
-    RIVAL_NAME_END: 0xD351,
+    PLAYER_NAME: 0xD15D,
+    PLAYER_NAME_END: 0xD168,
+    RIVAL_NAME: 0xD3FD,
+    RIVAL_NAME_END: 0xD408,
 
     // Money (BCD encoded, 3 bytes)
-    MONEY: 0xD347,
-    MONEY_MID: 0xD348,
-    MONEY_HIGH: 0xD349,
+    MONEY: 0xD3FA,
+    MONEY_MID: 0xD3FB,
+    MONEY_HIGH: 0xD3FC,
 
     // Badges
-    BADGES: 0xD356,
+    BADGES: 0xD409,
 
     // Party
-    PARTY_COUNT: 0xD163,
+    PARTY_COUNT: 0xD168,
 
     // Location
-    MAP_ID: 0xD35E,
-    PLAYER_X: 0xD362,
-    PLAYER_Y: 0xD361,
+    MAP_ID: 0xD411,
+    PLAYER_X: 0xD415,
+    PLAYER_Y: 0xD414,
 
     // Items
-    ITEM_COUNT: 0xD31D,
-    ITEM_START: 0xD31E,
+    ITEM_COUNT: 0xD330,
+    ITEM_START: 0xD331,
 
     // Dialog/text buffer
     TEXT_BUFFER_START: 0xC3A0,
     TEXT_BUFFER_END: 0xC507,
 
     // Battle
-    BATTLE_TYPE: 0xD057,
-    TEXT_BOX_ID: 0xD125,
+    BATTLE_TYPE: 0xD05A,
+    BATTLE_RESULT: 0xCF0B,
+    DAMAGE_MULTIPLIERS: 0xD05E,
+    PLAYER_SELECTED_MOVE: 0xCCDC,
+    CURRENT_MENU_ITEM: 0xCC26,
+    BATTLE_MENU_SELECTION: 0xCC2D,
+    PLAYER_MOVE_LIST_INDEX: 0xCC2E,
+    PLAYER_MOVE_ID: 0xCFD2,
+    PLAYER_MOVE_POWER: 0xCFD4,
+    PLAYER_MOVE_TYPE: 0xCFD5,
+    ENEMY_SPECIES: 0xCFE5,
+    ENEMY_HP: 0xCFE6,
+    ENEMY_TYPE1: 0xCFEA,
+    ENEMY_TYPE2: 0xCFEB,
+    ENEMY_LEVEL: 0xCFF3,
+    ENEMY_MAX_HP: 0xCFF4,
+    ACTIVE_SPECIES: 0xD014,
+    ACTIVE_HP: 0xD015,
+    ACTIVE_TYPE1: 0xD019,
+    ACTIVE_TYPE2: 0xD01A,
+    ACTIVE_MOVES: 0xD01C,
+    ACTIVE_LEVEL: 0xD022,
+    ACTIVE_MAX_HP: 0xD023,
+    DAMAGE: 0xD0DA,
+    TEXT_BOX_ID: 0xD128,
     CURRENT_BOX_NUM: 0xD5A0,
+    EVENT_FLAGS: 0xD7CD,
 };
 
 // Pokemon party data - each Pokemon has specific base addresses
 export const PARTY_ADDRESSES = {
-    BASE: [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247],
-    NICKNAMES: [0xD2B5, 0xD2C0, 0xD2CB, 0xD2D6, 0xD2E1, 0xD2EC],
+    BASE: [0xD170, 0xD19C, 0xD1C8, 0xD1F4, 0xD220, 0xD24C],
+    NICKNAMES: [0xD2BA, 0xD2C5, 0xD2D0, 0xD2DB, 0xD2E6, 0xD2F1],
 };
 
-// Map location names
-export const MAP_NAMES = {
-    0x00: 'PALLET TOWN',
-    0x01: 'VIRIDIAN CITY',
-    0x02: 'PEWTER CITY',
-    0x03: 'CERULEAN CITY',
-    0x04: 'LAVENDER TOWN',
-    0x05: 'VERMILION CITY',
-    0x06: 'CELADON CITY',
-    0x07: 'FUCHSIA CITY',
-    0x08: 'CINNABAR ISLAND',
-    0x09: 'INDIGO PLATEAU',
-    0x0A: 'SAFFRON CITY',
-    0x0C: 'ROUTE 1',
-    0x0D: 'ROUTE 2',
-    0x0E: 'ROUTE 3',
-    0x0F: 'ROUTE 4',
-    0x10: 'ROUTE 5',
-    0x11: 'ROUTE 6',
-    0x12: 'ROUTE 7',
-    0x13: 'ROUTE 8',
-    0x14: 'ROUTE 9',
-    0x15: 'ROUTE 10',
-    0x16: 'ROUTE 11',
-    0x17: 'ROUTE 12',
-    0x18: 'ROUTE 13',
-    0x19: 'ROUTE 14',
-    0x1A: 'ROUTE 15',
-    0x1B: 'ROUTE 16',
-    0x1C: 'ROUTE 17',
-    0x1D: 'ROUTE 18',
-    0x1E: 'ROUTE 19',
-    0x1F: 'ROUTE 20',
-    0x20: 'ROUTE 21',
-    0x21: 'ROUTE 22',
-    0x22: 'ROUTE 23',
-    0x23: 'ROUTE 24',
-    0x24: 'ROUTE 25',
+// Complete Red++ v3.0.2 map order from constants/map_constants.asm.
+// Sequential construction prevents silent UNKNOWN maps in late-game training.
+const REDPP_MAP_ORDER = `PALLET_TOWN VIRIDIAN_CITY PEWTER_CITY CERULEAN_CITY LAVENDER_TOWN VERMILION_CITY CELADON_CITY FUCHSIA_CITY CINNABAR_ISLAND INDIGO_PLATEAU SAFFRON_CITY UNUSED_MAP_0B ROUTE_1 ROUTE_2 ROUTE_3 ROUTE_4 ROUTE_5 ROUTE_6 ROUTE_7 ROUTE_8 ROUTE_9 ROUTE_10 ROUTE_11 ROUTE_12 ROUTE_13 ROUTE_14 ROUTE_15 ROUTE_16 ROUTE_17 ROUTE_18 ROUTE_19 ROUTE_20 ROUTE_21 ROUTE_22 ROUTE_23 ROUTE_24 ROUTE_25 REDS_HOUSE_1F REDS_HOUSE_2F BLUES_HOUSE OAKS_LAB VIRIDIAN_POKECENTER VIRIDIAN_MART VIRIDIAN_SCHOOL VIRIDIAN_HOUSE VIRIDIAN_GYM DIGLETTS_CAVE_EXIT VIRIDIAN_FOREST_EXIT ROUTE_2_HOUSE ROUTE_2_GATE VIRIDIAN_FOREST_ENTRANCE VIRIDIAN_FOREST MUSEUM_1F MUSEUM_2F PEWTER_GYM PEWTER_HOUSE_1 PEWTER_MART PEWTER_HOUSE_2 PEWTER_POKECENTER MT_MOON_1 MT_MOON_2 MT_MOON_3 TRASHED_HOUSE CERULEAN_HOUSE_1 CERULEAN_POKECENTER CERULEAN_GYM BIKE_SHOP CERULEAN_MART MT_MOON_POKECENTER MT_MOON_SQUARE_COPY ROUTE_5_GATE PATH_ENTRANCE_ROUTE_5 DAYCAREM ROUTE_6_GATE PATH_ENTRANCE_ROUTE_6 MT_MOON_SQUARE_HOUSE ROUTE_7_GATE PATH_ENTRANCE_ROUTE_7 PATH_ENTRANCE_ROUTE_7_COPY ROUTE_8_GATE PATH_ENTRANCE_ROUTE_8 ROCK_TUNNEL_POKECENTER ROCK_TUNNEL_1 POWER_PLANT ROUTE_11_GATE_1F DIGLETTS_CAVE_ENTRANCE ROUTE_11_GATE_2F ROUTE_12_GATE_1F BILLS_HOUSE VERMILION_POKECENTER POKEMON_FAN_CLUB VERMILION_MART VERMILION_GYM VERMILION_HOUSE_1 VERMILION_DOCK SS_ANNE_1 SS_ANNE_2 SS_ANNE_3 SS_ANNE_4 SS_ANNE_5 SS_ANNE_6 SS_ANNE_7 SS_ANNE_8 SS_ANNE_9 SS_ANNE_10 MT_MOON_SQUARE MT_MOON_SHOP VERMILION_FERRY_DOCK VICTORY_ROAD_1 FARAWAY_ISLAND_OUTSIDE FARAWAY_ISLAND_INSIDE SOUTHERN_ISLAND_OUTSIDE SOUTHERN_ISLAND_INSIDE LANCES_ROOM NAVEL_ROCK_FERRY_DOCK NAVEL_ROCK_OUTSIDE NAVEL_ROCK_CAVE_1 NAVEL_ROCK_CAVE_2 HALL_OF_FAME UNDERGROUND_PATH_NS CHAMPIONS_ROOM UNDERGROUND_PATH_WE CELADON_MART_1 CELADON_MART_2 CELADON_MART_3 CELADON_MART_4 CELADON_MART_ROOF CELADON_MART_ELEVATOR CELADON_MANSION_1 CELADON_MANSION_2 CELADON_MANSION_3 CELADON_MANSION_4 CELADON_MANSION_5 CELADON_POKECENTER CELADON_GYM GAME_CORNER CELADON_MART_5 CELADON_PRIZE_ROOM CELADON_DINER CELADON_HOUSE CELADON_HOTEL LAVENDER_POKECENTER POKEMONTOWER_1 POKEMONTOWER_2 POKEMONTOWER_3 POKEMONTOWER_4 POKEMONTOWER_5 POKEMONTOWER_6 POKEMONTOWER_7 LAVENDER_HOUSE_1 LAVENDER_MART LAVENDER_HOUSE_2 FUCHSIA_MART FUCHSIA_HOUSE_1 FUCHSIA_POKECENTER FUCHSIA_HOUSE_2 SAFARI_ZONE_ENTRANCE FUCHSIA_GYM FUCHSIA_MEETING_ROOM SEAFOAM_ISLANDS_2 SEAFOAM_ISLANDS_3 SEAFOAM_ISLANDS_4 SEAFOAM_ISLANDS_5 VERMILION_HOUSE_2 FUCHSIA_HOUSE_3 MANSION_1 CINNABAR_GYM CINNABAR_LAB_1 CINNABAR_LAB_2 CINNABAR_LAB_3 CINNABAR_LAB_4 CINNABAR_POKECENTER CINNABAR_MART INSIDE_FERRY INDIGO_PLATEAU_LOBBY COPYCATS_HOUSE_1F COPYCATS_HOUSE_2F FIGHTING_DOJO SAFFRON_GYM SAFFRON_HOUSE_1 SAFFRON_MART SILPH_CO_1F SAFFRON_POKECENTER SAFFRON_HOUSE_2 ROUTE_15_GATE_1F ROUTE_15_GATE_2F ROUTE_16_GATE_1F ROUTE_16_GATE_2F ROUTE_16_HOUSE ROUTE_12_HOUSE ROUTE_18_GATE_1F ROUTE_18_GATE_2F SEAFOAM_ISLANDS_1 ROUTE_22_GATE VICTORY_ROAD_2 ROUTE_12_GATE_2F VERMILION_HOUSE_3 DIGLETTS_CAVE VICTORY_ROAD_3 ROCKET_HIDEOUT_1 ROCKET_HIDEOUT_2 ROCKET_HIDEOUT_3 ROCKET_HIDEOUT_4 ROCKET_HIDEOUT_ELEVATOR ROUTE_19_GATE BEACH_HOUSE UNUSED_MAP_CE SILPH_CO_2F SILPH_CO_3F SILPH_CO_4F SILPH_CO_5F SILPH_CO_6F SILPH_CO_7F SILPH_CO_8F MANSION_2 MANSION_3 MANSION_4 SAFARI_ZONE_EAST SAFARI_ZONE_NORTH SAFARI_ZONE_WEST SAFARI_ZONE_CENTER SAFARI_ZONE_REST_HOUSE_1 SAFARI_ZONE_SECRET_HOUSE SAFARI_ZONE_REST_HOUSE_2 SAFARI_ZONE_REST_HOUSE_3 SAFARI_ZONE_REST_HOUSE_4 UNKNOWN_DUNGEON_2 UNKNOWN_DUNGEON_3 UNKNOWN_DUNGEON_1 NAME_RATERS_HOUSE CERULEAN_HOUSE_2 UNUSED_MAP_E7 ROCK_TUNNEL_2 SILPH_CO_9F SILPH_CO_10F SILPH_CO_11F SILPH_CO_ELEVATOR NAVEL_ROCK_HO_OH_ROOM NAVEL_ROCK_LUGIA_ROOM TRADE_CENTER COLOSSEUM UNUSED_MAP_F1 UNUSED_MAP_F2 UNUSED_MAP_F3 UNUSED_MAP_F4 LORELEIS_ROOM BRUNOS_ROOM AGATHAS_ROOM`;
+
+export const MAP_NAMES = Object.fromEntries(
+    REDPP_MAP_ORDER.split(' ').map((name, index) => [index, name.replaceAll('_', ' ')])
+);
+Object.assign(MAP_NAMES, {
     0x25: 'PLAYERS HOUSE 1F',
     0x26: 'PLAYERS HOUSE 2F',
     0x27: 'RIVALS HOUSE',
-    0x28: 'OAKS LAB',
-    0x29: 'VIRIDIAN POKECENTER',
-    0x2A: 'VIRIDIAN MART',
-    0x2D: 'VIRIDIAN GYM',
-    0x33: 'VIRIDIAN FOREST',
-    0x36: 'PEWTER GYM',
-    0x3A: 'PEWTER POKECENTER',
     0x3B: 'MT MOON 1F',
     0x3C: 'MT MOON B1F',
     0x3D: 'MT MOON B2F',
-    0x40: 'CERULEAN POKECENTER',
-    0x41: 'CERULEAN GYM',
     0x52: 'ROCK TUNNEL 1F',
-    0x53: 'POWER PLANT',
-    0x59: 'VERMILION POKECENTER',
-    0x5C: 'VERMILION GYM',
     0x5F: 'SS ANNE 1F',
     0x6C: 'VICTORY ROAD 1F',
     0x71: 'LANCE',
-    0x76: 'HALL OF FAME',
-    0x78: 'CHAMPIONS ROOM',
-    0x85: 'CELADON POKECENTER',
-    0x86: 'CELADON GYM',
-    0x87: 'GAME CORNER',
     0x8E: 'POKEMON TOWER 1F',
-    0x9A: 'FUCHSIA POKECENTER',
-    0x9C: 'SAFARI ZONE ENTRANCE',
-    0x9D: 'FUCHSIA GYM',
-    0xA6: 'CINNABAR GYM',
-    0xAB: 'CINNABAR POKECENTER',
-    0xAE: 'INDIGO PLATEAU LOBBY',
-    0xB2: 'SAFFRON GYM',
-    0xB5: 'SILPH CO 1F',
     0xF5: 'LORELEI',
     0xF6: 'BRUNO',
     0xF7: 'AGATHA',
-};
+});
 
 // Pokemon species IDs (internal game IDs, not Pokedex numbers)
-export const POKEMON_NAMES = {
+const VANILLA_INTERNAL_POKEMON_NAMES = {
     0x01: 'RHYDON',
     0x02: 'KANGASKHAN',
     0x03: 'NIDORAN M',
@@ -278,6 +247,15 @@ export const POKEMON_NAMES = {
     0xBD: 'WEEPINBELL',
     0xBE: 'VICTREEBEL',
 };
+
+// Red++ v3 uses sequential species constants instead of Red/Blue's original
+// internal index table. Keep this ordered list aligned with
+// constants/pokemon_constants.asm from the v3.0.2 source.
+const REDPP_POKEMON_ORDER = `BULBASAUR IVYSAUR VENUSAUR CHARMANDER CHARMELEON CHARIZARD SQUIRTLE WARTORTLE BLASTOISE CATERPIE METAPOD BUTTERFREE WEEDLE KAKUNA BEEDRILL PIDGEY PIDGEOTTO PIDGEOT RATTATA RATICATE SPEAROW FEAROW EKANS ARBOK PIKACHU RAICHU SANDSHREW SANDSLASH NIDORAN_F NIDORINA NIDOQUEEN NIDORAN_M NIDORINO NIDOKING CLEFAIRY CLEFABLE VULPIX NINETALES JIGGLYPUFF WIGGLYTUFF ZUBAT GOLBAT ODDISH GLOOM VILEPLUME PARAS PARASECT VENONAT VENOMOTH DIGLETT DUGTRIO MEOWTH PERSIAN PSYDUCK GOLDUCK MANKEY PRIMEAPE GROWLITHE ARCANINE POLIWAG POLIWHIRL POLIWRATH ABRA KADABRA ALAKAZAM MACHOP MACHOKE MACHAMP BELLSPROUT WEEPINBELL VICTREEBEL TENTACOOL TENTACRUEL GEODUDE GRAVELER GOLEM PONYTA RAPIDASH SLOWPOKE SLOWBRO MAGNEMITE MAGNETON FARFETCHD DODUO DODRIO SEEL DEWGONG GRIMER MUK SHELLDER CLOYSTER GASTLY HAUNTER GENGAR ONIX DROWZEE HYPNO KRABBY KINGLER VOLTORB ELECTRODE EXEGGCUTE EXEGGUTOR CUBONE MAROWAK HITMONLEE HITMONCHAN LICKITUNG KOFFING WEEZING RHYHORN RHYDON CHANSEY TANGELA KANGASKHAN HORSEA SEADRA GOLDEEN SEAKING STARYU STARMIE MR_MIME SCYTHER JYNX ELECTABUZZ MAGMAR PINSIR TAUROS MAGIKARP GYARADOS LAPRAS DITTO EEVEE VAPOREON JOLTEON FLAREON PORYGON OMANYTE OMASTAR KABUTO KABUTOPS AERODACTYL SNORLAX ARTICUNO ZAPDOS MOLTRES DRATINI DRAGONAIR DRAGONITE MEWTWO MEW LUGIA HOUNDOUR HOUNDOOM MURKROW HONCHKROW HERACROSS ESPEON UMBREON GLACEON LEAFEON SYLVEON SCIZOR STEELIX CROBAT POLITOED SLOWKING BELLOSSOM KINGDRA BLISSEY PORYGON2 PORYGONZ MAGMORTAR ELECTIVIRE MAGNEZONE RHYPERIOR TANGROWTH LICKILICKY TOGEPI TOGETIC TOGEKISS SNEASEL WEAVILE SKARMORY MISDREAVUS MISMAGIUS MILTANK CHINCHOU LANTURN SLUGMA MAGCARGO TORKOAL LATIAS LATIOS HITMONTOP TYROGUE PICHU CLEFFA IGGLYBUFF SMOOCHUM ELEKID MAGBY MIME_JR HAPPINY MUNCHLAX ZIGZAGOON LINOONE HO_OH`;
+
+export const POKEMON_NAMES = Object.fromEntries(
+    REDPP_POKEMON_ORDER.split(' ').map((name, index) => [index + 1, name.replaceAll('_', ' ')])
+);
 
 // Move names
 export const MOVE_NAMES = {
@@ -533,6 +511,7 @@ export const TYPE_NAMES = {
     0x05: 'ROCK',
     0x07: 'BUG',
     0x08: 'GHOST',
+    0x09: 'STEEL',
     0x14: 'FIRE',
     0x15: 'WATER',
     0x16: 'GRASS',
@@ -540,6 +519,8 @@ export const TYPE_NAMES = {
     0x18: 'PSYCHIC',
     0x19: 'ICE',
     0x1A: 'DRAGON',
+    0x1B: 'DARK',
+    0x1C: 'FAIRY',
 };
 
 // Badge names
@@ -579,16 +560,31 @@ export class MemoryReader {
         this.emu = emulator;
     }
 
+    getMemoryDiagnostics() {
+        const mapped = address => this.emu.readMemory(address);
+        const wram = this.emu.getWRAM?.();
+        const bankBytes = [];
+        if (wram) {
+            for (let bank = 1; bank <= 7; bank++) {
+                const base = bank * 0x1000 + (ADDRESSES.PLAYER_NAME & 0x0fff);
+                bankBytes.push(Array.from(wram.slice(base, base + 11)));
+            }
+        }
+        return {
+            mappedName: Array.from({ length: 11 }, (_, i) => mapped(ADDRESSES.PLAYER_NAME + i)),
+            mappedMapXY: [mapped(ADDRESSES.MAP_ID), mapped(ADDRESSES.PLAYER_X), mapped(ADDRESSES.PLAYER_Y)],
+            bankNameBytes: bankBytes,
+        };
+    }
+
     /**
      * Read a single byte from memory
      * @param {number} address - Memory address
      * @returns {number}
      */
     readByte(address) {
-        // binjgb's mapped read follows the currently selected CGB WRAM bank.
-        // Red++ briefly switches banks for rendering, while its gameplay state
-        // lives in bank 1. The direct WRAM view keeps C000-CFFF in bank 0 and
-        // D000-DFFF in bank 1, producing a stable snapshot.
+        // Red++ keeps its persistent gameplay state in WRAM bank 1. Reading
+        // directly avoids transient CGB bank switches made by rendering code.
         if (address >= 0xC000 && address <= 0xDFFF && this.emu.getWRAM) {
             return this.emu.getWRAM()[address - 0xC000];
         }
@@ -607,6 +603,10 @@ export class MemoryReader {
             result[i] = this.readByte(address + i);
         }
         return result;
+    }
+
+    readWordBE(address) {
+        return (this.readByte(address) << 8) | this.readByte(address + 1);
     }
 
     /**
@@ -852,11 +852,95 @@ export class MemoryReader {
     }
 
     /**
+     * Read the active battle structs and the last move calculation. These
+     * addresses come from the assembled Red++ v3.0.2 wram.asm symbols.
+     */
+    getBattle() {
+        const battleType = this.readByte(ADDRESSES.BATTLE_TYPE);
+        if (battleType === 0) return null;
+
+        const effectivenessByte = this.readByte(ADDRESSES.DAMAGE_MULTIPLIERS);
+        const effectivenessCode = effectivenessByte & 0x7f;
+        const effectiveness = {
+            0: 'immune',
+            5: 'not very effective',
+            10: 'neutral',
+            20: 'super effective',
+        }[effectivenessCode] || 'unknown';
+        const enemySpeciesId = this.readByte(ADDRESSES.ENEMY_SPECIES);
+        const activeSpeciesId = this.readByte(ADDRESSES.ACTIVE_SPECIES);
+        const enemyType1Id = this.readByte(ADDRESSES.ENEMY_TYPE1);
+        const enemyType2Id = this.readByte(ADDRESSES.ENEMY_TYPE2);
+        const activeType1Id = this.readByte(ADDRESSES.ACTIVE_TYPE1);
+        const activeType2Id = this.readByte(ADDRESSES.ACTIVE_TYPE2);
+        const moveId = this.readByte(ADDRESSES.PLAYER_MOVE_ID);
+        const moveTypeId = this.readByte(ADDRESSES.PLAYER_MOVE_TYPE);
+
+        return {
+            kind: battleType === 2 ? 'trainer' : 'wild',
+            battleType,
+            opponent: {
+                speciesId: enemySpeciesId,
+                species: POKEMON_NAMES[enemySpeciesId] || `Pokemon #${enemySpeciesId}`,
+                level: this.readByte(ADDRESSES.ENEMY_LEVEL),
+                currentHP: this.readWordBE(ADDRESSES.ENEMY_HP),
+                maxHP: this.readWordBE(ADDRESSES.ENEMY_MAX_HP),
+                type1Id: enemyType1Id,
+                type1: TYPE_NAMES[enemyType1Id] || 'UNKNOWN',
+                type2Id: enemyType2Id,
+                type2: enemyType1Id !== enemyType2Id ? (TYPE_NAMES[enemyType2Id] || 'UNKNOWN') : null,
+            },
+            active: {
+                speciesId: activeSpeciesId,
+                species: POKEMON_NAMES[activeSpeciesId] || `Pokemon #${activeSpeciesId}`,
+                level: this.readByte(ADDRESSES.ACTIVE_LEVEL),
+                currentHP: this.readWordBE(ADDRESSES.ACTIVE_HP),
+                maxHP: this.readWordBE(ADDRESSES.ACTIVE_MAX_HP),
+                type1Id: activeType1Id,
+                type1: TYPE_NAMES[activeType1Id] || 'UNKNOWN',
+                type2Id: activeType2Id,
+                type2: activeType1Id !== activeType2Id ? (TYPE_NAMES[activeType2Id] || 'UNKNOWN') : null,
+                moves: Array.from({ length: 4 }, (_, index) => {
+                    const id = this.readByte(ADDRESSES.ACTIVE_MOVES + index);
+                    return id ? { id, name: MOVE_NAMES[id] || `MOVE ${id}` } : null;
+                }).filter(Boolean),
+            },
+            lastMove: {
+                selectedIndex: this.readByte(ADDRESSES.PLAYER_SELECTED_MOVE),
+                id: moveId,
+                name: MOVE_NAMES[moveId] || (moveId ? `MOVE ${moveId}` : 'NONE'),
+                typeId: moveTypeId,
+                type: TYPE_NAMES[moveTypeId] || 'UNKNOWN',
+                power: this.readByte(ADDRESSES.PLAYER_MOVE_POWER),
+                damage: this.readWordBE(ADDRESSES.DAMAGE),
+                effectivenessCode,
+                effectiveness,
+                stab: (effectivenessByte & 0x80) !== 0,
+            },
+            menu: {
+                currentItem: this.readByte(ADDRESSES.CURRENT_MENU_ITEM),
+                battleSelection: this.readByte(ADDRESSES.BATTLE_MENU_SELECTION),
+                moveListIndex: this.readByte(ADDRESSES.PLAYER_MOVE_LIST_INDEX),
+            },
+        };
+    }
+
+    getProgressFlags() {
+        // EVENT_BATTLED_RIVAL_IN_OAKS_LAB = $23 (byte 4, bit 3) in
+        // constants/event_constants.asm. These durable flags let a restored
+        // savestate reconstruct milestones without trusting UI history.
+        const openingEvents = this.readByte(ADDRESSES.EVENT_FLAGS + 4);
+        return {
+            battledRivalInOaksLab: (openingEvents & (1 << 3)) !== 0,
+        };
+    }
+
+    /**
      * Get complete game state summary
      * @returns {Object}
      */
     getGameState() {
-        return {
+        const state = {
             playerName: this.getPlayerName(),
             rivalName: this.getRivalName(),
             location: this.getLocation(),
@@ -868,8 +952,13 @@ export class MemoryReader {
             partyCount: this.getPartyCount(),
             items: this.getItems(),
             inBattle: this.isInBattle(),
+            battleResult: this.readByte(ADDRESSES.BATTLE_RESULT),
+            battle: this.getBattle(),
+            progressFlags: this.getProgressFlags(),
             dialog: this.getDialog()
         };
+        if (import.meta.env?.DEV) state.memoryDiagnostics = this.getMemoryDiagnostics();
+        return state;
     }
 
     /**

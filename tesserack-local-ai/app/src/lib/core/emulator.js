@@ -474,8 +474,9 @@ export class Emulator {
      */
     getWRAM() {
         const ptr = this.module._emulator_get_wram_ptr(this.e);
-        // WRAM is 8KB (0xC000-0xDFFF)
-        return makeWasmBuffer(this.module, ptr, 8192);
+        // binjgb exposes the full 32 KiB CGB WRAM allocation: bank 0 followed
+        // by switchable banks 1-7. A CPU address alone is not a flat offset.
+        return makeWasmBuffer(this.module, ptr, 32768);
     }
 
     /**

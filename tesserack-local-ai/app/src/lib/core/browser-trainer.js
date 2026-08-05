@@ -1,5 +1,11 @@
 // browser-trainer.js - In-browser neural network training with TensorFlow.js
 
+export function applySampleWeights(targets, sampleWeights) {
+    return targets.map((target, index) =>
+        target.map(value => value * (sampleWeights[index] ?? 1))
+    );
+}
+
 /**
  * Browser-based policy network trainer
  * Trains a small neural network to predict good actions from game state
@@ -14,7 +20,7 @@ export class BrowserTrainer {
 
         // Training configuration
         this.config = {
-            stateSize: 12,      // Number of state features
+            stateSize: 18,      // World, party, dialog, and battle features
             actionSize: 6,      // up, down, left, right, a, b
             hiddenUnits: [64, 32],
             learningRate: 0.001,
@@ -28,8 +34,8 @@ export class BrowserTrainer {
         this.nextThresholdIndex = 0;
 
         // Model storage key
-        // v2 intentionally does not load models trained to imitate random actions.
-        this.modelStorageKey = 'tesserack-policy-model-v2';
+        // v3 adds battle/type features and cannot load the old 12-input model.
+        this.modelStorageKey = 'tesserack-policy-model-v3';
 
         // TensorFlow.js loaded flag
         this.tfLoaded = false;
@@ -146,6 +152,10 @@ export class BrowserTrainer {
             : (state.hpRatio ?? 1);
         const coordinates = state.coordinates || state;
         const compact = state.normalized === true;
+        const battle = state.battle || {};
+        const opponent = battle.opponent || {};
+        const active = battle.active || {};
+        const lastMove = battle.lastMove || {};
 
         // Normalize features to [0, 1] range
         return [
@@ -161,6 +171,12 @@ export class BrowserTrainer {
             Math.min((state.money || 0) / 100000, 1), // Money normalized
             (coordinates.x || 0) % 2,                // X parity (helps with grid)
             (coordinates.y || 0) % 2,                // Y parity
+            (opponent.currentHP || 0) / Math.max(1, opponent.maxHP || 1),
+            (opponent.type1Id || 0) / 28,
+            (opponent.type2Id || 0) / 28,
+            (active.type1Id || 0) / 28,
+            (active.type2Id || 0) / 28,
+            (lastMove.effectivenessCode || 0) / 20,
         ];
     }
 
@@ -282,8 +298,11 @@ export class BrowserTrainer {
 
             // Convert to tensors
             const xs = tf.tensor2d(states);
-            const ys = tf.tensor2d(actions);
-            const weights = tf.tensor1d(sampleWeights);
+            // tfjs LayersModel.fit does not implement sampleWeight. Scaling
+            // each target distribution is mathematically equivalent for
+            // categorical cross-entropy and preserves the target argmax.
+            const weightedActions = applySampleWeights(actions, sampleWeights);
+            const ys = tf.tensor2d(weightedActions);
 
             // Training configuration
             const epochs = options.epochs || this.config.epochs;
@@ -302,7 +321,6 @@ export class BrowserTrainer {
                 batchSize,
                 validationSplit: this.config.validationSplit,
                 shuffle: true,
-                sampleWeight: weights,
                 callbacks: {
                     onEpochEnd: (epoch, logs) => {
                         this.onProgress({
@@ -322,7 +340,6 @@ export class BrowserTrainer {
             // Clean up tensors
             xs.dispose();
             ys.dispose();
-            weights.dispose();
 
             // Save model
             this.onProgress({ stage: 'saving', message: 'Saving model...' });

@@ -8,7 +8,7 @@ globalThis.localStorage = {
     removeItem: (key) => testStorage.delete(key),
 };
 
-const { BrowserTrainer } = await import('../src/lib/core/browser-trainer.js');
+const { BrowserTrainer, applySampleWeights } = await import('../src/lib/core/browser-trainer.js');
 const { DataCollector } = await import('../src/lib/core/data-collector.js');
 const { RLAgent } = await import('../src/lib/core/rl-agent.js');
 const { RewardCalculator } = await import('../src/lib/core/reward-calculator.js');
@@ -25,6 +25,8 @@ function gameState(overrides = {}) {
         party: [],
         items: [],
         inBattle: false,
+        battleResult: 0,
+        battle: null,
         dialog: '',
         ...overrides,
     };
@@ -54,6 +56,11 @@ test('training ignores neutral actions and reverses negative action targets', ()
     assert.ok(data.sampleWeights[1] > data.sampleWeights[0]);
 });
 
+test('sample importance works without unsupported TensorFlow sampleWeight', () => {
+    const weighted = applySampleWeights([[0, 1], [0.5, 0.5]], [4, 2]);
+    assert.deepEqual(weighted, [[0, 4], [1, 1]]);
+});
+
 test('legacy random-imitation samples are excluded from the new policy', () => {
     const trainer = new BrowserTrainer();
     const legacy = experience('right', 100);
@@ -68,6 +75,22 @@ test('raw and compact progress features are not normalized twice', () => {
     assert.equal(trainer.stateToFeatures({ badgeCount: 4 })[3], 0.5);
     assert.equal(trainer.stateToFeatures({ badgeCount: 0.5, normalized: true })[3], 0.5);
     assert.equal(trainer.stateToFeatures({ badgeCount: 1 })[3], 0.125);
+});
+
+test('policy state includes opponent HP, combatant types, and effectiveness', () => {
+    const trainer = new BrowserTrainer();
+    const features = trainer.stateToFeatures(gameState({
+        inBattle: true,
+        battle: {
+            opponent: { currentHP: 15, maxHP: 30, type1Id: 5, type2Id: 5 },
+            active: { type1Id: 21, type2Id: 21 },
+            lastMove: { effectivenessCode: 20 },
+        },
+    }));
+
+    assert.equal(features.length, 18);
+    assert.equal(features[12], 0.5);
+    assert.equal(features[17], 1);
 });
 
 test('passive agent recording never presses an extra button', () => {
@@ -140,6 +163,27 @@ test('dense rewards teach dialog and movement controls', () => {
     assert.equal(movementRewards.breakdown.movement, 1);
 });
 
+test('repeated saves receive a strong escalating penalty', () => {
+    const rewards = new RewardCalculator();
+    rewards.computeReward(gameState(), gameState({ dialog: 'Saving...' }), 'a');
+    rewards.computeReward(gameState({ dialog: 'Saving...' }), gameState(), 'b');
+
+    const secondSave = rewards.computeReward(
+        gameState(),
+        gameState({ dialog: 'KKKK saved the game!' }),
+        'a',
+    );
+    assert.equal(secondSave.breakdown.repeatedSave, -100);
+
+    rewards.computeReward(gameState({ dialog: 'KKKK saved the game!' }), gameState(), 'b');
+    const thirdSave = rewards.computeReward(
+        gameState(),
+        gameState({ dialog: 'Saving...' }),
+        'a',
+    );
+    assert.equal(thirdSave.breakdown.repeatedSave, -200);
+});
+
 test('invalid startup memory cannot award a badge', () => {
     const rewards = new RewardCalculator().computeReward(
         gameState({ playerName: '', badges: [] }),
@@ -159,14 +203,73 @@ test('auto-discovery ignores one-frame RAM glitches', () => {
     assert.equal(discovery.getDiscoveries().length, 0);
 });
 
-test('memory reader uses stable WRAM bank 1 instead of the transient mapped bank', () => {
-    const wram = new Uint8Array(0x2000);
+test('memory reader uses Red++ v3.0.2 WRAM bank 1 symbols', () => {
+    const wram = new Uint8Array(0x8000);
     wram[ADDRESSES.PLAYER_X - 0xC000] = 7;
     wram[ADDRESSES.PLAYER_Y - 0xC000] = 11;
     const reader = new MemoryReader({
         getWRAM: () => wram,
-        readMemory: () => { throw new Error('mapped bank must not be used'); },
+        readMemory: () => 0,
     });
 
     assert.deepEqual(reader.getCoordinates(), { x: 7, y: 11 });
+});
+
+test('memory reader exposes Red++ battle structs and type effectiveness', () => {
+    const wram = new Uint8Array(0x8000);
+    const write = (address, ...values) => values.forEach((value, index) => {
+        wram[address - 0xC000 + index] = value;
+    });
+    write(ADDRESSES.BATTLE_TYPE, 2);
+    write(ADDRESSES.ENEMY_SPECIES, 74);
+    write(ADDRESSES.ENEMY_HP, 0, 12);
+    write(ADDRESSES.ENEMY_MAX_HP, 0, 20);
+    write(ADDRESSES.ENEMY_TYPE1, 5);
+    write(ADDRESSES.ENEMY_TYPE2, 4);
+    write(ADDRESSES.ACTIVE_SPECIES, 7);
+    write(ADDRESSES.ACTIVE_HP, 0, 18);
+    write(ADDRESSES.ACTIVE_MAX_HP, 0, 22);
+    write(ADDRESSES.ACTIVE_TYPE1, 21);
+    write(ADDRESSES.ACTIVE_TYPE2, 21);
+    write(ADDRESSES.PLAYER_MOVE_ID, 55);
+    write(ADDRESSES.PLAYER_MOVE_TYPE, 21);
+    write(ADDRESSES.DAMAGE, 0, 8);
+    write(ADDRESSES.DAMAGE_MULTIPLIERS, 0x80 | 20);
+    const battle = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: () => 0,
+    }).getBattle();
+
+    assert.equal(battle.kind, 'trainer');
+    assert.equal(battle.opponent.species, 'GEODUDE');
+    assert.equal(battle.opponent.currentHP, 12);
+    assert.equal(battle.active.species, 'SQUIRTLE');
+    assert.equal(battle.lastMove.effectiveness, 'super effective');
+    assert.equal(battle.lastMove.stab, true);
+    assert.equal(battle.lastMove.damage, 8);
+});
+
+test('only Red++ win result counts as a confirmed battle win', () => {
+    const battle = {
+        kind: 'wild',
+        opponent: { speciesId: 19, currentHP: 5, maxHP: 12 },
+        active: { currentHP: 20, maxHP: 20 },
+        lastMove: {},
+    };
+    const rewards = new RewardCalculator();
+    const won = rewards.computeReward(
+        gameState({ inBattle: true, battle }),
+        gameState({ inBattle: false, battle: null, battleResult: 0 }),
+        'a',
+    );
+    assert.equal(won.breakdown.battleWon, 30);
+    assert.equal(rewards.getStats().battleWins, 1);
+
+    const ran = rewards.computeReward(
+        gameState({ inBattle: true, battle }),
+        gameState({ inBattle: false, battle: null, battleResult: 2 }),
+        'a',
+    );
+    assert.equal(ran.breakdown.battleWon, undefined);
+    assert.equal(rewards.getStats().battleWins, 1);
 });

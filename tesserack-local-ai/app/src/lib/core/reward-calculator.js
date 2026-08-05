@@ -31,6 +31,12 @@ export const REWARDS = {
     TRAINER_BATTLE_WON: 75,
     POKEMON_FAINTED_OWN: -100,
     WHITEOUT: -500,
+    DAMAGE_DEALT_PER_POINT: 0.5,
+    DAMAGE_TAKEN_PER_POINT: -0.25,
+    SUPER_EFFECTIVE: 12,
+    NOT_VERY_EFFECTIVE: -8,
+    IMMUNE_MOVE: -20,
+    STAB_MOVE: 2,
 
     // Health management
     HP_HEALED_PER_POINT: 0.1,
@@ -39,6 +45,7 @@ export const REWARDS = {
     // Penalties
     STUCK_PENALTY: -50,
     MENU_SPAM_PENALTY: -10,
+    REPEATED_SAVE_PENALTY: -100,
     NO_PROGRESS_PENALTY: -5,
 
     // Immediate, action-specific feedback for credit assignment
@@ -50,6 +57,8 @@ export const REWARDS = {
 };
 
 const MOVEMENT_ACTIONS = new Set(['up', 'down', 'left', 'right']);
+const SAVE_DIALOG_PATTERN = /\bSAVING\b|\bSAVED\b[\s\S]*\bGAME\b|\bGAME\b[\s\S]*\bSAVED\b/i;
+const RUN_STORAGE_KEY = 'tesserack-redpp-run-v1';
 
 export function isPlayableState(state) {
     const name = String(state?.playerName || '').trim();
@@ -72,7 +81,8 @@ export function isPlayableState(state) {
  * Tracks game state and computes rewards for transitions
  */
 export class RewardCalculator {
-    constructor() {
+    constructor({ persistRun = false } = {}) {
+        this.persistRun = persistRun;
         this.prevState = null;
         this.totalReward = 0;
         this.rewardHistory = [];
@@ -83,9 +93,45 @@ export class RewardCalculator {
         this.positionStuckCount = 0;
         this.menuOpenCount = 0;
         this.lastMenuOpen = 0;
+        this.lastSaveAt = 0;
+        this.repeatedSaveCount = 0;
+        this.battleWins = 0;
+        this.opponentFaintedInBattle = false;
+        this.runStartedAt = Date.now();
+        this.bestChampionTimeMs = null;
+        this.loadRunProgress();
         // Progress tracking for continuous reward shaping
         this.prevProgressFacts = null;
         this.currentCheckpointId = null;
+    }
+
+    loadRunProgress() {
+        if (!this.persistRun || typeof localStorage === 'undefined') return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(RUN_STORAGE_KEY) || 'null');
+            if (!saved) return;
+            this.battleWins = Math.max(0, Number(saved.battleWins) || 0);
+            this.runStartedAt = Number(saved.runStartedAt) || Date.now();
+            this.bestChampionTimeMs = Number(saved.bestChampionTimeMs) || null;
+        } catch {
+            // Ignore a malformed old metric snapshot; gameplay must continue.
+        }
+    }
+
+    persistRunProgress() {
+        if (!this.persistRun || typeof localStorage === 'undefined') return;
+        localStorage.setItem(RUN_STORAGE_KEY, JSON.stringify({
+            battleWins: this.battleWins,
+            runStartedAt: this.runStartedAt,
+            bestChampionTimeMs: this.bestChampionTimeMs,
+        }));
+    }
+
+    syncProgressFlags(state) {
+        if (state?.progressFlags?.battledRivalInOaksLab && this.battleWins < 1) {
+            this.battleWins = 1;
+            this.persistRunProgress();
+        }
     }
 
     /**
@@ -101,6 +147,7 @@ export class RewardCalculator {
         }
 
         const breakdown = {};
+        this.syncProgressFlags(currState);
         let total = 0;
         const playableTransition = isPlayableState(prevState) && isPlayableState(currState);
         if (!isPlayableState(prevState) && isPlayableState(currState)) {
@@ -112,6 +159,22 @@ export class RewardCalculator {
         // before it reaches a rare milestone such as a badge or a new map.
         const prevDialog = String(prevState.dialog || '').trim();
         const currDialog = String(currState.dialog || '').trim();
+        const enteredSaveDialog = SAVE_DIALOG_PATTERN.test(currDialog)
+            && !SAVE_DIALOG_PATTERN.test(prevDialog);
+        if (enteredSaveDialog) {
+            const now = Date.now();
+            if (this.lastSaveAt && now - this.lastSaveAt < 60_000) {
+                this.repeatedSaveCount++;
+                breakdown.repeatedSave = Math.max(
+                    -500,
+                    REWARDS.REPEATED_SAVE_PENALTY * this.repeatedSaveCount,
+                );
+                total += breakdown.repeatedSave;
+            } else {
+                this.repeatedSaveCount = 0;
+            }
+            this.lastSaveAt = now;
+        }
         if (prevDialog && action === 'a' && currDialog !== prevDialog) {
             breakdown.dialogAdvanced = REWARDS.DIALOG_ADVANCED;
             total += breakdown.dialogAdvanced;
@@ -159,6 +222,47 @@ export class RewardCalculator {
             this.stepsSinceProgress = 0;
         }
 
+        // Give the exact button that caused damage immediate credit. The type
+        // multipliers are read directly from Red++'s battle calculation RAM.
+        const prevBattle = prevState.battle;
+        const currBattle = currState.battle;
+        if (!prevState.inBattle && currState.inBattle) {
+            this.opponentFaintedInBattle = false;
+        }
+        if (prevState.inBattle && currState.inBattle && prevBattle && currBattle) {
+            const sameOpponent = prevBattle.opponent?.speciesId === currBattle.opponent?.speciesId;
+            const opponentDamage = sameOpponent
+                ? Math.max(0, (prevBattle.opponent?.currentHP || 0) - (currBattle.opponent?.currentHP || 0))
+                : 0;
+            const ownDamage = Math.max(0, (prevBattle.active?.currentHP || 0) - (currBattle.active?.currentHP || 0));
+
+            if (opponentDamage > 0) {
+                breakdown.damageDealt = opponentDamage * REWARDS.DAMAGE_DEALT_PER_POINT;
+                total += breakdown.damageDealt;
+                const effectiveness = currBattle.lastMove?.effectiveness;
+                if (effectiveness === 'super effective') {
+                    breakdown.typeAdvantage = REWARDS.SUPER_EFFECTIVE;
+                } else if (effectiveness === 'not very effective') {
+                    breakdown.typeAdvantage = REWARDS.NOT_VERY_EFFECTIVE;
+                } else if (effectiveness === 'immune') {
+                    breakdown.typeAdvantage = REWARDS.IMMUNE_MOVE;
+                }
+                if (breakdown.typeAdvantage) total += breakdown.typeAdvantage;
+                if (currBattle.lastMove?.stab) {
+                    breakdown.stab = REWARDS.STAB_MOVE;
+                    total += breakdown.stab;
+                }
+                this.stepsSinceProgress = 0;
+            }
+            if (ownDamage > 0) {
+                breakdown.damageTaken = ownDamage * REWARDS.DAMAGE_TAKEN_PER_POINT;
+                total += breakdown.damageTaken;
+            }
+            if ((currBattle.opponent?.currentHP || 0) === 0) {
+                this.opponentFaintedInBattle = true;
+            }
+        }
+
         // New map discovered
         const previousMapKey = `${prevState.location}`;
         const mapKey = `${currState.location}`;
@@ -193,7 +297,7 @@ export class RewardCalculator {
                 total += breakdown.healed;
             } else if (hpDiff < 0 && !currState.inBattle) {
                 // Lost HP outside battle (fainted from poison, etc.)
-                breakdown.hpLost = Math.round(hpDiff * REWARDS.HP_LOST_PER_POINT);
+                breakdown.hpLost = Math.round(Math.abs(hpDiff) * REWARDS.HP_LOST_PER_POINT);
                 total += breakdown.hpLost;
             }
         }
@@ -214,15 +318,17 @@ export class RewardCalculator {
             total += breakdown.whiteout;
         }
 
-        // Battle won (transition from inBattle to not, without whiteout)
-        if (prevState.inBattle && !currState.inBattle && !allFainted) {
-            // Could differentiate wild vs trainer by money gain
-            if (moneyDiff > 0) {
-                breakdown.battleWon = REWARDS.TRAINER_BATTLE_WON;
-            } else {
-                breakdown.battleWon = REWARDS.WILD_BATTLE_WON;
-            }
+        // Red++ explicitly writes 0=win, 1=loss, 2=run/draw/capture to
+        // wBattleResult, so escaped battles can no longer masquerade as wins.
+        if (playableTransition && prevState.inBattle && !currState.inBattle
+            && !allFainted && currState.battleResult === 0) {
+            breakdown.battleWon = prevState.battle?.kind === 'trainer'
+                ? REWARDS.TRAINER_BATTLE_WON
+                : REWARDS.WILD_BATTLE_WON;
             total += breakdown.battleWon;
+            this.battleWins++;
+            this.persistRunProgress();
+            this.opponentFaintedInBattle = false;
             this.stepsSinceProgress = 0;
         }
 
@@ -359,6 +465,9 @@ export class RewardCalculator {
             totalReward: this.totalReward,
             visitedMaps: this.visitedMaps.size,
             caughtPokemon: this.caughtPokemon.size,
+            battleWins: this.battleWins,
+            runElapsedMs: Date.now() - this.runStartedAt,
+            bestChampionTimeMs: this.bestChampionTimeMs,
             rewardEvents: this.rewardHistory.length,
             recentRewards: this.rewardHistory.slice(-10),
             // Curriculum progress
@@ -395,6 +504,10 @@ export class RewardCalculator {
         this.stepsSinceProgress = 0;
         this.lastPosition = null;
         this.positionStuckCount = 0;
+        this.lastSaveAt = 0;
+        this.repeatedSaveCount = 0;
+        this.battleWins = 0;
+        this.opponentFaintedInBattle = false;
         // Reset progress tracking
         this.prevProgressFacts = null;
         this.currentCheckpointId = null;
@@ -412,6 +525,7 @@ export class RewardCalculator {
             totalReward: this.totalReward,
             visitedMaps: Array.from(this.visitedMaps),
             caughtPokemon: Array.from(this.caughtPokemon),
+            battleWins: this.battleWins,
             history: this.rewardHistory,
             currentProgress: this.prevProgressFacts,
             currentCheckpoint: this.currentCheckpointId,

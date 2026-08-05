@@ -35,6 +35,7 @@ export class ReinforceCore {
         this.learningRate = config.learningRate ?? 0.001;
         this.gamma = config.gamma ?? 0.99;
         this.normalizeReturns = config.normalizeReturns ?? true;
+        this.entropyCoefficient = config.entropyCoefficient ?? 0.01;
         this.rng = config.rng ?? Math.random;
 
         // Policy network
@@ -186,7 +187,9 @@ export class ReinforceCore {
             }
 
             // Accumulate gradients
-            this.policy.computeGradientsInto(this.gradAcc, stateVec, actionIdx, advantage, cache);
+            this.policy.computeGradientsInto(
+                this.gradAcc, stateVec, actionIdx, advantage, cache, this.entropyCoefficient,
+            );
         }
 
         const entropy = entropySum / n;

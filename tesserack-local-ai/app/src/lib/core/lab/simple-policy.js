@@ -114,7 +114,7 @@ export class SimplePolicy {
      * @param {number} advantage - Advantage value (normalized return)
      * @param {Object} cache - Forward pass cache { hiddenPreRelu, hidden, probs }
      */
-    computeGradientsInto(acc, stateVec, actionIdx, advantage, cache) {
+    computeGradientsInto(acc, stateVec, actionIdx, advantage, cache, entropyCoefficient = 0) {
         const { hiddenPreRelu, hidden, probs } = cache;
         const dLogits = this._dLogits;
         const dHidden = this._dHidden;
@@ -124,21 +124,29 @@ export class SimplePolicy {
 
         // Gradient of log π(a|s) w.r.t. logits
         // For softmax: ∂log π(a)/∂logit_j = 1{j=a} - π(j)
+        let entropy = 0;
         for (let j = 0; j < this.outputSize; j++) {
-            dLogits[j] = ((j === actionIdx) ? 1 : 0) - probs[j];
+            if (probs[j] > 1e-8) entropy -= probs[j] * Math.log(probs[j]);
+        }
+        for (let j = 0; j < this.outputSize; j++) {
+            const policySignal = clippedAdv * (((j === actionIdx) ? 1 : 0) - probs[j]);
+            const entropySignal = entropyCoefficient > 0
+                ? -entropyCoefficient * probs[j] * (Math.log(probs[j] + 1e-8) + entropy)
+                : 0;
+            dLogits[j] = policySignal + entropySignal;
         }
 
         // Gradient for W2: dL/dW2[i,j] = hidden[i] * dLogits[j] * advantage
         // Accumulate into acc.gW2
         for (let i = 0; i < this.hiddenSize; i++) {
             for (let j = 0; j < this.outputSize; j++) {
-                acc.gW2[i * this.outputSize + j] += clippedAdv * hidden[i] * dLogits[j];
+                acc.gW2[i * this.outputSize + j] += hidden[i] * dLogits[j];
             }
         }
 
         // Gradient for b2
         for (let j = 0; j < this.outputSize; j++) {
-            acc.gb2[j] += clippedAdv * dLogits[j];
+            acc.gb2[j] += dLogits[j];
         }
 
         // Backprop through hidden layer (using ORIGINAL W2, not updated)
@@ -154,13 +162,13 @@ export class SimplePolicy {
         // Gradient for W1
         for (let i = 0; i < this.stateSize; i++) {
             for (let j = 0; j < this.hiddenSize; j++) {
-                acc.gW1[i * this.hiddenSize + j] += clippedAdv * stateVec[i] * dHidden[j];
+                acc.gW1[i * this.hiddenSize + j] += stateVec[i] * dHidden[j];
             }
         }
 
         // Gradient for b1
         for (let j = 0; j < this.hiddenSize; j++) {
-            acc.gb1[j] += clippedAdv * dHidden[j];
+            acc.gb1[j] += dHidden[j];
         }
     }
 

@@ -16,7 +16,7 @@ export class RLRunner {
      * @param {Function} env.getState - () => gameState
      * @param {Function} env.encodeStateInto - (gameState, outVec) => void
      * @param {Function} env.executeAction - async (actionStr) => void
-     * @param {Function} env.rewardFn - (prevState, nextState) => { total, breakdown, firedTests }
+     * @param {Function} env.rewardFn - (prevState, nextState, action) => { total, breakdown, firedTests }
      * @param {Function} env.checkDone - (prevState, nextState) => boolean
      * @param {Function} env.resetEnv - async () => void
      * @param {string[]} env.ACTIONS - Action strings ['up', 'down', ...]
@@ -62,7 +62,7 @@ export class RLRunner {
         const nextState = env.getState();
 
         // 5. Compute reward
-        const rewardResult = env.rewardFn(prevState, nextState);
+        const rewardResult = env.rewardFn(prevState, nextState, actionStr);
         const reward = rewardResult.total;
         const breakdown = rewardResult.breakdown ?? {};
         const firedTests = rewardResult.firedTests ?? [];

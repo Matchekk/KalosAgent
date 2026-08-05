@@ -20,6 +20,7 @@ import {
     labMetrics,
     updateLocation,
     updateAgentStatus,
+    recordStep,
     setLLMCallCount,
     loadWalkthroughGraph,
     rlConfig
@@ -27,7 +28,7 @@ import {
 import { gameState, updateGameState } from '$lib/stores/game';
 import { assetUrl } from '$lib/core/asset-url.js';
 import { getPositiveRewardEventIds, getRewardTelemetry } from './training-utils.js';
-import { getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
+import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
 
 // Lab mode instances
 let labEmulator = null;
@@ -64,6 +65,11 @@ export const pureRLMetrics = writable({
     bufferSize: 128,
     avgRawReturn: 0,
     policyEntropy: 0,
+    episode: 1,
+    episodeSteps: 0,
+    bestProgressScore: 0,
+    checkpointCount: 0,
+    confirmedWins: 0,
     // Chart history (rolling window of last 50 rollouts)
     history: {
         returns: [],    // { step, value }[]
@@ -151,6 +157,11 @@ function handlePureRLStep(stepData) {
             bufferSize: stepData.bufferSize ?? 128,
             avgRawReturn: stepData.avgRawReturn ?? 0,
             policyEntropy: stepData.policyEntropy ?? 0,
+            episode: stepData.episode ?? prev.episode,
+            episodeSteps: stepData.episodeSteps ?? prev.episodeSteps,
+            bestProgressScore: stepData.bestProgressScore ?? prev.bestProgressScore,
+            checkpointCount: stepData.checkpointCount ?? prev.checkpointCount,
+            confirmedWins: stepData.confirmedWins ?? prev.confirmedWins,
             // Preserve history
             history: prev.history,
             maxHistoryLength: prev.maxHistoryLength,
@@ -270,7 +281,7 @@ export async function initializeLab(romBuffer, canvas) {
         labPureRLAgent = new PureRLAgent(labEmulator, labReader, {
             actionHoldFrames: 12,
             frameSkip: 16,      // More frames per step = smoother movement
-            actionRepeat: 3,    // Repeat action 3 times before reconsidering
+            actionRepeat: 1,    // One decision per transition for correct credit assignment
             // REINFORCE config
             rolloutSize: currentRLConfig.rolloutSize,
             learningRate: currentRLConfig.learningRate,
@@ -293,6 +304,8 @@ export async function initializeLab(romBuffer, canvas) {
                 feedSystem(`Restored trained policy (${labPureRLAgent.core.trainSteps} updates).`);
             } catch (err) {
                 console.warn('[Lab] Saved Pure RL policy is incompatible:', err.message);
+                clearPureRLPolicy();
+                feedSystem('Old Train policy was incompatible with Red++ state mapping and was reset.');
             }
         }
 
@@ -364,6 +377,7 @@ export function startLabAgent() {
             return false;
         }
         labPureRLAgent.running = true;
+        labPureRLAgent.ensureCheckpoint();
         runPureRLLoop();
     } else {
         if (!labAgent) {
@@ -436,6 +450,11 @@ async function runPureRLLoop() {
             avgRawReturn: metrics.avgRawReturn,
             policyEntropy: metrics.policyEntropy,
             ...rewardTelemetry,
+            episode: metrics.episode,
+            episodeSteps: metrics.episodeSteps,
+            bestProgressScore: metrics.bestProgressScore,
+            checkpointCount: metrics.checkpointCount,
+            confirmedWins: metrics.confirmedWins,
         });
     } catch (err) {
         console.error('[Lab] Pure RL step error:', err);
@@ -486,6 +505,11 @@ export async function stepLabAgent() {
                 avgRawReturn: metrics.avgRawReturn,
                 policyEntropy: metrics.policyEntropy,
                 ...rewardTelemetry,
+                episode: metrics.episode,
+                episodeSteps: metrics.episodeSteps,
+                bestProgressScore: metrics.bestProgressScore,
+                checkpointCount: metrics.checkpointCount,
+                confirmedWins: metrics.confirmedWins,
             });
             return true;
         } catch (err) {
@@ -547,6 +571,11 @@ export function resetLab() {
         bufferSize: 128,
         avgRawReturn: 0,
         policyEntropy: 0,
+        episode: 1,
+        episodeSteps: 0,
+        bestProgressScore: 0,
+        checkpointCount: 0,
+        confirmedWins: 0,
         history: {
             returns: [],
             entropy: [],
