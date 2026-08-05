@@ -1,0 +1,7 @@
+pyboy==2.2.0
+llama-cpp-python>=0.2.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0
+Pillow>=10.0.0
+numpy>=1.24.0

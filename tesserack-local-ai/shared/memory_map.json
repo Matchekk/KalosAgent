@@ -1,0 +1,84 @@
+{
+  "_comment": "Pokemon Red (US) RAM addresses",
+  "_reference": "https://datacrystal.romhacking.net/wiki/Pok%C3%A9mon_Red/Blue:RAM_map",
+
+  "player": {
+    "map_id": "0xD35E",
+    "x": "0xD362",
+    "y": "0xD361",
+    "direction": "0xC109"
+  },
+
+  "party": {
+    "count": "0xD163",
+    "data_start": "0xD164",
+    "pokemon_size": 44,
+    "offsets": {
+      "species": "0x00",
+      "current_hp": "0x01",
+      "level": "0x21",
+      "max_hp": "0x22",
+      "attack": "0x24",
+      "defense": "0x26",
+      "speed": "0x28",
+      "special": "0x2A",
+      "moves": "0x08",
+      "pp": "0x1D"
+    }
+  },
+
+  "progress": {
+    "badges": "0xD356",
+    "money": "0xD347",
+    "play_time_hours": "0xDA40",
+    "play_time_minutes": "0xDA42"
+  },
+
+  "items": {
+    "bag_count": "0xD31D",
+    "bag_start": "0xD31E",
+    "pc_count": "0xD53A",
+    "pc_start": "0xD53B"
+  },
+
+  "battle": {
+    "in_battle": "0xD057",
+    "battle_type": "0xD05A",
+    "enemy_pokemon": {
+      "species": "0xCFE5",
+      "hp": "0xCFE6",
+      "level": "0xCFF3",
+      "status": "0xCFE9"
+    },
+    "player_pokemon": {
+      "hp": "0xD015",
+      "status": "0xD018"
+    }
+  },
+
+  "events": {
+    "got_starter": "0xD74B",
+    "got_pokedex": "0xD74B",
+    "delivered_parcel": "0xD74E"
+  },
+
+  "maps": {
+    "pallet_town": "0x00",
+    "viridian_city": "0x01",
+    "pewter_city": "0x02",
+    "cerulean_city": "0x03",
+    "lavender_town": "0x04",
+    "vermilion_city": "0x05",
+    "celadon_city": "0x06",
+    "fuchsia_city": "0x07",
+    "cinnabar_island": "0x08",
+    "indigo_plateau": "0x09",
+    "saffron_city": "0x0A",
+    "route_1": "0x0C",
+    "route_2": "0x0D",
+    "route_22": "0x21",
+    "viridian_forest": "0x33",
+    "pewter_gym": "0x36",
+    "cerulean_gym": "0x41"
+  }
+}

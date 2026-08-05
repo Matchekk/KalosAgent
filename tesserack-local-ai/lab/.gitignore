@@ -1,0 +1,13 @@
+# Experiment outputs
+runs/*.json
+runs/*.npz
+runs/*.jsonl
+runs/*.state
+!runs/.gitkeep
+
+# Virtual environment
+venv/
+
+# Python
+__pycache__/
+*.pyc

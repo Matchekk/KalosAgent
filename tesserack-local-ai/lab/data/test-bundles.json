@@ -1,0 +1,61 @@
+{
+  "default": {
+    "tests": [
+      {
+        "id": "moved",
+        "type": "coords_changed",
+        "reward": 1,
+        "tier": 1
+      },
+      {
+        "id": "moved_down",
+        "type": "coord_delta",
+        "axis": "y",
+        "direction": "positive",
+        "reward": 1,
+        "tier": 1
+      },
+      {
+        "id": "map_changed",
+        "type": "map_changed",
+        "reward": 10,
+        "tier": 2,
+        "once": false
+      },
+      {
+        "id": "caught_pokemon",
+        "type": "party_size_increased",
+        "reward": 50,
+        "tier": 3,
+        "once": true
+      },
+      {
+        "id": "badge_up",
+        "type": "badge_count_increased",
+        "reward": 200,
+        "tier": 3,
+        "once": true
+      },
+      {
+        "id": "battle_started",
+        "type": "battle_started",
+        "reward": 2,
+        "tier": 1
+      },
+      {
+        "id": "battle_ended",
+        "type": "battle_ended",
+        "reward": 5,
+        "tier": 2
+      }
+    ],
+    "penalties": [
+      {
+        "id": "stuck",
+        "type": "coords_same",
+        "reward": -0.5,
+        "once": false
+      }
+    ]
+  }
+}

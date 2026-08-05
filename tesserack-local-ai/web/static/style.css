@@ -1,0 +1,293 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #333;
+}
+
+h1 {
+    color: #ff6b6b;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mode-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f0f1a;
+    padding: 5px 10px;
+    border-radius: 8px;
+}
+
+.mode-label {
+    color: #888;
+    font-size: 12px;
+}
+
+.mode-btn {
+    padding: 8px 16px;
+    border: 2px solid #333;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    background: #1a1a2e;
+    color: #aaa;
+}
+
+.mode-btn:hover:not(:disabled) {
+    border-color: #4ecdc4;
+    color: #fff;
+}
+
+.mode-btn.primary {
+    background: #e74c3c;
+    color: #fff;
+    border-color: #e74c3c;
+}
+
+.mode-btn.primary:hover:not(:disabled) {
+    background: #c0392b;
+    border-color: #c0392b;
+}
+
+.mode-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.controls button:not(.mode-btn) {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.controls button:not(.mode-btn):not(:disabled) {
+    background: #4ecdc4;
+    color: #1a1a2e;
+}
+
+.controls button:not(.mode-btn):disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 20px;
+}
+
+.game-panel, .state-panel, .reasoning-panel {
+    background: #16213e;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.game-panel {
+    grid-row: span 2;
+}
+
+h2 {
+    color: #4ecdc4;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+#gameCanvas {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    image-rendering: pixelated;
+    background: #000;
+    border: 2px solid #333;
+}
+
+#gameState {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+#gameState p {
+    margin-bottom: 5px;
+}
+
+.reasoning-panel {
+    grid-column: span 1;
+}
+
+#reasoning {
+    background: #0f0f1a;
+    padding: 15px;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.action {
+    margin-top: 15px;
+    padding: 10px;
+    background: #ff6b6b;
+    color: #1a1a2e;
+    border-radius: 5px;
+}
+
+.controls-panel {
+    background: #16213e;
+    border-radius: 10px;
+    padding: 20px;
+    grid-column: span 2;
+}
+
+.controls-panel h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 20px;
+}
+
+.dpad-row {
+    display: flex;
+    gap: 40px;
+}
+
+.dpad button {
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 8px;
+    background: #333;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.dpad button:hover {
+    background: #4ecdc4;
+}
+
+.dpad button:active {
+    background: #ff6b6b;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.action-buttons button {
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 50%;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.btn-a {
+    background: #ff6b6b;
+    color: #fff;
+}
+
+.btn-b {
+    background: #4ecdc4;
+    color: #1a1a2e;
+}
+
+.action-buttons button:hover {
+    transform: scale(1.1);
+}
+
+.action-buttons button:active {
+    transform: scale(0.95);
+}
+
+.menu-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.menu-buttons button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 15px;
+    background: #555;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.menu-buttons button:hover {
+    background: #777;
+}
+
+.turbo-controls {
+    display: flex;
+    justify-content: center;
+}
+
+.turbo-controls button {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 8px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.turbo-controls button:hover {
+    background: #c0392b;
+}
+
+.turbo-controls button:active {
+    background: #ff6b6b;
+}

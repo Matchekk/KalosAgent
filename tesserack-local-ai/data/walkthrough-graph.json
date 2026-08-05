@@ -1,0 +1,5675 @@
+{
+  "nodes": [
+    {
+      "id": "location_0",
+      "type": "location",
+      "name": "Pallet Town",
+      "locationType": "city",
+      "description": "Starting town where you choose your first Pokemon and receive the Pokedex"
+    },
+    {
+      "id": "objective_1",
+      "type": "objective",
+      "name": "Choose a Pokemon",
+      "description": "Select your starter Pokemon",
+      "location": "Pallet Town"
+    },
+    {
+      "id": "objective_2",
+      "type": "objective",
+      "name": "Deliver Prof. Oak's Parcel and get a Pokedex",
+      "description": "Bring Prof. Oak's Parcel to him in exchange for a Pokedex",
+      "location": "Pallet Town"
+    },
+    {
+      "id": "requirement_3",
+      "type": "requirement",
+      "name": "Prof. Oak's Parcel"
+    },
+    {
+      "id": "objective_4",
+      "type": "objective",
+      "name": "Pick up the Town Map",
+      "description": "Obtain the Town Map from your rival's sister",
+      "location": "Pallet Town"
+    },
+    {
+      "id": "item_5",
+      "type": "item",
+      "name": "Pokedex",
+      "howToGet": "Deliver Prof. Oak's Parcel to Prof. Oak"
+    },
+    {
+      "id": "item_6",
+      "type": "item",
+      "name": "Town Map",
+      "howToGet": "Given by your rival's sister"
+    },
+    {
+      "id": "location_7",
+      "type": "location",
+      "name": "Route 1",
+      "locationType": "route",
+      "description": "Route connecting Pallet Town to Viridian City"
+    },
+    {
+      "id": "objective_8",
+      "type": "objective",
+      "name": "Pick up Oak's Parcel",
+      "description": "Get Oak's Parcel from the clerk at the Poke Mart in Viridian City",
+      "location": "Route 1"
+    },
+    {
+      "id": "objective_9",
+      "type": "objective",
+      "name": "Return to Prof. Oak",
+      "description": "Return to Prof. Oak and receive a reward",
+      "location": "Route 1"
+    },
+    {
+      "id": "requirement_10",
+      "type": "requirement",
+      "name": "Oak's Parcel"
+    },
+    {
+      "id": "objective_11",
+      "type": "objective",
+      "name": "Get Town Map",
+      "description": "Pick up a Town Map from your rival's sister",
+      "location": "Route 1"
+    },
+    {
+      "id": "item_12",
+      "type": "item",
+      "name": "Oak's Parcel",
+      "howToGet": "Get from the clerk at the Poke Mart in Viridian City"
+    },
+    {
+      "id": "item_13",
+      "type": "item",
+      "name": "HM 05",
+      "howToGet": "Pick up on the other side of the tree in Route 1"
+    },
+    {
+      "id": "location_14",
+      "type": "location",
+      "name": "Viridian City"
+    },
+    {
+      "id": "location_15",
+      "type": "location",
+      "name": "Route 11"
+    },
+    {
+      "id": "location_16",
+      "type": "location",
+      "name": "Vermillion City"
+    },
+    {
+      "id": "location_17",
+      "type": "location",
+      "name": "Underground Path"
+    },
+    {
+      "id": "location_18",
+      "type": "location",
+      "name": "Route 5"
+    },
+    {
+      "id": "objective_19",
+      "type": "objective",
+      "name": "Defeat Giovanni at Viridian Gym",
+      "description": "Battle Giovanni, leader of Team Rocket, at the Viridian Gym",
+      "location": "Viridian City"
+    },
+    {
+      "id": "objective_20",
+      "type": "objective",
+      "name": "Get the Earth Badge",
+      "description": "Obtain the Earth Badge from the Viridian Gym",
+      "location": "Viridian City"
+    },
+    {
+      "id": "requirement_21",
+      "type": "requirement",
+      "name": "Defeat Giovanni"
+    },
+    {
+      "id": "item_22",
+      "type": "item",
+      "name": "Earth Badge",
+      "howToGet": "Defeat Giovanni at Viridian Gym"
+    },
+    {
+      "id": "item_23",
+      "type": "item",
+      "name": "TM 27 (Fissure)",
+      "howToGet": "Obtained at Viridian City Gym"
+    },
+    {
+      "id": "item_24",
+      "type": "item",
+      "name": "Bike Voucher",
+      "howToGet": "Available in Viridian City"
+    },
+    {
+      "id": "item_25",
+      "type": "item",
+      "name": "Old Rod",
+      "howToGet": "Obtained from Fishing Guru's House"
+    },
+    {
+      "id": "item_26",
+      "type": "item",
+      "name": "Thunder Badge",
+      "howToGet": "Available in Viridian City"
+    },
+    {
+      "id": "item_27",
+      "type": "item",
+      "name": "TM24",
+      "howToGet": "Available in Viridian City"
+    },
+    {
+      "id": "pokemon_28",
+      "type": "pokemon",
+      "name": "Poliwag",
+      "availability": "common",
+      "version": "both",
+      "notes": "Fish with Fishing Rod"
+    },
+    {
+      "id": "pokemon_29",
+      "type": "pokemon",
+      "name": "Goldeen",
+      "availability": "common",
+      "version": "both",
+      "notes": "Fish with Fishing Rod"
+    },
+    {
+      "id": "pokemon_30",
+      "type": "pokemon",
+      "name": "Krabby",
+      "availability": "common",
+      "version": "both",
+      "notes": "Fish in the Gym"
+    },
+    {
+      "id": "pokemon_31",
+      "type": "pokemon",
+      "name": "Shelder",
+      "availability": "common",
+      "version": "both",
+      "notes": "Fish in the Gym"
+    },
+    {
+      "id": "location_32",
+      "type": "location",
+      "name": "Victory Road"
+    },
+    {
+      "id": "trainer_33",
+      "type": "trainer",
+      "name": "Giovanni",
+      "isGymLeader": true,
+      "badge": "Earth Badge"
+    },
+    {
+      "id": "location_34",
+      "type": "location",
+      "name": "Route 22",
+      "locationType": "route",
+      "description": "A route near Viridian City with long grasses for Pokemon hunting and where your Rival lurks"
+    },
+    {
+      "id": "objective_35",
+      "type": "objective",
+      "name": "Capture Wild Pokemon",
+      "description": "Hunt in the long grasses for low-level Pokemon",
+      "location": "Route 22"
+    },
+    {
+      "id": "requirement_36",
+      "type": "requirement",
+      "name": "Poke Balls"
+    },
+    {
+      "id": "objective_37",
+      "type": "objective",
+      "name": "Battle Your Rival",
+      "description": "Challenge your Rival who is waiting along the path",
+      "location": "Route 22"
+    },
+    {
+      "id": "requirement_38",
+      "type": "requirement",
+      "name": "At least two Pokemon trained to LV 9 or above"
+    },
+    {
+      "id": "pokemon_39",
+      "type": "pokemon",
+      "name": "Pidgey",
+      "availability": "common",
+      "version": "both",
+      "notes": "Low-level, found in long grasses"
+    },
+    {
+      "id": "pokemon_40",
+      "type": "pokemon",
+      "name": "Rattata",
+      "availability": "common",
+      "version": "both",
+      "notes": "Low-level, found in long grasses"
+    },
+    {
+      "id": "pokemon_41",
+      "type": "pokemon",
+      "name": "Spearow",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in long grasses"
+    },
+    {
+      "id": "pokemon_42",
+      "type": "pokemon",
+      "name": "Nidoran♂",
+      "availability": "rare",
+      "version": "blue",
+      "notes": "Found in long grasses"
+    },
+    {
+      "id": "pokemon_43",
+      "type": "pokemon",
+      "name": "Nidoran♀",
+      "availability": "rare",
+      "version": "blue",
+      "notes": "Found in long grasses"
+    },
+    {
+      "id": "trainer_44",
+      "type": "trainer",
+      "name": "Your Rival",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "location_45",
+      "type": "location",
+      "name": "Route 2",
+      "locationType": "route",
+      "description": "A route connecting various locations with multiple buildings and access to Viridian Forest and Diglett's Cave"
+    },
+    {
+      "id": "objective_46",
+      "type": "objective",
+      "name": "Trade an Abra for a Mr. Mime",
+      "description": "Visit the house on Route 2 and trade your Abra with the person inside for their Mr. Mime",
+      "location": "Route 2"
+    },
+    {
+      "id": "requirement_47",
+      "type": "requirement",
+      "name": "Abra"
+    },
+    {
+      "id": "objective_48",
+      "type": "objective",
+      "name": "Get HM 05",
+      "description": "Visit the building and talk to the people inside who will give you HM 05 if you have captured 10 Pokemon",
+      "location": "Route 2"
+    },
+    {
+      "id": "requirement_49",
+      "type": "requirement",
+      "name": "10 captured Pokemon"
+    },
+    {
+      "id": "item_50",
+      "type": "item",
+      "name": "HM 05 (Flash)",
+      "howToGet": "Talk to people in building after capturing 10 Pokemon"
+    },
+    {
+      "id": "item_51",
+      "type": "item",
+      "name": "HP Up",
+      "howToGet": "Not specified in text"
+    },
+    {
+      "id": "item_52",
+      "type": "item",
+      "name": "Moon Stone",
+      "howToGet": "Not specified in text"
+    },
+    {
+      "id": "pokemon_53",
+      "type": "pokemon",
+      "name": "Weedle",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_54",
+      "type": "pokemon",
+      "name": "Caterpie",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "location_55",
+      "type": "location",
+      "name": "Viridian Forest"
+    },
+    {
+      "id": "location_56",
+      "type": "location",
+      "name": "Diglett's Cave"
+    },
+    {
+      "id": "location_57",
+      "type": "location",
+      "name": "Pewter City"
+    },
+    {
+      "id": "location_58",
+      "type": "location",
+      "name": "Route 3"
+    },
+    {
+      "id": "trainer_59",
+      "type": "trainer",
+      "name": "Viridian Forest Trainers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "objective_60",
+      "type": "objective",
+      "name": "Defeat Brock at the Gym",
+      "description": "Battle the first Gym Leader who specializes in Rock and Ground Pokemon",
+      "location": "Pewter City"
+    },
+    {
+      "id": "objective_61",
+      "type": "objective",
+      "name": "Get the Old Amber from the Museum's research facility",
+      "description": "Obtain the Old Amber from the Museum research facility",
+      "location": "Pewter City"
+    },
+    {
+      "id": "requirement_62",
+      "type": "requirement",
+      "name": "Cut ability"
+    },
+    {
+      "id": "item_63",
+      "type": "item",
+      "name": "Boulder Badge",
+      "howToGet": "Defeat Brock at the Pewter City Gym"
+    },
+    {
+      "id": "item_64",
+      "type": "item",
+      "name": "TM 34",
+      "howToGet": "Reward for defeating Brock at the Pewter City Gym"
+    },
+    {
+      "id": "item_65",
+      "type": "item",
+      "name": "Old Amber",
+      "howToGet": "Get from the Museum's research facility after learning Cut ability"
+    },
+    {
+      "id": "pokemon_66",
+      "type": "pokemon",
+      "name": "Pikachu",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in nearby woods, won't find one very often"
+    },
+    {
+      "id": "trainer_67",
+      "type": "trainer",
+      "name": "Brock",
+      "isGymLeader": true,
+      "badge": "Boulder Badge"
+    },
+    {
+      "id": "pokemon_68",
+      "type": "pokemon",
+      "name": "Jigglypuff",
+      "availability": "rare",
+      "version": "red",
+      "notes": ""
+    },
+    {
+      "id": "location_69",
+      "type": "location",
+      "name": "Mt. Moon"
+    },
+    {
+      "id": "trainer_70",
+      "type": "trainer",
+      "name": "Youngsters",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_71",
+      "type": "trainer",
+      "name": "Bug Catchers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_72",
+      "type": "trainer",
+      "name": "Lasses",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "location_73",
+      "type": "location",
+      "name": "Route 4",
+      "locationType": "route",
+      "description": "A route west of Mt. Moon with long grass, leading to Cerulean City. No trainers present but has wild Pokemon and items."
+    },
+    {
+      "id": "item_74",
+      "type": "item",
+      "name": "TM 04 (Whirlwind)",
+      "howToGet": "Found on the second set of plateaus"
+    },
+    {
+      "id": "pokemon_75",
+      "type": "pokemon",
+      "name": "Ekans",
+      "availability": "rare",
+      "version": "red",
+      "notes": "First unique Pokemon for Red version"
+    },
+    {
+      "id": "pokemon_76",
+      "type": "pokemon",
+      "name": "Sandshrew",
+      "availability": "common",
+      "version": "blue",
+      "notes": "First unique Pokemon for Blue version"
+    },
+    {
+      "id": "location_77",
+      "type": "location",
+      "name": "Cerulean City"
+    },
+    {
+      "id": "pokemon_78",
+      "type": "pokemon",
+      "name": "Kingler",
+      "availability": "uncommon",
+      "version": "both",
+      "notes": "Available by fishing at Seafoam Islands"
+    },
+    {
+      "id": "pokemon_79",
+      "type": "pokemon",
+      "name": "Electrode",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Cerulean Cave"
+    },
+    {
+      "id": "location_80",
+      "type": "location",
+      "name": "Route 25",
+      "locationType": "route",
+      "description": "Route containing Pokemon House and items"
+    },
+    {
+      "id": "item_81",
+      "type": "item",
+      "name": "SECRET KEY",
+      "howToGet": "Found on Route 25"
+    },
+    {
+      "id": "item_82",
+      "type": "item",
+      "name": "SILPH SCOPE",
+      "howToGet": "Available on Route 25"
+    },
+    {
+      "id": "objective_83",
+      "type": "objective",
+      "name": "Investigate Silph Co.",
+      "description": "Take a look around Silph Co. as it is the source of problems",
+      "location": "Route 5"
+    },
+    {
+      "id": "objective_84",
+      "type": "objective",
+      "name": "Visit the Fighting Gym",
+      "description": "Go to the Fighting Pokemon gym to get your choice of rare Fighting Pokemon as a prize",
+      "location": "Route 5"
+    },
+    {
+      "id": "item_85",
+      "type": "item",
+      "name": "Escape Rope",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "item_86",
+      "type": "item",
+      "name": "Awakening",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "item_87",
+      "type": "item",
+      "name": "Elixir",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "item_88",
+      "type": "item",
+      "name": "Nugget",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "item_89",
+      "type": "item",
+      "name": "X Accuracy",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "item_90",
+      "type": "item",
+      "name": "Rare Candy",
+      "howToGet": "Not specified"
+    },
+    {
+      "id": "pokemon_91",
+      "type": "pokemon",
+      "name": "Gastly",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_92",
+      "type": "pokemon",
+      "name": "Haunter",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_93",
+      "type": "pokemon",
+      "name": "Cubone",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "location_94",
+      "type": "location",
+      "name": "Route 6",
+      "locationType": "route",
+      "description": "Route 6 connecting area with wild Pokemon encounters"
+    },
+    {
+      "id": "pokemon_95",
+      "type": "pokemon",
+      "name": "Oddish",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_96",
+      "type": "pokemon",
+      "name": "Mankey",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_97",
+      "type": "pokemon",
+      "name": "Bellsprout",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_98",
+      "type": "pokemon",
+      "name": "Meowth",
+      "availability": "common",
+      "version": "blue",
+      "notes": ""
+    },
+    {
+      "id": "location_99",
+      "type": "location",
+      "name": "Vermilion City",
+      "locationType": "city",
+      "description": "City with Electric-type Gym led by Lt. Surge, home to S.S. Anne and Pokemon Fan Club"
+    },
+    {
+      "id": "objective_100",
+      "type": "objective",
+      "name": "Get HM 01 (Cut) from the Captain of the S.S. Anne",
+      "description": "Visit the Captain on the S.S. Anne to obtain Cut ability",
+      "location": "Vermilion City"
+    },
+    {
+      "id": "objective_101",
+      "type": "objective",
+      "name": "Defeat Lt. Surge at the Gym",
+      "description": "Figure out the code to unlock the door by defeating Junior Trainers, then look in garbage bins to find electrical locks",
+      "location": "Vermilion City"
+    },
+    {
+      "id": "requirement_102",
+      "type": "requirement",
+      "name": "HM 01 (Cut)"
+    },
+    {
+      "id": "objective_103",
+      "type": "objective",
+      "name": "Talk to the President of the Pokemon Fan Club",
+      "description": "Visit the Pokemon Fan Club President",
+      "location": "Vermilion City"
+    },
+    {
+      "id": "objective_104",
+      "type": "objective",
+      "name": "Trade a Spearow for a FarFetch'd",
+      "description": "Find trader willing to exchange rare FarFetch'd for common Spearow",
+      "location": "Vermilion City"
+    },
+    {
+      "id": "requirement_105",
+      "type": "requirement",
+      "name": "Spearow"
+    },
+    {
+      "id": "objective_106",
+      "type": "objective",
+      "name": "Get the Old Rod from the Fishing Guru",
+      "description": "Obtain fishing rod from Fishing Guru",
+      "location": "Vermilion City"
+    },
+    {
+      "id": "item_107",
+      "type": "item",
+      "name": "HM 01 (Cut)",
+      "howToGet": "Obtained from Captain of S.S. Anne"
+    },
+    {
+      "id": "item_108",
+      "type": "item",
+      "name": "TM 24 (Thunderbolt)",
+      "howToGet": "Given by Lt. Surge after defeating him"
+    },
+    {
+      "id": "item_109",
+      "type": "item",
+      "name": "Super Potion",
+      "howToGet": "Purchase at Poke Mart"
+    },
+    {
+      "id": "pokemon_110",
+      "type": "pokemon",
+      "name": "Magikarp",
+      "availability": "common",
+      "version": "both",
+      "notes": "Can be caught with Old Rod"
+    },
+    {
+      "id": "pokemon_111",
+      "type": "pokemon",
+      "name": "FarFetch'd",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Obtained by trading Spearow to trainer"
+    },
+    {
+      "id": "trainer_112",
+      "type": "trainer",
+      "name": "Lt. Surge",
+      "isGymLeader": true,
+      "badge": "Thunder Badge"
+    },
+    {
+      "id": "trainer_113",
+      "type": "trainer",
+      "name": "Junior Trainers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "objective_114",
+      "type": "objective",
+      "name": "Get Bike Voucher from Pokemon Fan Club",
+      "description": "Listen to the president talk about his rare Pokemon (especially Rapidash) and he'll give you his Bike Voucher",
+      "location": "Route 11"
+    },
+    {
+      "id": "objective_115",
+      "type": "objective",
+      "name": "Get Old Rod",
+      "description": "Talk to the Fishing Guru of Vermilion City",
+      "location": "Route 11"
+    },
+    {
+      "id": "objective_116",
+      "type": "objective",
+      "name": "Get Itemfinder",
+      "description": "Collect 30 Pokemon and talk to Prof. Oak's Aide",
+      "location": "Route 11"
+    },
+    {
+      "id": "requirement_117",
+      "type": "requirement",
+      "name": "30 Pokemon caught"
+    },
+    {
+      "id": "item_118",
+      "type": "item",
+      "name": "TM 08 (Body Slam)",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_119",
+      "type": "item",
+      "name": "Great Ball",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_120",
+      "type": "item",
+      "name": "Max Ether",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_121",
+      "type": "item",
+      "name": "HM 01",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_122",
+      "type": "item",
+      "name": "TM 44 (Rest)",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_123",
+      "type": "item",
+      "name": "Ether",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_124",
+      "type": "item",
+      "name": "Max Potion",
+      "howToGet": "Found on Route 11"
+    },
+    {
+      "id": "item_125",
+      "type": "item",
+      "name": "Itemfinder",
+      "howToGet": "Get from Prof. Oak's Aide after collecting 30 Pokemon"
+    },
+    {
+      "id": "pokemon_126",
+      "type": "pokemon",
+      "name": "Arbok",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_127",
+      "type": "pokemon",
+      "name": "Drowzee",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_128",
+      "type": "pokemon",
+      "name": "Diglett",
+      "availability": "common",
+      "version": "both",
+      "notes": "Found in Diglett's Cave"
+    },
+    {
+      "id": "pokemon_129",
+      "type": "pokemon",
+      "name": "Dugtrio",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Diglett's Cave"
+    },
+    {
+      "id": "location_130",
+      "type": "location",
+      "name": "Rock Tunnel"
+    },
+    {
+      "id": "location_131",
+      "type": "location",
+      "name": "Lavender Town"
+    },
+    {
+      "id": "trainer_132",
+      "type": "trainer",
+      "name": "Gamblers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_133",
+      "type": "trainer",
+      "name": "Engineers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_134",
+      "type": "trainer",
+      "name": "Fishermen",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "location_135",
+      "type": "location",
+      "name": "Route 9",
+      "locationType": "route",
+      "description": "Route connecting to Rock Tunnel with a stream accessible via Surf leading to Power Plant"
+    },
+    {
+      "id": "objective_136",
+      "type": "objective",
+      "name": "Explore upstream with Surf",
+      "description": "Use Surf ability to explore the stream north of the Pokemon Center to reach the abandoned Power Plant",
+      "location": "Route 9"
+    },
+    {
+      "id": "requirement_137",
+      "type": "requirement",
+      "name": "HM 03 Surf"
+    },
+    {
+      "id": "objective_138",
+      "type": "objective",
+      "name": "Navigate Rock Tunnel",
+      "description": "Use Flash skill to illuminate the dark Rock Tunnel and find your way through to the other side",
+      "location": "Route 9"
+    },
+    {
+      "id": "requirement_139",
+      "type": "requirement",
+      "name": "HM 05 Flash"
+    },
+    {
+      "id": "item_140",
+      "type": "item",
+      "name": "TM 30",
+      "howToGet": "Found on Route 9"
+    },
+    {
+      "id": "pokemon_141",
+      "type": "pokemon",
+      "name": "Voltorb",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_142",
+      "type": "pokemon",
+      "name": "Zubat",
+      "availability": "common",
+      "version": "both",
+      "notes": "Found in Rock Tunnel"
+    },
+    {
+      "id": "pokemon_143",
+      "type": "pokemon",
+      "name": "Geodude",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Rock Tunnel"
+    },
+    {
+      "id": "pokemon_144",
+      "type": "pokemon",
+      "name": "Machop",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Rock Tunnel"
+    },
+    {
+      "id": "pokemon_145",
+      "type": "pokemon",
+      "name": "Onix",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Rock Tunnel"
+    },
+    {
+      "id": "location_146",
+      "type": "location",
+      "name": "Power Plant"
+    },
+    {
+      "id": "trainer_147",
+      "type": "trainer",
+      "name": "Hikers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_148",
+      "type": "trainer",
+      "name": "Pokemaniacs",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "location_149",
+      "type": "location",
+      "name": "Route 10",
+      "locationType": "route",
+      "description": "Route connecting Rock Tunnel to Lavender Town"
+    },
+    {
+      "id": "objective_150",
+      "type": "objective",
+      "name": "Free the restless ghost",
+      "description": "Use the Silph Scope to free the restless ghost",
+      "location": "Route 10"
+    },
+    {
+      "id": "requirement_151",
+      "type": "requirement",
+      "name": "Silph Scope"
+    },
+    {
+      "id": "objective_152",
+      "type": "objective",
+      "name": "Rescue Mr. Fuji",
+      "description": "Rescue Mr. Fuji from the top of Pokemon Tower and get the Poke Flute",
+      "location": "Route 10"
+    },
+    {
+      "id": "objective_153",
+      "type": "objective",
+      "name": "Defeat Misty",
+      "description": "Defeat Misty at the Cerulean City Gym to get the Cascade Badge",
+      "location": "Route 10"
+    },
+    {
+      "id": "item_154",
+      "type": "item",
+      "name": "Revive",
+      "howToGet": "Purchase at Lavender City Poke Mart for 1,500P"
+    },
+    {
+      "id": "item_155",
+      "type": "item",
+      "name": "Super Repel",
+      "howToGet": "Purchase at Poke Mart for 500P"
+    },
+    {
+      "id": "item_156",
+      "type": "item",
+      "name": "Antidote",
+      "howToGet": "Purchase at Poke Mart for 100P"
+    },
+    {
+      "id": "item_157",
+      "type": "item",
+      "name": "Burn Heal",
+      "howToGet": "Purchase at Poke Mart for 250P"
+    },
+    {
+      "id": "item_158",
+      "type": "item",
+      "name": "Ice Heal",
+      "howToGet": "Purchase at Poke Mart for 250P"
+    },
+    {
+      "id": "item_159",
+      "type": "item",
+      "name": "Paralyze Heal",
+      "howToGet": "Purchase at Poke Mart for 200P"
+    },
+    {
+      "id": "item_160",
+      "type": "item",
+      "name": "Poke Flute",
+      "howToGet": "Rescue Mr. Fuji from Pokemon Tower"
+    },
+    {
+      "id": "location_161",
+      "type": "location",
+      "name": "Celadon City"
+    },
+    {
+      "id": "trainer_162",
+      "type": "trainer",
+      "name": "Misty",
+      "isGymLeader": true,
+      "badge": "Cascade Badge"
+    },
+    {
+      "id": "objective_163",
+      "type": "objective",
+      "name": "Defeat Koga at the Fuchsia City Gym",
+      "description": "Battle and defeat Koga to get the Soul Badge",
+      "location": "Lavender Town"
+    },
+    {
+      "id": "objective_164",
+      "type": "objective",
+      "name": "Get HM 03 and Gold teeth in Safari Zone",
+      "description": "Pick up HM 03 and the Gold teeth items in the Safari Zone",
+      "location": "Lavender Town"
+    },
+    {
+      "id": "objective_165",
+      "type": "objective",
+      "name": "Exchange Gold teeth for HM 04",
+      "description": "Trade the Gold teeth with the Game Warden for HM 04",
+      "location": "Lavender Town"
+    },
+    {
+      "id": "requirement_166",
+      "type": "requirement",
+      "name": "Gold teeth"
+    },
+    {
+      "id": "objective_167",
+      "type": "objective",
+      "name": "Climb to the top of the tower",
+      "description": "Navigate through the tall tower to reach the top and determine the cause of the mayhem",
+      "location": "Lavender Town"
+    },
+    {
+      "id": "item_168",
+      "type": "item",
+      "name": "Soul Badge",
+      "howToGet": "Defeat Koga at the Fuchsia City Gym"
+    },
+    {
+      "id": "item_169",
+      "type": "item",
+      "name": "HM 03",
+      "howToGet": "Pick up in the Safari Zone"
+    },
+    {
+      "id": "item_170",
+      "type": "item",
+      "name": "Gold teeth",
+      "howToGet": "Pick up in the Safari Zone"
+    },
+    {
+      "id": "item_171",
+      "type": "item",
+      "name": "HM 04",
+      "howToGet": "Exchange the Gold teeth with the Game Warden"
+    },
+    {
+      "id": "location_172",
+      "type": "location",
+      "name": "Fuchsia City"
+    },
+    {
+      "id": "trainer_173",
+      "type": "trainer",
+      "name": "Koga",
+      "isGymLeader": true,
+      "badge": "Soul Badge"
+    },
+    {
+      "id": "location_174",
+      "type": "location",
+      "name": "Route 8",
+      "locationType": "route",
+      "description": "Route connecting Lavender Town to Saffron City"
+    },
+    {
+      "id": "objective_175",
+      "type": "objective",
+      "name": "Give drink to guard",
+      "description": "Give the thirsty guard a drink",
+      "location": "Route 8"
+    },
+    {
+      "id": "requirement_176",
+      "type": "requirement",
+      "name": "drink item"
+    },
+    {
+      "id": "pokemon_177",
+      "type": "pokemon",
+      "name": "Growlithe",
+      "availability": "rare",
+      "version": "red",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_178",
+      "type": "pokemon",
+      "name": "Vulpix",
+      "availability": "rare",
+      "version": "blue",
+      "notes": ""
+    },
+    {
+      "id": "location_179",
+      "type": "location",
+      "name": "Saffron City"
+    },
+    {
+      "id": "location_180",
+      "type": "location",
+      "name": "Route 7",
+      "locationType": "route",
+      "description": "A route with nine trainers that provides experience boost before entering Celadon City"
+    },
+    {
+      "id": "objective_181",
+      "type": "objective",
+      "name": "Battle trainers for experience",
+      "description": "Fight the nine trainers on the route to gain experience before entering Celadon City",
+      "location": "Route 7"
+    },
+    {
+      "id": "objective_182",
+      "type": "objective",
+      "name": "Access Underground Path",
+      "description": "Use the house north of the Saffron City gatehouse to enter the east-west Underground Path",
+      "location": "Route 7"
+    },
+    {
+      "id": "trainer_183",
+      "type": "trainer",
+      "name": "Super Nerds",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "objective_184",
+      "type": "objective",
+      "name": "Defeat the Head of the Fighting Dojo",
+      "description": "Battle the leader at the Fighting Dojo",
+      "location": "Saffron City"
+    },
+    {
+      "id": "requirement_185",
+      "type": "requirement",
+      "name": "Clear Team Rocket from the city"
+    },
+    {
+      "id": "objective_186",
+      "type": "objective",
+      "name": "Rescue the President of Silph Co. and get the Master Ball",
+      "description": "Navigate the 11-floor Silph Co. building and rescue the company president from Team Rocket",
+      "location": "Saffron City"
+    },
+    {
+      "id": "requirement_187",
+      "type": "requirement",
+      "name": "Clear Team Rocket from Silph Co."
+    },
+    {
+      "id": "objective_188",
+      "type": "objective",
+      "name": "Defeat Sabrina at the Saffron City Gym",
+      "description": "Use teleport pads to navigate the Gym and defeat Sabrina with Bug or Ghost Pokemon",
+      "location": "Saffron City"
+    },
+    {
+      "id": "item_189",
+      "type": "item",
+      "name": "Marsh Badge",
+      "howToGet": "Defeat Sabrina at the Saffron City Gym"
+    },
+    {
+      "id": "item_190",
+      "type": "item",
+      "name": "TM 29 (Psychic)",
+      "howToGet": "Visit Mr. Psychic's house"
+    },
+    {
+      "id": "item_191",
+      "type": "item",
+      "name": "TM 31 (Mimic)",
+      "howToGet": "Give a Poke Doll to the little girl"
+    },
+    {
+      "id": "item_192",
+      "type": "item",
+      "name": "TM 46 (Psywave)",
+      "howToGet": "Defeat Sabrina at the Saffron City Gym"
+    },
+    {
+      "id": "item_193",
+      "type": "item",
+      "name": "Master Ball",
+      "howToGet": "Rescue the President of Silph Co."
+    },
+    {
+      "id": "pokemon_194",
+      "type": "pokemon",
+      "name": "Hitmonlee or Hitmonchan",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Obtained from Fighting Dojo (choice between the two)"
+    },
+    {
+      "id": "trainer_195",
+      "type": "trainer",
+      "name": "Sabrina",
+      "isGymLeader": true,
+      "badge": "Marsh Badge"
+    },
+    {
+      "id": "trainer_196",
+      "type": "trainer",
+      "name": "Head of the Fighting Dojo",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_197",
+      "type": "trainer",
+      "name": "Psychics",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_198",
+      "type": "trainer",
+      "name": "Channelers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_199",
+      "type": "trainer",
+      "name": "Team Rocket members",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_200",
+      "type": "trainer",
+      "name": "Scientists",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "objective_201",
+      "type": "objective",
+      "name": "Defeat Erika in the Celadon City Gym",
+      "description": "Battle the Gym Leader to earn the Rainbow Badge",
+      "location": "Celadon City"
+    },
+    {
+      "id": "objective_202",
+      "type": "objective",
+      "name": "Get the Rainbow Badge",
+      "description": "Obtain badge by defeating Erika",
+      "location": "Celadon City"
+    },
+    {
+      "id": "requirement_203",
+      "type": "requirement",
+      "name": "Defeat Erika"
+    },
+    {
+      "id": "objective_204",
+      "type": "objective",
+      "name": "Get the Silph Scope",
+      "description": "Obtain from Team Rocket Hideout beneath the Game Corner by defeating Giovanni",
+      "location": "Celadon City"
+    },
+    {
+      "id": "requirement_205",
+      "type": "requirement",
+      "name": "Navigate Team Rocket Hideout"
+    },
+    {
+      "id": "objective_206",
+      "type": "objective",
+      "name": "Buy a Soda Pop",
+      "description": "Purchase from vending machines on rooftop of Celadon Dept. Store",
+      "location": "Celadon City"
+    },
+    {
+      "id": "item_207",
+      "type": "item",
+      "name": "Rainbow Badge",
+      "howToGet": "Defeat Erika in Celadon City Gym"
+    },
+    {
+      "id": "item_208",
+      "type": "item",
+      "name": "Silph Scope",
+      "howToGet": "Defeat Giovanni in Team Rocket Hideout beneath Game Corner"
+    },
+    {
+      "id": "item_209",
+      "type": "item",
+      "name": "Coin Purse",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_210",
+      "type": "item",
+      "name": "TM 13 (Ice Beam)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_211",
+      "type": "item",
+      "name": "TM 18 (Counter)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_212",
+      "type": "item",
+      "name": "TM 21 (Mega Drain)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_213",
+      "type": "item",
+      "name": "TM 41 (Softboiled)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_214",
+      "type": "item",
+      "name": "TM 48 (Rock Slide)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_215",
+      "type": "item",
+      "name": "TM 49 (Tri Attack)",
+      "howToGet": "Available in Celadon City"
+    },
+    {
+      "id": "item_216",
+      "type": "item",
+      "name": "Hyper Potion",
+      "howToGet": "Team Rocket Hideout"
+    },
+    {
+      "id": "item_217",
+      "type": "item",
+      "name": "TM 07 (Horn Drill)",
+      "howToGet": "Team Rocket Hideout"
+    },
+    {
+      "id": "item_218",
+      "type": "item",
+      "name": "TM 10 (Double-Edge)",
+      "howToGet": "Team Rocket Hideout"
+    },
+    {
+      "id": "item_219",
+      "type": "item",
+      "name": "Lift Key",
+      "howToGet": "Talk to defeated Team Rocket member in hideout"
+    },
+    {
+      "id": "item_220",
+      "type": "item",
+      "name": "TM 02 (Razor Wind)",
+      "howToGet": "Team Rocket Hideout"
+    },
+    {
+      "id": "pokemon_221",
+      "type": "pokemon",
+      "name": "Eevee",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Available in Celadon City"
+    },
+    {
+      "id": "pokemon_222",
+      "type": "pokemon",
+      "name": "Poliwhirl",
+      "availability": "common",
+      "version": "both",
+      "notes": "Try fishing"
+    },
+    {
+      "id": "pokemon_223",
+      "type": "pokemon",
+      "name": "Slowpoke",
+      "availability": "common",
+      "version": "both",
+      "notes": "Try fishing"
+    },
+    {
+      "id": "pokemon_224",
+      "type": "pokemon",
+      "name": "Abra",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Available at Coin Exchange"
+    },
+    {
+      "id": "trainer_225",
+      "type": "trainer",
+      "name": "Erika",
+      "isGymLeader": true,
+      "badge": "Rainbow Badge"
+    },
+    {
+      "id": "location_226",
+      "type": "location",
+      "name": "Route 16",
+      "locationType": "route",
+      "description": "A steep cycling road with a Snorlax blocking the path and bikers stationed along the route"
+    },
+    {
+      "id": "objective_227",
+      "type": "objective",
+      "name": "Wake the Snorlax",
+      "description": "Use the Poke Flute to wake up the Snorlax blocking the road and capture it",
+      "location": "Route 16"
+    },
+    {
+      "id": "requirement_228",
+      "type": "requirement",
+      "name": "Poke Flute"
+    },
+    {
+      "id": "objective_229",
+      "type": "objective",
+      "name": "Get HM 02 Fly",
+      "description": "Use Cut ability to clear the bush before Snorlax, go to northern gatehouse, visit house where little girl gives HM 02",
+      "location": "Route 16"
+    },
+    {
+      "id": "objective_230",
+      "type": "objective",
+      "name": "Get Exp. All from Prof. Oak's Aide",
+      "description": "Collect 50 Pokemon to receive Exp. All research equipment that shares experience points among party",
+      "location": "Route 16"
+    },
+    {
+      "id": "requirement_231",
+      "type": "requirement",
+      "name": "50 Pokemon collected"
+    },
+    {
+      "id": "item_232",
+      "type": "item",
+      "name": "HM 02 (Fly)",
+      "howToGet": "Clear bush with Cut, go to northern gatehouse, get from little girl in house"
+    },
+    {
+      "id": "item_233",
+      "type": "item",
+      "name": "Exp. All",
+      "howToGet": "Get from Prof. Oak's Aide after collecting 50 Pokemon"
+    },
+    {
+      "id": "pokemon_234",
+      "type": "pokemon",
+      "name": "Raticate",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_235",
+      "type": "pokemon",
+      "name": "Doduo",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_236",
+      "type": "pokemon",
+      "name": "Snorlax",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Only two in the game, blocks the road until awakened with Poke Flute"
+    },
+    {
+      "id": "location_237",
+      "type": "location",
+      "name": "Cycling Road"
+    },
+    {
+      "id": "trainer_238",
+      "type": "trainer",
+      "name": "Bikers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_239",
+      "type": "trainer",
+      "name": "Cue Balls",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "location_240",
+      "type": "location",
+      "name": "Route 17",
+      "locationType": "route",
+      "description": "Part of Cycling Road leading to Route 18 and Fuchsia City"
+    },
+    {
+      "id": "objective_241",
+      "type": "objective",
+      "name": "Trade for Lickitung",
+      "description": "Trade a Slowbro for a Lickitung with a person on the top floor of the gatehouse between Cycling Road and Fuchsia City",
+      "location": "Route 17"
+    },
+    {
+      "id": "requirement_242",
+      "type": "requirement",
+      "name": "Slowbro"
+    },
+    {
+      "id": "pokemon_243",
+      "type": "pokemon",
+      "name": "Fearow",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_244",
+      "type": "pokemon",
+      "name": "Tentacool",
+      "availability": "common",
+      "version": "both",
+      "notes": "Fishing"
+    },
+    {
+      "id": "location_245",
+      "type": "location",
+      "name": "Route 18"
+    },
+    {
+      "id": "objective_246",
+      "type": "objective",
+      "name": "Get the Good Rod",
+      "description": "Obtain the Good Rod from the Fishing Guru's House",
+      "location": "Fuchsia City"
+    },
+    {
+      "id": "objective_247",
+      "type": "objective",
+      "name": "Get HM 04 from the Game Warden",
+      "description": "Obtain HM 04 (Strength) from the Game Warden's House",
+      "location": "Fuchsia City"
+    },
+    {
+      "id": "objective_248",
+      "type": "objective",
+      "name": "Visit the Safari Zone",
+      "description": "Pay 500P admission to enter Safari Zone with 30 Safari Balls",
+      "location": "Fuchsia City"
+    },
+    {
+      "id": "requirement_249",
+      "type": "requirement",
+      "name": "500P"
+    },
+    {
+      "id": "objective_250",
+      "type": "objective",
+      "name": "Win Safari Zone contest",
+      "description": "Make it to the house in the northwest corner of Area 3 before time runs out to win HM 03 (Surf)",
+      "location": "Fuchsia City"
+    },
+    {
+      "id": "requirement_251",
+      "type": "requirement",
+      "name": "Safari Zone entry"
+    },
+    {
+      "id": "item_252",
+      "type": "item",
+      "name": "HM 04 (Strength)",
+      "howToGet": "Get from the Game Warden"
+    },
+    {
+      "id": "item_253",
+      "type": "item",
+      "name": "Good Rod",
+      "howToGet": "Get from Fishing Guru's House"
+    },
+    {
+      "id": "item_254",
+      "type": "item",
+      "name": "TM 06 (Toxic)",
+      "howToGet": "Obtain at Fuchsia City Gym"
+    },
+    {
+      "id": "item_255",
+      "type": "item",
+      "name": "HM 03 (Surf)",
+      "howToGet": "Win Safari Zone contest by reaching house in northwest corner of Area 3"
+    },
+    {
+      "id": "item_256",
+      "type": "item",
+      "name": "Game Warden's Gold Teeth",
+      "howToGet": "Find in Safari Zone Area 3"
+    },
+    {
+      "id": "item_257",
+      "type": "item",
+      "name": "TM20",
+      "howToGet": "Available on Route 14"
+    },
+    {
+      "id": "pokemon_258",
+      "type": "pokemon",
+      "name": "Seaking",
+      "availability": "common",
+      "version": "both",
+      "notes": "Can be caught by fishing"
+    },
+    {
+      "id": "pokemon_259",
+      "type": "pokemon",
+      "name": "Pidgeotto",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available on Route 14"
+    },
+    {
+      "id": "pokemon_260",
+      "type": "pokemon",
+      "name": "Ditto",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Available on Route 14"
+    },
+    {
+      "id": "pokemon_261",
+      "type": "pokemon",
+      "name": "Venonat",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available on Route 14"
+    },
+    {
+      "id": "pokemon_262",
+      "type": "pokemon",
+      "name": "Gloom",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available on Route 14"
+    },
+    {
+      "id": "pokemon_263",
+      "type": "pokemon",
+      "name": "Weepinbell",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available on Route 14"
+    },
+    {
+      "id": "location_264",
+      "type": "location",
+      "name": "Route 14"
+    },
+    {
+      "id": "location_265",
+      "type": "location",
+      "name": "Route 13",
+      "locationType": "route",
+      "description": "A stretch of road with patches of land where it's easy to capture wild second forms of Pokemon"
+    },
+    {
+      "id": "objective_266",
+      "type": "objective",
+      "name": "Hunt for evolved Pokemon",
+      "description": "Hunt in the thickets for advanced Pokemon like Pidgeotto, Gloom, and Weepinbell to save time leveling up their first forms",
+      "location": "Route 13"
+    },
+    {
+      "id": "location_267",
+      "type": "location",
+      "name": "Route 12",
+      "locationType": "route",
+      "description": "A route connecting to Lavender Town with fishing opportunities and a Snorlax blocking the road"
+    },
+    {
+      "id": "objective_268",
+      "type": "objective",
+      "name": "Wake up Snorlax",
+      "description": "Use the Poke Flute to wake the sleeping Snorlax blocking the road, then battle and potentially capture it",
+      "location": "Route 12"
+    },
+    {
+      "id": "objective_269",
+      "type": "objective",
+      "name": "Get Super Rod",
+      "description": "Talk to the fisherman to learn about fishing lore and receive a Super Rod",
+      "location": "Route 12"
+    },
+    {
+      "id": "item_270",
+      "type": "item",
+      "name": "TM 16",
+      "howToGet": "Found on Route 12"
+    },
+    {
+      "id": "item_271",
+      "type": "item",
+      "name": "Super Rod",
+      "howToGet": "Talk to the fisherman who will teach you fishing lore"
+    },
+    {
+      "id": "item_272",
+      "type": "item",
+      "name": "Iron",
+      "howToGet": "Found on Route 12"
+    },
+    {
+      "id": "location_273",
+      "type": "location",
+      "name": "Route 19",
+      "locationType": "route",
+      "description": "A watery road ruled by Swimmers and Beauties"
+    },
+    {
+      "id": "objective_274",
+      "type": "objective",
+      "name": "Defeat Gym Leader Koga",
+      "description": "Navigate invisible walls and defeat Koga's Poison/Psychic Pokemon using strong offensive fighters and Full Heals",
+      "location": "Route 19"
+    },
+    {
+      "id": "objective_275",
+      "type": "objective",
+      "name": "Catch Articuno",
+      "description": "Navigate to bottom of Seafoam Islands, save game, whittle HP down carefully, use Ultra Balls when HP is very low",
+      "location": "Route 19"
+    },
+    {
+      "id": "requirement_276",
+      "type": "requirement",
+      "name": "About 50 or more Ultra Balls"
+    },
+    {
+      "id": "objective_277",
+      "type": "objective",
+      "name": "Calm the current in Seafoam Islands",
+      "description": "Push three boulders down holes to the bottom floor to slow the fast current",
+      "location": "Route 19"
+    },
+    {
+      "id": "item_278",
+      "type": "item",
+      "name": "Ultra Ball",
+      "howToGet": "Purchase at Safari Zone shop for 1,200P"
+    },
+    {
+      "id": "item_279",
+      "type": "item",
+      "name": "Full Heal",
+      "howToGet": "Purchase at Safari Zone shop for 600P"
+    },
+    {
+      "id": "pokemon_280",
+      "type": "pokemon",
+      "name": "Koffing",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Koga has two at LV 37"
+    },
+    {
+      "id": "pokemon_281",
+      "type": "pokemon",
+      "name": "Muk",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Koga has one at LV 39"
+    },
+    {
+      "id": "pokemon_282",
+      "type": "pokemon",
+      "name": "Weezing",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Koga has one at LV 43"
+    },
+    {
+      "id": "pokemon_283",
+      "type": "pokemon",
+      "name": "Articuno",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Legendary Pokemon at LV 50 in Seafoam Islands, very difficult to catch"
+    },
+    {
+      "id": "location_284",
+      "type": "location",
+      "name": "Fuchsia City Gym"
+    },
+    {
+      "id": "location_285",
+      "type": "location",
+      "name": "Safari Zone"
+    },
+    {
+      "id": "location_286",
+      "type": "location",
+      "name": "Route 20"
+    },
+    {
+      "id": "location_287",
+      "type": "location",
+      "name": "Seafoam Islands"
+    },
+    {
+      "id": "trainer_288",
+      "type": "trainer",
+      "name": "Swimmers",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "trainer_289",
+      "type": "trainer",
+      "name": "Beauties",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "pokemon_290",
+      "type": "pokemon",
+      "name": "Nidorino",
+      "availability": "rare",
+      "version": "red",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_291",
+      "type": "pokemon",
+      "name": "Nidorina",
+      "availability": "rare",
+      "version": "blue",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_292",
+      "type": "pokemon",
+      "name": "Venomoth",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_293",
+      "type": "pokemon",
+      "name": "Exeggcute",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_294",
+      "type": "pokemon",
+      "name": "Tauros",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_295",
+      "type": "pokemon",
+      "name": "Kangaskhan",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "location_296",
+      "type": "location",
+      "name": "Cinnabar Island"
+    },
+    {
+      "id": "location_297",
+      "type": "location",
+      "name": "Route 21",
+      "locationType": "route",
+      "description": "A route with trainers that can be avoided by hugging the left wall, connects to other areas including Pallet Town"
+    },
+    {
+      "id": "objective_298",
+      "type": "objective",
+      "name": "Catch Tangela",
+      "description": "Hunt in the plot of grass south of Pallet Town where Tangela can only be found",
+      "location": "Route 21"
+    },
+    {
+      "id": "objective_299",
+      "type": "objective",
+      "name": "Access Route 23 and Victory Road",
+      "description": "Walk through the doors at the end of Route 22 to reach Route 23 and Victory Road",
+      "location": "Route 21"
+    },
+    {
+      "id": "requirement_300",
+      "type": "requirement",
+      "name": "all eight Badges"
+    },
+    {
+      "id": "pokemon_301",
+      "type": "pokemon",
+      "name": "Pigeotto",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_302",
+      "type": "pokemon",
+      "name": "Tangela",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found only in the plot of grass south of Pallet Town"
+    },
+    {
+      "id": "location_303",
+      "type": "location",
+      "name": "Route 23"
+    },
+    {
+      "id": "pokemon_304",
+      "type": "pokemon",
+      "name": "Sandslash",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_305",
+      "type": "pokemon",
+      "name": "Slowbro",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available by fishing"
+    },
+    {
+      "id": "pokemon_306",
+      "type": "pokemon",
+      "name": "Seadra",
+      "availability": "common",
+      "version": "both",
+      "notes": "Available by fishing"
+    },
+    {
+      "id": "location_307",
+      "type": "location",
+      "name": "Indigo Plateau",
+      "locationType": "dungeon",
+      "description": "Final location where you defeat the Elite Four and your Rival to become Pokemon Champion"
+    },
+    {
+      "id": "objective_308",
+      "type": "objective",
+      "name": "Defeat the Elite Four",
+      "description": "Defeat the Site Four, one right after another",
+      "location": "Indigo Plateau"
+    },
+    {
+      "id": "objective_309",
+      "type": "objective",
+      "name": "Defeat your Rival one last time",
+      "description": "Face your Rival in the final battle",
+      "location": "Indigo Plateau"
+    },
+    {
+      "id": "requirement_310",
+      "type": "requirement",
+      "name": "Defeat the Elite Four"
+    },
+    {
+      "id": "objective_311",
+      "type": "objective",
+      "name": "Become the Master Pokemon Trainer",
+      "description": "Complete the final challenges to achieve master status",
+      "location": "Indigo Plateau"
+    },
+    {
+      "id": "requirement_312",
+      "type": "requirement",
+      "name": "Defeat your Rival"
+    },
+    {
+      "id": "item_313",
+      "type": "item",
+      "name": "Carbos",
+      "howToGet": "Found at location 1"
+    },
+    {
+      "id": "item_314",
+      "type": "item",
+      "name": "TM 33 (Reflect)",
+      "howToGet": "Found at location 2"
+    },
+    {
+      "id": "item_315",
+      "type": "item",
+      "name": "TM 25 (Thunder)",
+      "howToGet": "Found at location 3"
+    },
+    {
+      "id": "pokemon_316",
+      "type": "pokemon",
+      "name": "Magnemite",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_317",
+      "type": "pokemon",
+      "name": "Magneton",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_318",
+      "type": "pokemon",
+      "name": "Raichu",
+      "availability": "rare",
+      "version": "blue",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_319",
+      "type": "pokemon",
+      "name": "Electabuzz",
+      "availability": "rare",
+      "version": "red",
+      "notes": ""
+    },
+    {
+      "id": "objective_320",
+      "type": "objective",
+      "name": "Find Jigglypuff",
+      "description": "Search the long grass before entering Mt. Moon for a Jigglypuff",
+      "location": "Mt. Moon"
+    },
+    {
+      "id": "objective_321",
+      "type": "objective",
+      "name": "Choose Fossil",
+      "description": "Choose between Dome Fossil or Helix Fossil",
+      "location": "Mt. Moon"
+    },
+    {
+      "id": "objective_322",
+      "type": "objective",
+      "name": "Take fossils to Scientist",
+      "description": "Let the Scientist look at fossils to revive them",
+      "location": "Mt. Moon"
+    },
+    {
+      "id": "requirement_323",
+      "type": "requirement",
+      "name": "Dome Fossil or Helix Fossil"
+    },
+    {
+      "id": "item_324",
+      "type": "item",
+      "name": "Potion",
+      "howToGet": "Found in Mt. Moon (multiple locations)"
+    },
+    {
+      "id": "item_325",
+      "type": "item",
+      "name": "TM 12 (Water Gun)",
+      "howToGet": "Found in Mt. Moon"
+    },
+    {
+      "id": "item_326",
+      "type": "item",
+      "name": "TM 01 (Mega Punch)",
+      "howToGet": "Found in Mt. Moon"
+    },
+    {
+      "id": "item_327",
+      "type": "item",
+      "name": "Dome Fossil or Helix Fossil",
+      "howToGet": "Choose one in Mt. Moon"
+    },
+    {
+      "id": "item_328",
+      "type": "item",
+      "name": "Poke Ball",
+      "howToGet": "Available for purchase (200P)"
+    },
+    {
+      "id": "item_329",
+      "type": "item",
+      "name": "Pariyz Heal",
+      "howToGet": "Available for purchase (200P)"
+    },
+    {
+      "id": "pokemon_330",
+      "type": "pokemon",
+      "name": "Paras",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_331",
+      "type": "pokemon",
+      "name": "Clefairy",
+      "availability": "rare",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "location_332",
+      "type": "location",
+      "name": "Pokemon Tower",
+      "locationType": "building",
+      "description": "Multi-floor tower with floors 5F and 7F mentioned"
+    },
+    {
+      "id": "item_333",
+      "type": "item",
+      "name": "OLD ROD",
+      "howToGet": "Available at this location"
+    },
+    {
+      "id": "location_334",
+      "type": "location",
+      "name": "Prof. Oak's Lab"
+    },
+    {
+      "id": "item_335",
+      "type": "item",
+      "name": "TM 37 (Egg Bomb)",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_336",
+      "type": "item",
+      "name": "Full Restore",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_337",
+      "type": "item",
+      "name": "TM 40 (Skull Bash)",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_338",
+      "type": "item",
+      "name": "Protein",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_339",
+      "type": "item",
+      "name": "Gold Teeth",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_340",
+      "type": "item",
+      "name": "Max Revive",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "item_341",
+      "type": "item",
+      "name": "TM 32 (Double Team)",
+      "howToGet": "Found in Safari Zone"
+    },
+    {
+      "id": "pokemon_342",
+      "type": "pokemon",
+      "name": "Rhyhorn",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Main Zone and Area 2"
+    },
+    {
+      "id": "pokemon_343",
+      "type": "pokemon",
+      "name": "Parasect",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Main Zone and Area 1"
+    },
+    {
+      "id": "pokemon_344",
+      "type": "pokemon",
+      "name": "Scyther",
+      "availability": "rare",
+      "version": "red",
+      "notes": "Found in Main Zone and Area 1"
+    },
+    {
+      "id": "pokemon_345",
+      "type": "pokemon",
+      "name": "Pinsir",
+      "availability": "rare",
+      "version": "blue",
+      "notes": "Found in Main Zone and Area 1"
+    },
+    {
+      "id": "pokemon_346",
+      "type": "pokemon",
+      "name": "Chansey",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Found in Main Zone and Area 2"
+    },
+    {
+      "id": "pokemon_347",
+      "type": "pokemon",
+      "name": "Golbat",
+      "availability": "common",
+      "version": "both",
+      "notes": "Won't stop draining energy from victim even if it gets too heavy to fly"
+    },
+    {
+      "id": "pokemon_348",
+      "type": "pokemon",
+      "name": "Seel",
+      "availability": "common",
+      "version": "both",
+      "notes": "Protruding horn on head is very hard and used for bashing through thick ice"
+    },
+    {
+      "id": "pokemon_349",
+      "type": "pokemon",
+      "name": "Dewgong",
+      "availability": "uncommon",
+      "version": "both",
+      "notes": "Evolution of Seel at LV 34"
+    },
+    {
+      "id": "pokemon_350",
+      "type": "pokemon",
+      "name": "Psyduck",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_351",
+      "type": "pokemon",
+      "name": "Golduck",
+      "availability": "uncommon",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_352",
+      "type": "pokemon",
+      "name": "Shellder",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_353",
+      "type": "pokemon",
+      "name": "Staryu",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_354",
+      "type": "pokemon",
+      "name": "Horsea",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "objective_355",
+      "type": "objective",
+      "name": "Resurrect fossils at Pokemon Lab",
+      "description": "Take fossils to the Pokemon Lab for resurrection",
+      "location": "Cinnabar Island"
+    },
+    {
+      "id": "requirement_356",
+      "type": "requirement",
+      "name": "fossils"
+    },
+    {
+      "id": "objective_357",
+      "type": "objective",
+      "name": "Get Secret Key from Pokemon House",
+      "description": "Navigate the abandoned Pokemon House and retrieve the Secret Key from the basement by jumping from third floor",
+      "location": "Cinnabar Island"
+    },
+    {
+      "id": "objective_358",
+      "type": "objective",
+      "name": "Defeat Blaine at Cinnabar Island Gym",
+      "description": "Find the hidden key, fight through trainers, and defeat gym leader Blaine using Water or Ground/Rock Pokemon",
+      "location": "Cinnabar Island"
+    },
+    {
+      "id": "requirement_359",
+      "type": "requirement",
+      "name": "Secret Key"
+    },
+    {
+      "id": "item_360",
+      "type": "item",
+      "name": "Secret Key",
+      "howToGet": "Found in basement of Pokemon House - jump from third floor open area near Scientist"
+    },
+    {
+      "id": "item_361",
+      "type": "item",
+      "name": "Volcano Badge",
+      "howToGet": "Defeat Blaine at the gym"
+    },
+    {
+      "id": "item_362",
+      "type": "item",
+      "name": "TM 38 (Fire Blast)",
+      "howToGet": "Received from Blaine after defeating him"
+    },
+    {
+      "id": "item_363",
+      "type": "item",
+      "name": "TM 35 (Metronome)",
+      "howToGet": "Found somewhere on Cinnabar Island"
+    },
+    {
+      "id": "item_364",
+      "type": "item",
+      "name": "Calcium",
+      "howToGet": "Found in Pokemon House"
+    },
+    {
+      "id": "item_365",
+      "type": "item",
+      "name": "TM 22 (Solarbeam)",
+      "howToGet": "Found in Pokemon House"
+    },
+    {
+      "id": "item_366",
+      "type": "item",
+      "name": "TM 14 (Blizzard)",
+      "howToGet": "Found in Pokemon House"
+    },
+    {
+      "id": "pokemon_367",
+      "type": "pokemon",
+      "name": "Grimer",
+      "availability": "rare",
+      "version": "red",
+      "notes": "Found in Pokemon House"
+    },
+    {
+      "id": "pokemon_368",
+      "type": "pokemon",
+      "name": "Ponyta",
+      "availability": "common",
+      "version": "both",
+      "notes": "Found in Pokemon House"
+    },
+    {
+      "id": "pokemon_369",
+      "type": "pokemon",
+      "name": "Magmar",
+      "availability": "common",
+      "version": "both",
+      "notes": "Found in Pokemon House"
+    },
+    {
+      "id": "trainer_370",
+      "type": "trainer",
+      "name": "Blaine",
+      "isGymLeader": true,
+      "badge": "Volcano Badge"
+    },
+    {
+      "id": "trainer_371",
+      "type": "trainer",
+      "name": "Burglars",
+      "isGymLeader": false,
+      "badge": ""
+    },
+    {
+      "id": "objective_372",
+      "type": "objective",
+      "name": "Navigate to Elite Four",
+      "description": "Use stairs A, B, and C to reach the exit",
+      "location": "Victory Road"
+    },
+    {
+      "id": "objective_373",
+      "type": "objective",
+      "name": "Catch Moltres",
+      "description": "Take detour to stairs D and E to reach Moltres' lair, weaken and capture using same techniques as Articuno",
+      "location": "Victory Road"
+    },
+    {
+      "id": "requirement_374",
+      "type": "requirement",
+      "name": "Save before approaching"
+    },
+    {
+      "id": "objective_375",
+      "type": "objective",
+      "name": "Solve boulder puzzles",
+      "description": "Push boulders over pressure plates to hold stone doors open",
+      "location": "Victory Road"
+    },
+    {
+      "id": "item_376",
+      "type": "item",
+      "name": "TM 43 (Sky Attack)",
+      "howToGet": "Found in Victory Road"
+    },
+    {
+      "id": "item_377",
+      "type": "item",
+      "name": "TM 05 (Mega Kick)",
+      "howToGet": "Found in Victory Road"
+    },
+    {
+      "id": "item_378",
+      "type": "item",
+      "name": "TM 17 (Submission)",
+      "howToGet": "Found in Victory Road"
+    },
+    {
+      "id": "item_379",
+      "type": "item",
+      "name": "Guard Spec",
+      "howToGet": "Found in Victory Road"
+    },
+    {
+      "id": "pokemon_380",
+      "type": "pokemon",
+      "name": "Moltres",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Legendary Flame Bird, as hard to catch as Articuno"
+    },
+    {
+      "id": "pokemon_381",
+      "type": "pokemon",
+      "name": "Machoke",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_382",
+      "type": "pokemon",
+      "name": "Graveler",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "pokemon_383",
+      "type": "pokemon",
+      "name": "Marowak",
+      "availability": "common",
+      "version": "both",
+      "notes": ""
+    },
+    {
+      "id": "objective_384",
+      "type": "objective",
+      "name": "Capture Zapdos",
+      "description": "Find Zapdos right before the exit of the Power Plant and capture using same techniques as other legendary birds",
+      "location": "Power Plant"
+    },
+    {
+      "id": "requirement_385",
+      "type": "requirement",
+      "name": "Surf ability"
+    },
+    {
+      "id": "objective_386",
+      "type": "objective",
+      "name": "Battle Rival",
+      "description": "Fight against Rival's well-rounded team with representatives of all major groups",
+      "location": "Power Plant"
+    },
+    {
+      "id": "item_387",
+      "type": "item",
+      "name": "Poke Ball or Voltorb",
+      "howToGet": "Pick up items found throughout the Power Plant, but some may actually be Voltorb Pokemon"
+    },
+    {
+      "id": "pokemon_388",
+      "type": "pokemon",
+      "name": "Electric Pokemon",
+      "availability": "common",
+      "version": "both",
+      "notes": "Ton of Electric Pokemon found inside"
+    },
+    {
+      "id": "pokemon_389",
+      "type": "pokemon",
+      "name": "Zapdos",
+      "availability": "rare",
+      "version": "both",
+      "notes": "Legendary Electric Bird, third of the Bird Trio, found right before the exit"
+    },
+    {
+      "id": "trainer_390",
+      "type": "trainer",
+      "name": "Rival",
+      "isGymLeader": false,
+      "badge": ""
+    }
+  ],
+  "edges": [
+    {
+      "from": "location_0",
+      "to": "objective_1",
+      "type": "contains"
+    },
+    {
+      "from": "location_0",
+      "to": "objective_2",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_3",
+      "to": "objective_2",
+      "type": "requires"
+    },
+    {
+      "from": "location_0",
+      "to": "objective_4",
+      "type": "contains"
+    },
+    {
+      "from": "location_0",
+      "to": "item_5",
+      "type": "contains"
+    },
+    {
+      "from": "location_0",
+      "to": "item_6",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "objective_8",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "objective_9",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_10",
+      "to": "objective_9",
+      "type": "requires"
+    },
+    {
+      "from": "location_7",
+      "to": "objective_11",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "item_12",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "item_13",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "item_6",
+      "type": "contains"
+    },
+    {
+      "from": "location_7",
+      "to": "location_0",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_7",
+      "to": "location_14",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_7",
+      "to": "location_15",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_7",
+      "to": "location_16",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_7",
+      "to": "location_17",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_7",
+      "to": "location_18",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_14",
+      "to": "objective_19",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "objective_20",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_21",
+      "to": "objective_20",
+      "type": "requires"
+    },
+    {
+      "from": "location_14",
+      "to": "item_12",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_22",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_23",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_24",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_25",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_26",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "item_27",
+      "type": "contains"
+    },
+    {
+      "from": "location_14",
+      "to": "pokemon_28",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_14",
+      "to": "pokemon_29",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_14",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_14",
+      "to": "pokemon_31",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_14",
+      "to": "location_32",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_14",
+      "to": "trainer_33",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_34",
+      "to": "objective_35",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_36",
+      "to": "objective_35",
+      "type": "requires"
+    },
+    {
+      "from": "location_34",
+      "to": "objective_37",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_38",
+      "to": "objective_37",
+      "type": "requires"
+    },
+    {
+      "from": "location_34",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_34",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_34",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_34",
+      "to": "pokemon_42",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_34",
+      "to": "pokemon_43",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_34",
+      "to": "location_14",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_34",
+      "to": "trainer_44",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_45",
+      "to": "objective_46",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_47",
+      "to": "objective_46",
+      "type": "requires"
+    },
+    {
+      "from": "location_45",
+      "to": "objective_48",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_49",
+      "to": "objective_48",
+      "type": "requires"
+    },
+    {
+      "from": "location_45",
+      "to": "item_50",
+      "type": "contains"
+    },
+    {
+      "from": "location_45",
+      "to": "item_51",
+      "type": "contains"
+    },
+    {
+      "from": "location_45",
+      "to": "item_52",
+      "type": "contains"
+    },
+    {
+      "from": "location_45",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_45",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_45",
+      "to": "pokemon_53",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_45",
+      "to": "pokemon_54",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_45",
+      "to": "location_55",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Entrance through building"
+      ]
+    },
+    {
+      "from": "location_45",
+      "to": "location_56",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Cut skill to slice down saplings"
+      ]
+    },
+    {
+      "from": "location_45",
+      "to": "location_57",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_45",
+      "to": "location_58",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Defeat Brock at Pewter City Gym"
+      ]
+    },
+    {
+      "from": "location_45",
+      "to": "trainer_59",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_57",
+      "to": "objective_60",
+      "type": "contains"
+    },
+    {
+      "from": "location_57",
+      "to": "objective_61",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_62",
+      "to": "objective_61",
+      "type": "requires"
+    },
+    {
+      "from": "location_57",
+      "to": "item_63",
+      "type": "contains"
+    },
+    {
+      "from": "location_57",
+      "to": "item_64",
+      "type": "contains"
+    },
+    {
+      "from": "location_57",
+      "to": "item_65",
+      "type": "contains"
+    },
+    {
+      "from": "location_57",
+      "to": "pokemon_66",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_57",
+      "to": "trainer_67",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_58",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_58",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_58",
+      "to": "pokemon_68",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_58",
+      "to": "location_69",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_58",
+      "to": "trainer_70",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_58",
+      "to": "trainer_71",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_58",
+      "to": "trainer_72",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_73",
+      "to": "item_74",
+      "type": "contains"
+    },
+    {
+      "from": "location_73",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_73",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_73",
+      "to": "pokemon_75",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_73",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_73",
+      "to": "location_69",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Cannot return once you enter the long grass"
+      ]
+    },
+    {
+      "from": "location_73",
+      "to": "location_77",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_77",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_77",
+      "to": "pokemon_78",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_77",
+      "to": "pokemon_79",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_80",
+      "to": "item_81",
+      "type": "contains"
+    },
+    {
+      "from": "location_80",
+      "to": "item_82",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "objective_83",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "objective_84",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_85",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_51",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_86",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_87",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_88",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_89",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_18",
+      "to": "pokemon_91",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_18",
+      "to": "pokemon_92",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_18",
+      "to": "pokemon_93",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_94",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_94",
+      "to": "pokemon_95",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_94",
+      "to": "pokemon_96",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_94",
+      "to": "pokemon_97",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_94",
+      "to": "pokemon_98",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_99",
+      "to": "objective_100",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "objective_101",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_102",
+      "to": "objective_101",
+      "type": "requires"
+    },
+    {
+      "from": "location_99",
+      "to": "objective_103",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "objective_104",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_105",
+      "to": "objective_104",
+      "type": "requires"
+    },
+    {
+      "from": "location_99",
+      "to": "objective_106",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "item_107",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "item_26",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "item_108",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "item_25",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "item_109",
+      "type": "contains"
+    },
+    {
+      "from": "location_99",
+      "to": "pokemon_110",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_99",
+      "to": "pokemon_111",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_99",
+      "to": "trainer_112",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_99",
+      "to": "trainer_113",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_15",
+      "to": "objective_114",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "objective_115",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "objective_116",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_117",
+      "to": "objective_116",
+      "type": "requires"
+    },
+    {
+      "from": "location_15",
+      "to": "item_118",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_119",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_120",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_121",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_122",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_123",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_124",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "item_125",
+      "type": "contains"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_126",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_127",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_128",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "pokemon_129",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_15",
+      "to": "location_99",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_15",
+      "to": "location_56",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_15",
+      "to": "location_45",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Access through Diglett's Cave"
+      ]
+    },
+    {
+      "from": "location_15",
+      "to": "location_130",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Cut ability"
+      ]
+    },
+    {
+      "from": "location_15",
+      "to": "location_131",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Cut ability"
+      ]
+    },
+    {
+      "from": "location_15",
+      "to": "trainer_70",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_15",
+      "to": "trainer_132",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_15",
+      "to": "trainer_133",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_15",
+      "to": "trainer_113",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_15",
+      "to": "trainer_134",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_135",
+      "to": "objective_136",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_137",
+      "to": "objective_136",
+      "type": "requires"
+    },
+    {
+      "from": "location_135",
+      "to": "objective_138",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_139",
+      "to": "objective_138",
+      "type": "requires"
+    },
+    {
+      "from": "location_135",
+      "to": "item_140",
+      "type": "contains"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_126",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_141",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_142",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_143",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_144",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "pokemon_145",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_135",
+      "to": "location_146",
+      "type": "leads_to",
+      "method": "surf",
+      "requirements": [
+        "HM 03 Surf"
+      ]
+    },
+    {
+      "from": "location_135",
+      "to": "location_130",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_135",
+      "to": "location_131",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Navigate through Rock Tunnel"
+      ]
+    },
+    {
+      "from": "location_135",
+      "to": "trainer_147",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_135",
+      "to": "trainer_148",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_149",
+      "to": "objective_150",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_151",
+      "to": "objective_150",
+      "type": "requires"
+    },
+    {
+      "from": "location_149",
+      "to": "objective_152",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "objective_153",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_119",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_109",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_154",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_85",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_155",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_156",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_157",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_158",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_159",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "item_160",
+      "type": "contains"
+    },
+    {
+      "from": "location_149",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_149",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_149",
+      "to": "pokemon_126",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_149",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_149",
+      "to": "pokemon_141",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_149",
+      "to": "location_130",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_149",
+      "to": "location_131",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_149",
+      "to": "location_161",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_149",
+      "to": "location_77",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_149",
+      "to": "trainer_162",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_131",
+      "to": "objective_163",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "objective_164",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "objective_165",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_166",
+      "to": "objective_165",
+      "type": "requires"
+    },
+    {
+      "from": "location_131",
+      "to": "objective_167",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_151",
+      "to": "objective_167",
+      "type": "requires"
+    },
+    {
+      "from": "location_131",
+      "to": "item_168",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "item_169",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "item_170",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "item_171",
+      "type": "contains"
+    },
+    {
+      "from": "location_131",
+      "to": "pokemon_93",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_131",
+      "to": "location_172",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_131",
+      "to": "trainer_173",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_174",
+      "to": "objective_175",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_176",
+      "to": "objective_175",
+      "type": "requires"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_96",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_126",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_177",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_98",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "pokemon_178",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_174",
+      "to": "location_131",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_174",
+      "to": "location_179",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "drink for guard"
+      ]
+    },
+    {
+      "from": "location_180",
+      "to": "objective_181",
+      "type": "contains"
+    },
+    {
+      "from": "location_180",
+      "to": "objective_182",
+      "type": "contains"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_95",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_96",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_177",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_97",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_98",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "pokemon_178",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_180",
+      "to": "location_161",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_180",
+      "to": "location_179",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_180",
+      "to": "location_17",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_180",
+      "to": "trainer_72",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_180",
+      "to": "trainer_183",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_180",
+      "to": "trainer_132",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "objective_184",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_185",
+      "to": "objective_184",
+      "type": "requires"
+    },
+    {
+      "from": "location_179",
+      "to": "objective_186",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_187",
+      "to": "objective_186",
+      "type": "requires"
+    },
+    {
+      "from": "location_179",
+      "to": "objective_188",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_185",
+      "to": "objective_188",
+      "type": "requires"
+    },
+    {
+      "from": "location_179",
+      "to": "item_189",
+      "type": "contains"
+    },
+    {
+      "from": "location_179",
+      "to": "item_190",
+      "type": "contains"
+    },
+    {
+      "from": "location_179",
+      "to": "item_191",
+      "type": "contains"
+    },
+    {
+      "from": "location_179",
+      "to": "item_192",
+      "type": "contains"
+    },
+    {
+      "from": "location_179",
+      "to": "item_193",
+      "type": "contains"
+    },
+    {
+      "from": "location_179",
+      "to": "pokemon_194",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_179",
+      "to": "location_161",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_195",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_196",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_197",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_198",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_199",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_179",
+      "to": "trainer_200",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_161",
+      "to": "objective_201",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "objective_202",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_203",
+      "to": "objective_202",
+      "type": "requires"
+    },
+    {
+      "from": "location_161",
+      "to": "objective_204",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_205",
+      "to": "objective_204",
+      "type": "requires"
+    },
+    {
+      "from": "requirement_21",
+      "to": "objective_204",
+      "type": "requires"
+    },
+    {
+      "from": "location_161",
+      "to": "objective_206",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_207",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_208",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_209",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_210",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_211",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_212",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_213",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_214",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_215",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_85",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_216",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_88",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_217",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_52",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_109",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_218",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_219",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_220",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "item_51",
+      "type": "contains"
+    },
+    {
+      "from": "location_161",
+      "to": "pokemon_221",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_161",
+      "to": "pokemon_222",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_161",
+      "to": "pokemon_223",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_161",
+      "to": "pokemon_224",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_161",
+      "to": "location_174",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Underground Passage"
+      ]
+    },
+    {
+      "from": "location_161",
+      "to": "location_179",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_161",
+      "to": "trainer_225",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_161",
+      "to": "trainer_33",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_161",
+      "to": "trainer_199",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_226",
+      "to": "objective_227",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_228",
+      "to": "objective_227",
+      "type": "requires"
+    },
+    {
+      "from": "location_226",
+      "to": "objective_229",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_62",
+      "to": "objective_229",
+      "type": "requires"
+    },
+    {
+      "from": "location_226",
+      "to": "objective_230",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_231",
+      "to": "objective_230",
+      "type": "requires"
+    },
+    {
+      "from": "location_226",
+      "to": "item_232",
+      "type": "contains"
+    },
+    {
+      "from": "location_226",
+      "to": "item_233",
+      "type": "contains"
+    },
+    {
+      "from": "location_226",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_226",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_226",
+      "to": "pokemon_234",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_226",
+      "to": "pokemon_235",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_226",
+      "to": "pokemon_236",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_226",
+      "to": "location_237",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Bicycle",
+        "Poke Flute to wake Snorlax"
+      ]
+    },
+    {
+      "from": "location_226",
+      "to": "location_77",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Bike Voucher to get Bicycle"
+      ]
+    },
+    {
+      "from": "location_226",
+      "to": "trainer_238",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_226",
+      "to": "trainer_239",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_240",
+      "to": "objective_241",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_242",
+      "to": "objective_241",
+      "type": "requires"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_243",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_234",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_235",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_244",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_110",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "pokemon_29",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_240",
+      "to": "location_245",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_240",
+      "to": "location_172",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_172",
+      "to": "objective_163",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "objective_246",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "objective_247",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "objective_248",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_249",
+      "to": "objective_248",
+      "type": "requires"
+    },
+    {
+      "from": "location_172",
+      "to": "objective_250",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_251",
+      "to": "objective_250",
+      "type": "requires"
+    },
+    {
+      "from": "location_172",
+      "to": "item_252",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_253",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_168",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_254",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_255",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_256",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_257",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "item_233",
+      "type": "contains"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_110",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_29",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_258",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_259",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_260",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_261",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_95",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_262",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_97",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "pokemon_263",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_172",
+      "to": "location_264",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_172",
+      "to": "trainer_173",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_265",
+      "to": "objective_266",
+      "type": "contains"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_260",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_261",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_95",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_262",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_97",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "pokemon_263",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_265",
+      "to": "location_264",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_267",
+      "to": "objective_268",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_228",
+      "to": "objective_268",
+      "type": "requires"
+    },
+    {
+      "from": "location_267",
+      "to": "objective_269",
+      "type": "contains"
+    },
+    {
+      "from": "location_267",
+      "to": "item_270",
+      "type": "contains"
+    },
+    {
+      "from": "location_267",
+      "to": "item_271",
+      "type": "contains"
+    },
+    {
+      "from": "location_267",
+      "to": "item_272",
+      "type": "contains"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_95",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_262",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_261",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_97",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_263",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_244",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_110",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_29",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "pokemon_236",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_267",
+      "to": "location_131",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_273",
+      "to": "objective_274",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "objective_275",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_276",
+      "to": "objective_275",
+      "type": "requires"
+    },
+    {
+      "from": "location_273",
+      "to": "objective_277",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_168",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_254",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_278",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_119",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_109",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_154",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_279",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "item_155",
+      "type": "contains"
+    },
+    {
+      "from": "location_273",
+      "to": "pokemon_280",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_273",
+      "to": "pokemon_281",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_273",
+      "to": "pokemon_282",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_273",
+      "to": "pokemon_283",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_273",
+      "to": "location_284",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_273",
+      "to": "location_285",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_273",
+      "to": "location_286",
+      "type": "leads_to",
+      "method": "surf",
+      "requirements": [
+        "Soul Badge",
+        "HM 03"
+      ]
+    },
+    {
+      "from": "location_273",
+      "to": "location_287",
+      "type": "leads_to",
+      "method": "surf",
+      "requirements": [
+        "Soul Badge",
+        "HM 03"
+      ]
+    },
+    {
+      "from": "location_273",
+      "to": "trainer_173",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_273",
+      "to": "trainer_288",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_273",
+      "to": "trainer_289",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_42",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_290",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_43",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_291",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_261",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_292",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_235",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_293",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_294",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "pokemon_295",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_286",
+      "to": "location_296",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_297",
+      "to": "objective_298",
+      "type": "contains"
+    },
+    {
+      "from": "location_297",
+      "to": "objective_299",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_300",
+      "to": "objective_299",
+      "type": "requires"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_40",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_234",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_39",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_301",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_302",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "pokemon_244",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_297",
+      "to": "location_0",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_297",
+      "to": "location_303",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "all eight Badges"
+      ]
+    },
+    {
+      "from": "location_297",
+      "to": "trainer_288",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_297",
+      "to": "trainer_134",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_260",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_41",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_243",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_75",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_126",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_76",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_304",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_305",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_78",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_306",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_303",
+      "to": "pokemon_258",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "objective_308",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "objective_309",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_310",
+      "to": "objective_309",
+      "type": "requires"
+    },
+    {
+      "from": "location_307",
+      "to": "objective_311",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_310",
+      "to": "objective_311",
+      "type": "requires"
+    },
+    {
+      "from": "requirement_312",
+      "to": "objective_311",
+      "type": "requires"
+    },
+    {
+      "from": "location_307",
+      "to": "item_313",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "item_314",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "item_315",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "item_51",
+      "type": "contains"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_141",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_316",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_317",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_66",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_318",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_307",
+      "to": "pokemon_319",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_69",
+      "to": "objective_320",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "objective_321",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "objective_322",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_323",
+      "to": "objective_322",
+      "type": "requires"
+    },
+    {
+      "from": "location_69",
+      "to": "item_324",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_325",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_85",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_52",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_51",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_326",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_327",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_328",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_156",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_157",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_86",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "item_329",
+      "type": "contains"
+    },
+    {
+      "from": "location_69",
+      "to": "pokemon_142",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_69",
+      "to": "pokemon_143",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_69",
+      "to": "pokemon_330",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_69",
+      "to": "pokemon_331",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_69",
+      "to": "pokemon_68",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_332",
+      "to": "item_333",
+      "type": "contains"
+    },
+    {
+      "from": "location_332",
+      "to": "location_334",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": []
+    },
+    {
+      "from": "location_285",
+      "to": "item_88",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_313",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_335",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_124",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_336",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_337",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_338",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_339",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_340",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_341",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "item_255",
+      "type": "contains"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_42",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_290",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_43",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_291",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_342",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_261",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_293",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_343",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_344",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_345",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_346",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_235",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_330",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_295",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_292",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_285",
+      "to": "pokemon_294",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_142",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_347",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_348",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_349",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_223",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_305",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_350",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_351",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_352",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_353",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_354",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_306",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_30",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_78",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "pokemon_283",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_287",
+      "to": "location_296",
+      "type": "leads_to",
+      "method": "surf",
+      "requirements": [
+        "HM03 Surf"
+      ]
+    },
+    {
+      "from": "location_296",
+      "to": "objective_355",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_356",
+      "to": "objective_355",
+      "type": "requires"
+    },
+    {
+      "from": "location_296",
+      "to": "objective_357",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "objective_358",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_359",
+      "to": "objective_358",
+      "type": "requires"
+    },
+    {
+      "from": "location_296",
+      "to": "item_360",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_361",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_362",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_363",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_85",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_313",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_364",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_124",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_272",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_365",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_336",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "item_366",
+      "type": "contains"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_353",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_354",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_352",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_29",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_280",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_280",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_282",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_367",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_367",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_368",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_177",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_178",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "pokemon_369",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_296",
+      "to": "location_0",
+      "type": "leads_to",
+      "method": "surf",
+      "requirements": [
+        "HM Surf",
+        "complete Route 21"
+      ]
+    },
+    {
+      "from": "location_296",
+      "to": "location_14",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "travel through Pallet Town"
+      ]
+    },
+    {
+      "from": "location_296",
+      "to": "trainer_370",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_296",
+      "to": "trainer_200",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_296",
+      "to": "trainer_371",
+      "type": "has_trainer"
+    },
+    {
+      "from": "location_32",
+      "to": "objective_372",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "objective_373",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_374",
+      "to": "objective_373",
+      "type": "requires"
+    },
+    {
+      "from": "location_32",
+      "to": "objective_375",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_90",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_376",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_377",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_279",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_378",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_379",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_340",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "item_336",
+      "type": "contains"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_380",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_144",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_381",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_143",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_382",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_142",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_347",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_145",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_383",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "pokemon_292",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_32",
+      "to": "location_307",
+      "type": "leads_to",
+      "method": "walk",
+      "requirements": [
+        "Complete Victory Road"
+      ]
+    },
+    {
+      "from": "location_146",
+      "to": "objective_384",
+      "type": "contains"
+    },
+    {
+      "from": "requirement_385",
+      "to": "objective_384",
+      "type": "requires"
+    },
+    {
+      "from": "location_146",
+      "to": "objective_386",
+      "type": "contains"
+    },
+    {
+      "from": "location_146",
+      "to": "item_387",
+      "type": "contains"
+    },
+    {
+      "from": "location_146",
+      "to": "pokemon_388",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_146",
+      "to": "pokemon_389",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_146",
+      "to": "pokemon_141",
+      "type": "has_pokemon"
+    },
+    {
+      "from": "location_146",
+      "to": "trainer_390",
+      "type": "has_trainer"
+    }
+  ]
+}

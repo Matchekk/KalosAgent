@@ -1,0 +1,17 @@
+{
+  "name": "tesserack-scripts",
+  "version": "1.0.0",
+  "description": "Extraction scripts for Tesserack test bundles",
+  "type": "module",
+  "scripts": {
+    "guide:download": "node scripts/download-prima-guide.js",
+    "guide:extract-pages": "node scripts/extract-pages.js",
+    "guide:extract-claude": "node scripts/extract-with-claude.js",
+    "guide:generate-bundles": "node scripts/generate-test-bundles.js",
+    "guide:validate": "node scripts/validate-bundles.js",
+    "guide:full-pipeline": "npm run guide:download && npm run guide:extract-pages && npm run guide:extract-claude && npm run guide:generate-bundles && npm run guide:validate"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}

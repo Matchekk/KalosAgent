@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesserack - AI Plays Pokemon</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "@mlc-ai/web-llm": "https://esm.run/@mlc-ai/web-llm"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tesserack</h1>
+            <p class="subtitle">AI Plays Pokemon (Browser Edition)</p>
+        </header>
+
+        <div id="status-bar">
+            <span id="status-text">Drop ROM to start</span>
+            <div id="progress-container" style="display:none">
+                <div id="progress-bar"></div>
+                <span id="progress-text">0%</span>
+            </div>
+        </div>
+
+        <main>
+            <div class="game-panel">
+                <div id="rom-drop" class="drop-zone">
+                    <p>Drop Pokemon Red ROM here</p>
+                    <p class="small">or click to select file</p>
+                    <input type="file" id="rom-input" accept=".gb,.gbc" style="display:none">
+                </div>
+                <canvas id="game-canvas" width="160" height="144" style="display:none"></canvas>
+            </div>
+
+            <div class="info-panel">
+                <div class="controls-row">
+                    <div class="mode-select">
+                        <span class="mode-label">Mode:</span>
+                        <button id="turbo-btn" class="mode-btn" disabled>Turbo</button>
+                        <button id="llm-btn" class="mode-btn" disabled>LLM</button>
+                        <button id="rl-btn" class="mode-btn primary" disabled>RL+LLM</button>
+                    </div>
+                    <button id="stop-btn" disabled>Stop</button>
+                    <button id="save-btn" disabled>Save</button>
+                    <button id="load-btn" disabled>Load</button>
+                </div>
+
+                <div class="state-panel">
+                    <h3>Game State</h3>
+                    <div id="game-state">Waiting for ROM...</div>
+                </div>
+
+                <div class="reasoning-panel">
+                    <h3>LLM Reasoning</h3>
+                    <div id="objective" class="objective">-</div>
+                    <div id="reasoning">-</div>
+                    <div class="action-display">
+                        <strong>Actions:</strong> <span id="actions">-</span>
+                    </div>
+                </div>
+
+                <div class="hint-panel">
+                    <h3>Guide the AI</h3>
+                    <div class="hint-input-row">
+                        <input type="text" id="hint-input" placeholder="e.g., Go north to Viridian City" disabled>
+                        <button id="hint-btn" disabled>Send</button>
+                    </div>
+                    <div id="hint-status" class="hint-status"></div>
+                </div>
+
+                <div class="rl-panel" id="rl-panel" style="display:none">
+                    <h3>RL Stats</h3>
+                    <div class="rl-stats">
+                        <div><strong>Total Reward:</strong> <span id="rl-reward">0</span></div>
+                        <div><strong>Experiences:</strong> <span id="rl-experiences">0</span></div>
+                        <div><strong>Maps Visited:</strong> <span id="rl-maps">0</span></div>
+                        <div><strong>Exploration:</strong> <span id="rl-exploration">20%</span></div>
+                    </div>
+                    <div class="rl-controls">
+                        <label>Exploration Rate:
+                            <input type="range" id="exploration-slider" min="0" max="100" value="20">
+                        </label>
+                        <button id="export-rl-btn">Export Data</button>
+                    </div>
+                </div>
+
+                <div class="training-panel" id="training-panel">
+                    <h3>Neural Network</h3>
+                    <div class="training-stats">
+                        <div><strong>Model:</strong> <span id="model-status">Not trained</span></div>
+                        <div><strong>Sessions:</strong> <span id="training-sessions">0</span></div>
+                        <div><strong>Policy Usage:</strong> <span id="policy-usage">0%</span></div>
+                        <div><strong>Next Auto-Train:</strong> <span id="next-autotrain">3,000</span> steps</div>
+                    </div>
+                    <div id="training-progress" class="training-progress" style="display:none">
+                        <div class="progress-label" id="training-label">Training...</div>
+                        <div class="training-bar">
+                            <div class="training-bar-fill" id="training-bar-fill"></div>
+                        </div>
+                    </div>
+                    <div class="training-controls">
+                        <button id="train-now-btn" disabled>Train Now</button>
+                        <button id="clear-model-btn" disabled>Clear Model</button>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="auto-train-toggle" checked>
+                            Auto-train
+                        </label>
+                    </div>
+                </div>
+
+                <div class="data-panel">
+                    <h3>Data Collection</h3>
+                    <div class="data-controls">
+                        <button id="explore-btn" class="data-btn" disabled>Random Explore</button>
+                        <button id="record-btn" class="data-btn" disabled>Record Me</button>
+                        <button id="stop-collect-btn" class="data-btn" disabled>Stop</button>
+                    </div>
+                    <div class="data-stats">
+                        <div><strong>Exploration:</strong> <span id="explore-count">0</span> steps</div>
+                        <div><strong>Human Demos:</strong> <span id="human-count">0</span></div>
+                        <div><strong>Total Reward:</strong> <span id="collect-reward">0</span></div>
+                    </div>
+                    <div id="collect-status" class="collect-status"></div>
+                    <div class="data-export">
+                        <button id="export-training-btn" disabled>Export for Training</button>
+                        <button id="clear-data-btn" disabled>Clear Data</button>
+                    </div>
+                </div>
+
+                <div class="checkpoint-panel">
+                    <h3>Visual Checkpoints</h3>
+                    <p class="panel-desc">Auto-captures when badges, Pokemon, or locations discovered</p>
+
+                    <div class="discovery-stats">
+                        <span><strong>Locations:</strong> <span id="discovered-locations">0</span></span>
+                        <span><strong>Pokemon:</strong> <span id="discovered-pokemon">0</span></span>
+                        <span><strong>Auto-Rewards:</strong> <span id="discovery-rewards">0</span></span>
+                    </div>
+
+                    <div class="discovery-feed" id="discovery-feed">
+                        <div class="no-discoveries">Discoveries will appear here...</div>
+                    </div>
+
+                    <details class="manual-checkpoints">
+                        <summary>Manual Checkpoints (optional)</summary>
+                        <div class="checkpoint-controls">
+                            <button id="capture-checkpoint-btn" disabled>Capture Screen</button>
+                            <label class="upload-btn small">
+                                Upload
+                                <input type="file" id="checkpoint-upload" accept="image/*" style="display:none">
+                            </label>
+                        </div>
+
+                        <div class="checkpoint-form" id="checkpoint-form" style="display:none">
+                            <img id="checkpoint-preview" class="checkpoint-preview">
+                            <input type="text" id="checkpoint-name" placeholder="Name">
+                            <input type="number" id="checkpoint-reward" value="200" min="10" max="2000">
+                            <div class="checkpoint-form-btns">
+                                <button id="save-checkpoint-btn">Add</button>
+                                <button id="cancel-checkpoint-btn">Cancel</button>
+                            </div>
+                        </div>
+
+                        <div class="checkpoint-list" id="checkpoint-list">
+                            <div class="no-checkpoints">No manual checkpoints</div>
+                        </div>
+                    </details>
+
+                    <div class="checkpoint-actions">
+                        <button id="export-checkpoints-btn" disabled>Export All</button>
+                        <label class="upload-btn small">
+                            Import
+                            <input type="file" id="import-checkpoints" accept=".json" style="display:none">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="adaptive-panel" id="adaptive-panel" style="display:none">
+                    <h3>LLM-Generated Tests</h3>
+                    <div id="current-tests" class="test-list">
+                        <div class="no-tests">No active tests</div>
+                    </div>
+                    <div class="adaptive-stats">
+                        <div><strong>Tests Passed:</strong> <span id="tests-passed">0</span></div>
+                        <div><strong>Adaptive Reward:</strong> <span id="adaptive-reward">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="manual-controls">
+            <div class="dpad">
+                <button data-btn="up" class="dpad-up">▲</button>
+                <div class="dpad-middle">
+                    <button data-btn="left" class="dpad-left">◀</button>
+                    <button data-btn="right" class="dpad-right">▶</button>
+                </div>
+                <button data-btn="down" class="dpad-down">▼</button>
+            </div>
+            <div class="action-btns">
+                <button data-btn="b" class="btn-b">B</button>
+                <button data-btn="a" class="btn-a">A</button>
+            </div>
+            <div class="menu-btns">
+                <button data-btn="select" class="btn-select">Select</button>
+                <button data-btn="start" class="btn-start">Start</button>
+            </div>
+            <button id="turbo-a-btn" class="turbo-a">Turbo A</button>
+        </div>
+    </div>
+
+    <!-- binjgb GameBoy emulator (WASM) -->
+    <script src="lib/binjgb.js"></script>
+    <!-- Main application -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "default",
+  "description": "Default experiment configuration - target first 2 gyms",
+  "target_checkpoint": 13,
+  "max_steps": 100000,
+  "emulator": {
+    "rom_path": "pokemon_red.gb",
+    "headless": true,
+    "speed": 0
+  },
+  "llm": {
+    "backend": "ollama",
+    "model": "llama3.2:3b",
+    "base_url": "http://localhost:11434",
+    "temperature": 0.7,
+    "max_tokens": 256
+  },
+  "policy": {
+    "state_dim": 64,
+    "task_dim": 32,
+    "hidden_dim": 128,
+    "learning_rate": 0.001,
+    "epsilon_start": 0.3,
+    "epsilon_end": 0.05,
+    "epsilon_decay": 0.995,
+    "train_every": 100,
+    "batch_size": 32
+  },
+  "task": {
+    "default_budget": 1000,
+    "replan_on_failure": true,
+    "max_replans": 3
+  },
+  "runs_dir": "runs",
+  "save_checkpoints": true,
+  "checkpoint_interval": 1
+}

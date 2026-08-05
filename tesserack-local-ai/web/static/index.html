@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalLLMPlaysPokemon</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LocalLLMPlaysPokemon</h1>
+            <div class="controls">
+                <div class="mode-select">
+                    <span class="mode-label">Start:</span>
+                    <button id="turboBtn" class="mode-btn primary">▶ Turbo (Fast)</button>
+                    <button id="startBtn" class="mode-btn">▶ LLM (Smart)</button>
+                </div>
+                <button id="stopBtn" disabled>Stop</button>
+                <button id="saveBtn" disabled>Save</button>
+                <button id="loadBtn" disabled>Load</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="game-panel">
+                <h2>Game Screen</h2>
+                <canvas id="gameCanvas" width="160" height="144"></canvas>
+            </div>
+
+            <div class="state-panel">
+                <h2>Game State</h2>
+                <div id="gameState">
+                    <p>Waiting to start...</p>
+                </div>
+            </div>
+
+            <div class="reasoning-panel">
+                <h2>LLM Reasoning</h2>
+                <div id="reasoning">
+                    <p>Waiting for agent...</p>
+                </div>
+                <div class="action">
+                    <strong>Action:</strong> <span id="action">-</span>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <h2>Manual Controls</h2>
+                <div class="dpad">
+                    <button class="btn-up" data-button="up">&#9650;</button>
+                    <div class="dpad-row">
+                        <button class="btn-left" data-button="left">&#9664;</button>
+                        <button class="btn-right" data-button="right">&#9654;</button>
+                    </div>
+                    <button class="btn-down" data-button="down">&#9660;</button>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-b" data-button="b">B</button>
+                    <button class="btn-a" data-button="a">A</button>
+                </div>
+                <div class="menu-buttons">
+                    <button class="btn-select" data-button="select">Select</button>
+                    <button class="btn-start" data-button="start">Start</button>
+                </div>
+                <div class="turbo-controls">
+                    <button id="turboA">Turbo A (hold)</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.gb
+*.gbc
+*.sav
+*.state
+*.ram
+models/*.gguf
+saves/
+ClaudePlaysPokemonStarter/
+.DS_Store
+
+# SvelteKit
+app/.svelte-kit
+app/build
+app/node_modules
+node_modules
+
+# Data (large files, keep extracted JSON)
+data/prima-guide-raw.txt
+data/prima-guide-text.txt
+data/walkthrough-raw.json
+
+# Prima Guide extraction (large files)
+data/prima-guide.pdf
+data/prima-pages/
+data/extractions/

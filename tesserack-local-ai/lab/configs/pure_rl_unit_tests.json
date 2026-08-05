@@ -1,0 +1,50 @@
+{
+  "name": "pure_rl_unit_tests",
+  "description": "Pure RL loop with deterministic unit-test rewards (no LLM at runtime).",
+  "agent_mode": "pure_rl",
+  "reward_mode": "unit_tests",
+  "seed": 42,
+  "max_steps": 500000,
+  "target_checkpoint": 0,
+  "emulator": {
+    "rom_path": "/Users/sid/Desktop/pokemon-red-us.gb",
+    "headless": true,
+    "speed": 0,
+    "save_state_path": "runs/ready_to_play.state",
+    "frame_skip": 4,
+    "action_hold_frames": 8,
+    "action_release_frames": 4
+  },
+  "llm": {
+    "enabled": false
+  },
+  "task": {
+    "enabled": false
+  },
+  "policy": {
+    "state_dim": 64,
+    "task_dim": 32,
+    "hidden_dim": 128,
+    "learning_rate": 0.001,
+    "epsilon_start": 0.3,
+    "epsilon_end": 0.05,
+    "epsilon_decay": 0.995,
+    "train_every": 100,
+    "batch_size": 32,
+    "ignore_task": true
+  },
+  "unit_tests": {
+    "enabled": true,
+    "bundles_path": "data/test-bundles.json",
+    "enable_tier1": true,
+    "enable_tier2": true,
+    "enable_tier3": true,
+    "enable_penalties": true,
+    "tier1_weight": 1.0,
+    "tier2_weight": 1.0,
+    "tier3_weight": 1.0,
+    "penalty_weight": 1.0,
+    "use_once_constraints": true,
+    "reward_decay": 0.0
+  }
+}

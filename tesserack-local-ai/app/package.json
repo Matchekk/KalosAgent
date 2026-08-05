@@ -1,0 +1,25 @@
+{
+  "name": "tesserack",
+  "version": "1.0.0",
+  "description": "Reinforcement learning test bed for game environments - supports LLM-guided and Pure RL modes",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "3.0.10",
+    "@sveltejs/kit": "2.70.2",
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "svelte": "5.56.8",
+    "vite": "6.4.3"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "0.2.84",
+    "cytoscape": "3.34.0",
+    "cytoscape-dagre": "^2.5.0",
+    "lucide-svelte": "^0.469.0"
+  }
+}
