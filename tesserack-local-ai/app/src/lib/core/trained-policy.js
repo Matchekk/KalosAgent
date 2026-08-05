@@ -50,11 +50,12 @@ export class TrainedPolicy {
      * @returns {Promise<boolean>} - Whether training occurred
      */
     async checkAndTrain(experiences) {
-        if (!this.trainer.shouldAutoTrain(experiences.length)) {
+        const signalCount = this.trainer.countTrainingSignals(experiences);
+        if (!this.trainer.shouldAutoTrain(signalCount)) {
             return false;
         }
 
-        console.log(`Auto-training triggered at ${experiences.length} experiences`);
+        console.log(`Auto-training triggered at ${signalCount} reward-bearing experiences`);
 
         const result = await this.trainer.train(experiences);
 
@@ -272,7 +273,7 @@ export class AutoTrainingManager {
         if (!this.enabled) return; // Respect the enabled toggle
 
         const experiences = this.buffer.buffer || [];
-        const count = experiences.length;
+        const count = this.policy.trainer.countTrainingSignals(experiences);
 
         // Only check if we have new experiences
         if (count <= this.lastCheckCount) return;

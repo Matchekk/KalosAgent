@@ -585,6 +585,13 @@ export class MemoryReader {
      * @returns {number}
      */
     readByte(address) {
+        // binjgb's mapped read follows the currently selected CGB WRAM bank.
+        // Red++ briefly switches banks for rendering, while its gameplay state
+        // lives in bank 1. The direct WRAM view keeps C000-CFFF in bank 0 and
+        // D000-DFFF in bank 1, producing a stable snapshot.
+        if (address >= 0xC000 && address <= 0xDFFF && this.emu.getWRAM) {
+            return this.emu.getWRAM()[address - 0xC000];
+        }
         return this.emu.readMemory(address);
     }
 
@@ -595,7 +602,11 @@ export class MemoryReader {
      * @returns {Uint8Array}
      */
     readBytes(address, length) {
-        return this.emu.readMemoryRange(address, length);
+        const result = new Uint8Array(length);
+        for (let i = 0; i < length; i++) {
+            result[i] = this.readByte(address + i);
+        }
+        return result;
     }
 
     /**

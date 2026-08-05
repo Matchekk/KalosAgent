@@ -40,7 +40,33 @@ export const REWARDS = {
     STUCK_PENALTY: -50,
     MENU_SPAM_PENALTY: -10,
     NO_PROGRESS_PENALTY: -5,
+
+    // Immediate, action-specific feedback for credit assignment
+    DIALOG_ADVANCED: 2,
+    DIALOG_WRONG_BUTTON: -1,
+    MOVEMENT_PROGRESS: 1,
+    BLOCKED_MOVEMENT: -0.5,
+    GAME_STARTED: 10,
 };
+
+const MOVEMENT_ACTIONS = new Set(['up', 'down', 'left', 'right']);
+
+export function isPlayableState(state) {
+    const name = String(state?.playerName || '').trim();
+    const location = String(state?.location || '').trim();
+    const coordinates = state?.coordinates;
+    return name.length > 0
+        && name.length <= 10
+        && location.length > 0
+        && location !== 'UNKNOWN'
+        && Number.isFinite(coordinates?.x)
+        && Number.isFinite(coordinates?.y)
+        && (coordinates.x !== 0 || coordinates.y !== 0)
+        && Array.isArray(state?.badges)
+        && state.badges.length <= 8
+        && Array.isArray(state?.party)
+        && state.party.length <= 6;
+}
 
 /**
  * Tracks game state and computes rewards for transitions
@@ -76,9 +102,36 @@ export class RewardCalculator {
 
         const breakdown = {};
         let total = 0;
+        const playableTransition = isPlayableState(prevState) && isPlayableState(currState);
+        if (!isPlayableState(prevState) && isPlayableState(currState)) {
+            breakdown.gameStarted = REWARDS.GAME_STARTED;
+            total += breakdown.gameStarted;
+        }
+
+        // Dense, action-specific feedback lets the policy learn basic controls
+        // before it reaches a rare milestone such as a badge or a new map.
+        const prevDialog = String(prevState.dialog || '').trim();
+        const currDialog = String(currState.dialog || '').trim();
+        if (prevDialog && action === 'a' && currDialog !== prevDialog) {
+            breakdown.dialogAdvanced = REWARDS.DIALOG_ADVANCED;
+            total += breakdown.dialogAdvanced;
+        } else if (prevDialog && action && action !== 'a') {
+            breakdown.dialogWrongButton = REWARDS.DIALOG_WRONG_BUTTON;
+            total += breakdown.dialogWrongButton;
+        }
+
+        if (playableTransition && MOVEMENT_ACTIONS.has(action) && !prevDialog) {
+            const moved = prevState.location !== currState.location
+                || prevState.coordinates.x !== currState.coordinates.x
+                || prevState.coordinates.y !== currState.coordinates.y;
+            breakdown.movement = moved
+                ? REWARDS.MOVEMENT_PROGRESS
+                : REWARDS.BLOCKED_MOVEMENT;
+            total += breakdown.movement;
+        }
 
         // Badge earned
-        if (currState.badges.length > prevState.badges.length) {
+        if (playableTransition && currState.badges.length === prevState.badges.length + 1) {
             const newBadges = currState.badges.length - prevState.badges.length;
             breakdown.badges = REWARDS.BADGE_EARNED * newBadges;
             total += breakdown.badges;
@@ -107,8 +160,10 @@ export class RewardCalculator {
         }
 
         // New map discovered
+        const previousMapKey = `${prevState.location}`;
         const mapKey = `${currState.location}`;
-        if (!this.visitedMaps.has(mapKey)) {
+        this.visitedMaps.add(previousMapKey);
+        if (playableTransition && mapKey !== previousMapKey && !this.visitedMaps.has(mapKey)) {
             this.visitedMaps.add(mapKey);
             breakdown.newMap = REWARDS.NEW_MAP;
             total += breakdown.newMap;
@@ -210,7 +265,9 @@ export class RewardCalculator {
         }
 
         // Prima Guide curriculum checkpoints
-        const completedCheckpoints = curriculumTracker.checkProgress(currState);
+        const completedCheckpoints = playableTransition
+            ? curriculumTracker.checkProgress(currState)
+            : [];
         if (completedCheckpoints.length > 0) {
             breakdown.curriculum = 0;
             breakdown.checkpoints = [];
@@ -227,17 +284,17 @@ export class RewardCalculator {
         }
 
         // Continuous progress reward shaping (Layer 2: atomic facts)
-        const currFacts = extractProgressFacts(currState);
-        const currentCheckpoint = getCurrentCheckpoint(currFacts);
+        const currFacts = playableTransition ? extractProgressFacts(currState) : null;
+        const currentCheckpoint = currFacts ? getCurrentCheckpoint(currFacts) : null;
 
         // Update current checkpoint target
-        if (currentCheckpoint.id !== this.currentCheckpointId) {
+        if (currentCheckpoint && currentCheckpoint.id !== this.currentCheckpointId) {
             this.currentCheckpointId = currentCheckpoint.id;
             this.prevProgressFacts = null; // Reset on checkpoint change
         }
 
         // Compute progress reward if we have previous facts
-        if (this.prevProgressFacts && this.currentCheckpointId) {
+        if (currFacts && this.prevProgressFacts && this.currentCheckpointId) {
             const progressReward = computeProgressReward(
                 this.prevProgressFacts,
                 currFacts,

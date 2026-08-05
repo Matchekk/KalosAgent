@@ -11,7 +11,7 @@ export const modelState = writable({
     isTraining: false,
     sessions: 0,
     policyUsage: 0,
-    nextAutoTrain: 3000,
+    nextAutoTrain: 128,
 });
 
 // Training progress (during active training)

@@ -2,7 +2,7 @@
 
 import { chat, resetContext } from './llm.js';
 import { isValidButton, parseMultiplePlans } from './action-parser.js';
-import { RewardCalculator } from './reward-calculator.js';
+import { RewardCalculator, isPlayableState } from './reward-calculator.js';
 import { ExperienceBuffer, ActionStatistics } from './experience-buffer.js';
 import { curriculumTracker } from './curriculum.js';
 import { getDialogAdvanceDecision, getDialogPlanBias } from './dialog-advance.js';
@@ -70,6 +70,7 @@ export class RLAgent {
         this.stepCount = 0;
         this.actionQueue = [];
         this.currentPlan = null;
+        this.loopGeneration = 0;
 
         // RL components
         this.rewardCalc = new RewardCalculator();
@@ -77,13 +78,13 @@ export class RLAgent {
         this.actionStats = new ActionStatistics();
 
         // State tracking
-        this.prevState = null;
-        this.prevActions = null;
+        this.pendingTransition = null;
+        this.transitionObserver = null;
         this.llmCallCount = 0;
         this.dialogAdvanceTracker = { lastDialog: '', unchangedPresses: 0 };
 
         // Policy parameters (simple weighted selection)
-        this.explorationRate = 0.2;  // 20% random exploration
+        this.explorationRate = 0.05; // Small exploration among LLM candidate plans
         this.useActionStats = true;  // Use learned action statistics
 
         // Optional external reward source (e.g., CombinedRewardSystem)
@@ -108,6 +109,29 @@ export class RLAgent {
     setTrainedPolicy(policy) {
         this.trainedPolicy = policy;
         console.log('Trained policy connected to RL agent');
+    }
+
+    setTransitionObserver(observer) {
+        this.transitionObserver = observer;
+    }
+
+    toPolicyState(state) {
+        return {
+            location: state.location,
+            x: state.coordinates?.x || 0,
+            y: state.coordinates?.y || 0,
+            badgeCount: state.badges?.length || 0,
+            partyCount: state.party?.length || 0,
+            avgLevel: state.party?.length > 0
+                ? state.party.reduce((sum, pokemon) => sum + pokemon.level, 0) / state.party.length
+                : 0,
+            hpRatio: state.party?.length > 0
+                ? state.party.reduce((sum, pokemon) => sum + (pokemon.currentHP / Math.max(1, pokemon.maxHP)), 0) / state.party.length
+                : 1,
+            inBattle: state.inBattle || false,
+            hasDialog: !!(state.dialog?.trim()),
+            money: state.money || 0,
+        };
     }
 
     /**
@@ -187,6 +211,14 @@ export class RLAgent {
      * @returns {Object} - Selected plan
      */
     selectPlan(plans, state) {
+        if (!isPlayableState(state) && !state.dialog?.trim()) {
+            return {
+                plan: 'Advance startup screen before navigating',
+                actions: ['start', 'a', 'start', 'a'],
+                selected: 'startup-guard',
+            };
+        }
+
         if (plans.length === 0) {
             const startup = this.stepCount < 120 && state.party?.length === 0 && state.badges?.length === 0;
             return {
@@ -196,7 +228,19 @@ export class RLAgent {
         }
 
         if (plans.length === 1) {
-            return plans[0];
+            const plan = plans[0];
+            if (!this.trainedPolicy) return plan;
+
+            const blendedActions = this.trainedPolicy.blendWithPolicy(
+                this.toPolicyState(state),
+                plan.actions,
+            );
+            const changed = blendedActions.some((action, index) => action !== plan.actions[index]);
+            return {
+                ...plan,
+                actions: blendedActions,
+                selected: changed ? 'llm+neural-policy' : 'llm',
+            };
         }
 
         // Exploration: random selection
@@ -206,22 +250,7 @@ export class RLAgent {
         }
 
         // Convert state for trained policy
-        const policyState = {
-            x: state.coordinates?.x || 0,
-            y: state.coordinates?.y || 0,
-            mapId: state.mapId || 0,
-            badgeCount: state.badges?.length || 0,
-            partyCount: state.party?.length || 0,
-            avgLevel: state.party?.length > 0
-                ? state.party.reduce((sum, p) => sum + p.level, 0) / state.party.length
-                : 0,
-            hpRatio: state.party?.length > 0
-                ? state.party.reduce((sum, p) => sum + (p.currentHP / p.maxHP), 0) / state.party.length
-                : 1,
-            inBattle: state.inBattle || false,
-            hasDialog: !!(state.dialog?.trim()),
-            money: state.money || 0
-        };
+        const policyState = this.toPolicyState(state);
 
         // Score plans using all available methods
         const location = state.location;
@@ -303,11 +332,52 @@ export class RLAgent {
         return score;
     }
 
+    rememberAction(state, action, plan) {
+        this.pendingTransition = { state, action, plan };
+    }
+
+    async settlePendingTransition(nextState) {
+        const pending = this.pendingTransition;
+        if (!pending) return null;
+        this.pendingTransition = null;
+
+        const { total: reward, breakdown } = this.rewardCalc.computeReward(
+            pending.state,
+            nextState,
+            pending.action,
+        );
+        const metadata = { plan: pending.plan, breakdown, source: 'agent' };
+
+        this.expBuffer.add(
+            pending.state,
+            [pending.action],
+            reward,
+            nextState,
+            false,
+            metadata,
+        );
+        this.actionStats.update(pending.state.location, pending.action, reward);
+        this.transitionObserver?.({
+            prevState: pending.state,
+            action: pending.action,
+            reward,
+            nextState,
+            metadata,
+        });
+
+        if (Math.abs(reward) >= 10) {
+            console.log(`Action ${pending.action}: reward ${reward}`, breakdown);
+        }
+
+        return { reward, breakdown };
+    }
+
     /**
      * Execute one step of the agent
      */
     async step() {
         const observedState = this.reader.getGameState();
+        await this.settlePendingTransition(observedState);
         const dialogDecision = getDialogAdvanceDecision(observedState, this.dialogAdvanceTracker);
         this.dialogAdvanceTracker = dialogDecision.tracker;
 
@@ -320,8 +390,7 @@ export class RLAgent {
 
             this.emu.pressButton('a');
             this.stepCount++;
-            this.prevState = observedState;
-            this.prevActions = ['a'];
+            this.rememberAction(observedState, 'a', 'Advance dialog automatically');
 
             if (this.onUpdate) {
                 this.onUpdate({
@@ -343,6 +412,7 @@ export class RLAgent {
             const action = this.actionQueue.shift();
             this.emu.pressButton(action);
             this.stepCount++;
+            this.rememberAction(observedState, action, this.currentPlan);
 
             // Update UI
             if (this.onUpdate) {
@@ -360,55 +430,7 @@ export class RLAgent {
             return;
         }
 
-        // Get current state and compute reward for previous actions
         const currState = observedState;
-
-        if (this.prevState && this.prevActions) {
-            // Compute base reward from reward calculator
-            const { total: baseReward, breakdown } = this.rewardCalc.computeReward(
-                this.prevState, currState, this.prevActions[0]
-            );
-
-            // Add external reward (from combined reward system if available)
-            let externalReward = 0;
-            let externalBreakdown = null;
-            if (this.externalRewardSource) {
-                try {
-                    const extResult = await this.externalRewardSource.processStep(currState, {
-                        generateTests: this.llmCallCount % 10 === 0,  // Generate tests every 10 steps
-                        checkVisual: true,
-                    });
-                    externalReward = extResult.reward || 0;
-                    externalBreakdown = extResult.breakdown;
-                } catch (e) {
-                    console.warn('External reward error:', e);
-                }
-            }
-
-            const totalReward = baseReward + externalReward;
-
-            // Store experience
-            this.expBuffer.add(
-                this.prevState,
-                this.prevActions,
-                totalReward,
-                currState,
-                false,
-                { plan: this.currentPlan, externalReward }
-            );
-
-            // Update action statistics
-            this.actionStats.update(
-                this.prevState.location,
-                this.prevActions,
-                totalReward
-            );
-
-            // Log significant rewards
-            if (Math.abs(totalReward) >= 10) {
-                console.log(`Reward: ${totalReward} (base: ${baseReward}, external: ${externalReward})`, breakdown, externalBreakdown);
-            }
-        }
 
         // Get new plans from LLM
         const userMessage = this.buildUserMessage(currState);
@@ -444,8 +466,6 @@ export class RLAgent {
             // Queue actions
             this.actionQueue = filteredActions.length > 0 ? filteredActions : ['a', 'a', 'a'];
             this.currentPlan = selected.plan;
-            this.prevState = currState;
-            this.prevActions = [...this.actionQueue];
 
             // Update UI
             if (this.onUpdate) {
@@ -487,9 +507,11 @@ export class RLAgent {
      * Main run loop
      */
     async run() {
+        if (this.running) return;
         this.running = true;
+        const generation = ++this.loopGeneration;
 
-        while (this.running) {
+        while (this.running && generation === this.loopGeneration) {
             await this.step();
             await this.sleep(150);
         }
@@ -500,7 +522,9 @@ export class RLAgent {
      */
     stop() {
         this.running = false;
+        this.loopGeneration++;
         this.actionQueue = [];
+        this.pendingTransition = null;
         this.dialogAdvanceTracker = { lastDialog: '', unchangedPresses: 0 };
     }
 

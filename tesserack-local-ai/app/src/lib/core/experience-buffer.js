@@ -35,6 +35,7 @@ export class ExperienceBuffer {
             : 0;
 
         return {
+            normalized: true,
             // Location (could be one-hot encoded for neural net)
             location: gameState.location,
             x: gameState.coordinates?.x || 0,
@@ -106,6 +107,7 @@ export class ExperienceBuffer {
             nextState: this.encodeState(nextState),
             done,
             metadata: {
+                ...metadata,
                 plan: metadata.plan,
                 objective: metadata.objective,
                 rawState: state,  // Keep raw for debugging
@@ -126,6 +128,8 @@ export class ExperienceBuffer {
         if (this.onAdd) {
             this.onAdd(experience);
         }
+
+        return experience;
     }
 
     /**

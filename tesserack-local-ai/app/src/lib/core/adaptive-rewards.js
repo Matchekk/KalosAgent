@@ -1,6 +1,7 @@
 // adaptive-rewards.js - LLM-generated tests and visual checkpoint rewards
 
 import { chat } from './llm.js';
+import { isPlayableState } from './reward-calculator.js';
 
 /**
  * Prompt for generating game progress tests
@@ -453,6 +454,9 @@ export class AutoCheckpointDiscovery {
         // Track state for detecting changes
         this.lastState = null;
         this.discoveredCheckpoints = [];
+        this.pendingStateSignature = '';
+        this.pendingStateFrames = 0;
+        this.requiredStableFrames = 6;
 
         // What triggers auto-capture
         this.triggers = {
@@ -484,6 +488,22 @@ export class AutoCheckpointDiscovery {
      * Check for significant events and auto-capture
      */
     checkForDiscovery(currentState) {
+        if (!isPlayableState(currentState)) return null;
+
+        const signature = JSON.stringify({
+            location: currentState.location,
+            badges: currentState.badges || [],
+            party: (currentState.party || []).map(p => p.speciesId),
+            inBattle: !!currentState.inBattle,
+        });
+        if (signature !== this.pendingStateSignature) {
+            this.pendingStateSignature = signature;
+            this.pendingStateFrames = 1;
+            return null;
+        }
+        this.pendingStateFrames++;
+        if (this.pendingStateFrames < this.requiredStableFrames) return null;
+
         if (!this.lastState) {
             this.lastState = currentState;
             // Initialize seen sets
@@ -624,6 +644,8 @@ export class AutoCheckpointDiscovery {
         this.seenLocations.clear();
         this.seenPokemon.clear();
         this.lastState = null;
+        this.pendingStateSignature = '';
+        this.pendingStateFrames = 0;
     }
 }
 

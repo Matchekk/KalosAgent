@@ -24,11 +24,12 @@ export class BrowserTrainer {
         };
 
         // Auto-training thresholds
-        this.trainingThresholds = [3000, 7000, 15000, 30000, 60000, 100000];
+        this.trainingThresholds = [128, 512, 1500, 3000, 7000, 15000, 30000];
         this.nextThresholdIndex = 0;
 
         // Model storage key
-        this.modelStorageKey = 'tesserack-policy-model';
+        // v2 intentionally does not load models trained to imitate random actions.
+        this.modelStorageKey = 'tesserack-policy-model-v2';
 
         // TensorFlow.js loaded flag
         this.tfLoaded = false;
@@ -128,20 +129,38 @@ export class BrowserTrainer {
      * Convert game state to feature vector
      */
     stateToFeatures(state) {
+        const location = String(state.location || 'UNKNOWN');
+        let locationHash = 0;
+        for (let i = 0; i < location.length; i++) {
+            locationHash = ((locationHash * 31) + location.charCodeAt(i)) >>> 0;
+        }
+
+        const badgeCount = state.badges?.length ?? state.badgeCount ?? 0;
+        const party = state.party || [];
+        const partyCount = party.length || state.partyCount || 0;
+        const avgLevel = party.length > 0
+            ? party.reduce((sum, pokemon) => sum + (pokemon.level || 0), 0) / party.length
+            : (state.avgLevel || 0);
+        const hpRatio = party.length > 0
+            ? party.reduce((sum, pokemon) => sum + ((pokemon.currentHP || 0) / Math.max(1, pokemon.maxHP || 1)), 0) / party.length
+            : (state.hpRatio ?? 1);
+        const coordinates = state.coordinates || state;
+        const compact = state.normalized === true;
+
         // Normalize features to [0, 1] range
         return [
-            (state.x || 0) / 256,                    // X position normalized
-            (state.y || 0) / 256,                    // Y position normalized
-            (state.mapId || 0) / 256,                // Map ID normalized
-            (state.badgeCount || 0) / 8,             // Badges (0-8)
-            (state.partyCount || 0) / 6,             // Party size (0-6)
-            (state.avgLevel || 0) / 100,             // Average level
-            (state.hpRatio || 1),                    // HP ratio (0-1)
+            (coordinates.x || 0) / 256,              // X position normalized
+            (coordinates.y || 0) / 256,              // Y position normalized
+            (locationHash % 4096) / 4095,            // Stable location identity
+            compact ? badgeCount : badgeCount / 8,
+            compact ? partyCount : partyCount / 6,
+            compact ? avgLevel : avgLevel / 100,
+            hpRatio,
             state.inBattle ? 1 : 0,                  // In battle flag
             state.hasDialog ? 1 : 0,                 // Dialog showing
             Math.min((state.money || 0) / 100000, 1), // Money normalized
-            (state.x || 0) % 2,                      // X parity (helps with grid)
-            (state.y || 0) % 2,                      // Y parity
+            (coordinates.x || 0) % 2,                // X parity (helps with grid)
+            (coordinates.y || 0) % 2,                // Y parity
         ];
     }
 
@@ -162,6 +181,20 @@ export class BrowserTrainer {
         return actions[index] || 'a';
     }
 
+    isTrainingSignal(exp) {
+        const source = exp?.metadata?.source;
+        const trustedSource = ['agent', 'exploration', 'human'].includes(source)
+            || exp?.metadata?.isExpert === true;
+        return trustedSource
+            && !!exp?.state
+            && !!exp?.action
+            && Math.abs(Number(exp.reward) || 0) >= 0.01;
+    }
+
+    countTrainingSignals(experiences) {
+        return experiences.filter(exp => this.isTrainingSignal(exp)).length;
+    }
+
     /**
      * Prepare training data from experience buffer
      */
@@ -169,12 +202,13 @@ export class BrowserTrainer {
         const states = [];
         const actions = [];
         const rewards = [];
+        const sampleWeights = [];
 
         for (const exp of experiences) {
-            if (!exp.state || !exp.action) continue;
+            if (!this.isTrainingSignal(exp)) continue;
 
             // Get state features
-            const features = this.stateToFeatures(exp.state);
+            const features = this.stateToFeatures(exp.metadata?.rawState || exp.state);
 
             // Get action (handle both array and single action)
             const actionName = Array.isArray(exp.action.raw)
@@ -182,24 +216,24 @@ export class BrowserTrainer {
                 : exp.action.raw;
             const actionIdx = this.actionToIndex(actionName);
 
-            // Weight by reward (prioritize positive experiences)
-            const weight = Math.max(0.1, 1 + (exp.reward || 0) / 100);
-
-            // Add to training data (weighted by reward)
-            const copies = Math.ceil(weight);
-            for (let i = 0; i < copies; i++) {
-                states.push(features);
-
-                // One-hot encode action
-                const oneHot = new Array(this.config.actionSize).fill(0);
-                oneHot[actionIdx] = 1;
-                actions.push(oneHot);
-
-                rewards.push(exp.reward || 0);
+            const reward = Number(exp.reward) || 0;
+            if (Math.abs(reward) < 0.01) continue;
+            states.push(features);
+            const target = new Array(this.config.actionSize).fill(0);
+            if (reward > 0) {
+                target[actionIdx] = 1;
+            } else {
+                // Penalized actions must not be taught as the correct label.
+                const alternativeProbability = 1 / (this.config.actionSize - 1);
+                target.fill(alternativeProbability);
+                target[actionIdx] = 0;
             }
+            actions.push(target);
+            rewards.push(reward);
+            sampleWeights.push(Math.min(8, 1 + Math.log1p(Math.abs(reward))));
         }
 
-        return { states, actions, rewards };
+        return { states, actions, rewards, sampleWeights };
     }
 
     /**
@@ -211,8 +245,9 @@ export class BrowserTrainer {
             return null;
         }
 
-        if (experiences.length < 100) {
-            console.log('Not enough experiences to train:', experiences.length);
+        const signalCount = this.countTrainingSignals(experiences);
+        if (signalCount < 32) {
+            console.log(`Not enough reward-bearing experiences to train: ${signalCount}/32`);
             return null;
         }
 
@@ -237,10 +272,10 @@ export class BrowserTrainer {
             });
 
             // Prepare data
-            const { states, actions } = this.prepareTrainingData(experiences);
+            const { states, actions, sampleWeights } = this.prepareTrainingData(experiences);
 
-            if (states.length < 100) {
-                throw new Error('Not enough valid training samples');
+            if (states.length < 32) {
+                throw new Error(`Not enough reward-bearing samples (${states.length}/32)`);
             }
 
             console.log(`Training on ${states.length} samples`);
@@ -248,6 +283,7 @@ export class BrowserTrainer {
             // Convert to tensors
             const xs = tf.tensor2d(states);
             const ys = tf.tensor2d(actions);
+            const weights = tf.tensor1d(sampleWeights);
 
             // Training configuration
             const epochs = options.epochs || this.config.epochs;
@@ -266,6 +302,7 @@ export class BrowserTrainer {
                 batchSize,
                 validationSplit: this.config.validationSplit,
                 shuffle: true,
+                sampleWeight: weights,
                 callbacks: {
                     onEpochEnd: (epoch, logs) => {
                         this.onProgress({
@@ -285,6 +322,7 @@ export class BrowserTrainer {
             // Clean up tensors
             xs.dispose();
             ys.dispose();
+            weights.dispose();
 
             // Save model
             this.onProgress({ stage: 'saving', message: 'Saving model...' });

@@ -140,14 +140,20 @@ async function restorePersistedData() {
         // Restore experiences to collector buffer if available
         if (stats.experiences > 0 && collector) {
             const experiences = await persistence.loadExperiences();
-            collector.explorationBuffer.buffer = experiences;
-            collector.explorationBuffer.totalExperiences = experiences.length;
-            console.log(`[Persistence] Restored ${experiences.length} experiences`);
+            const trustedExperiences = experiences.filter(exp =>
+                ['agent', 'exploration', 'human'].includes(exp.metadata?.source)
+                || exp.metadata?.isExpert === true
+            );
+            collector.explorationBuffer.buffer = trustedExperiences;
+            collector.explorationBuffer.totalExperiences = trustedExperiences.length;
+            console.log(`[Persistence] Restored ${trustedExperiences.length} compatible experiences`);
 
             // Update UI stats
             updateStats({
-                experiences: experiences.length,
+                experiences: trustedExperiences.length,
             });
+
+            stats.experiences = trustedExperiences.length;
         }
 
         // Restore discoveries
@@ -196,6 +202,15 @@ export async function initializeGame(romBuffer, gameCanvas) {
 
         // Wire up experience persistence
         collector.explorationBuffer.setOnAdd(queueExperienceForSave);
+        rlAgentInstance.setTransitionObserver((transition) => {
+            collector.recordAgentTransition(
+                transition.prevState,
+                transition.action,
+                transition.reward,
+                transition.nextState,
+                transition.metadata,
+            );
+        });
 
         // 5. Create reward system
         rewardSystem = new CombinedRewardSystem(canvas, reader);
@@ -341,7 +356,7 @@ function handlePolicyUpdate(status) {
         isTraining: status.isTraining || false,
         sessions: status.trainingSessions || 0,
         policyUsage: parseFloat(status.predictionRate) || 0,
-        nextAutoTrain: status.nextAutoTrain || 3000,
+        nextAutoTrain: status.nextAutoTrain || 128,
     });
 
     if (status.trainingProgress) {
@@ -375,6 +390,10 @@ function handleAutoTrainEvent(event) {
 }
 
 // ============ MODE CONTROL ============
+
+function startRandomTrainingCollector() {
+    collector?.startExploration(0);
+}
 
 /**
  * Start Watch AI mode
@@ -428,17 +447,14 @@ export async function startWatchMode() {
         feedSystem(`Using ${provider?.name || 'API'}: ${config.model}`);
     }
 
+    // Play has one controller. Stop a previous Train collector before the AI acts.
+    collector?.stop();
+
     // Start RL agent (uses LLM for planning)
     rlAgentInstance.run();
 
-    // Also start data collector to ensure experiences are collected
-    // even if LLM is slow or not yet loaded
-    if (collector) {
-        collector.startExploration(0);
-    }
-
     autoTrainerInstance?.startMonitoring(15000);
-    feedSystem('AI is now playing...');
+    feedSystem('AI is now playing and learning from its own rewarded actions...');
 }
 
 /**
@@ -446,7 +462,8 @@ export async function startWatchMode() {
  */
 export function startTrainMode() {
     if (!collector) return;
-    collector.startExploration(0);
+    rlAgentInstance?.stop();
+    startRandomTrainingCollector();
     autoTrainerInstance?.startMonitoring(10000);
     feedSystem('Training mode: collecting experiences...');
 }

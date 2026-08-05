@@ -74,6 +74,7 @@ export class DataCollector {
         this.stepCount = 0;
         this.prevState = null;
         this.prevAction = null;
+        this.loopGeneration = 0;
 
         // Recording state
         this.isRecording = false;
@@ -86,7 +87,41 @@ export class DataCollector {
             totalReward: 0,
             positiveRewards: 0,
             negativeRewards: 0,
+            agentSteps: 0,
         };
+    }
+
+    /**
+     * Passively record a transition executed by the Play agent.
+     * This never presses a button; Play has exactly one controller.
+     */
+    recordAgentTransition(prevState, action, reward, nextState, metadata = {}) {
+        const experience = this.explorationBuffer.add(
+            prevState,
+            [action],
+            reward,
+            nextState,
+            false,
+            { ...metadata, source: 'agent' },
+        );
+
+        this.stats.agentSteps++;
+        this.stats.explorationSteps++;
+        this.stats.totalReward += reward;
+        if (reward > 0) this.stats.positiveRewards++;
+        if (reward < 0) this.stats.negativeRewards++;
+
+        if (this.onUpdate) {
+            this.onUpdate({
+                mode: 'agent-learning',
+                action: [action],
+                reward,
+                state: nextState,
+                stats: this.getStats(),
+            });
+        }
+
+        return experience;
     }
 
     /**
@@ -94,14 +129,17 @@ export class DataCollector {
      * @param {number} maxSteps - Maximum steps to run (0 = unlimited)
      */
     async startExploration(maxSteps = 0) {
+        if (this.running) return;
         this.running = true;
+        const generation = ++this.loopGeneration;
         this.mode = 'explore';
         this.stepCount = 0;
         this.prevState = null;
 
         console.log('Starting random exploration...');
 
-        while (this.running && (maxSteps === 0 || this.stepCount < maxSteps)) {
+        while (this.running && generation === this.loopGeneration
+            && (maxSteps === 0 || this.stepCount < maxSteps)) {
             await this.explorationStep();
             await this.sleep(80);  // Faster than LLM mode
         }
@@ -251,6 +289,7 @@ export class DataCollector {
      */
     stop() {
         this.running = false;
+        this.loopGeneration++;
         if (this.isRecording) {
             this.stopRecording();
         }
@@ -364,6 +403,7 @@ export class DataCollector {
             totalReward: 0,
             positiveRewards: 0,
             negativeRewards: 0,
+            agentSteps: 0,
         };
     }
 

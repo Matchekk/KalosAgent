@@ -58,7 +58,7 @@
 
     // Progress calculation - use the trainer's next threshold
     const thresholds = [3000, 7000, 15000, 30000, 60000, 100000];
-    $: nextAutoTrain = $modelState.nextAutoTrain || 3000;
+    $: nextAutoTrain = $modelState.nextAutoTrain || 128;
     $: currentThreshold = typeof nextAutoTrain === 'number' ? nextAutoTrain : 100000;
     $: thresholdIndex = thresholds.indexOf(currentThreshold);
     $: prevThreshold = thresholdIndex > 0 ? thresholds[thresholdIndex - 1] : 0;
