@@ -32,7 +32,7 @@
     let testError = '';
     let customEndpoint = $llmState.customEndpoint || '';
     let customModel = $llmState.customModel || '';
-    let llamacppEndpoint = $llmState.llamacppEndpoint || 'http://localhost:8080/v1';
+    let llamacppEndpoint = $llmState.llamacppEndpoint || 'http://localhost:8090/v1';
     let llamacppModel = $llmState.llamacppModel || '';
 
     $: hasTokenStats = $tokenStats.requestCount > 0;
@@ -310,7 +310,7 @@
                                 type="text"
                                 bind:value={llamacppEndpoint}
                                 on:blur={() => setLlamacppEndpoint(llamacppEndpoint)}
-                                placeholder="http://localhost:8080/v1"
+                                placeholder="http://localhost:8090/v1"
                             />
                         </div>
 

@@ -1,6 +1,8 @@
 // LLM state store - manages LLM backend configuration and status
 import { writable, derived } from 'svelte/store';
 
+export const LLAMACPP_DEFAULT_ENDPOINT = 'http://localhost:8090/v1';
+
 // Provider presets
 export const PROVIDERS = {
     browser: {
@@ -81,9 +83,9 @@ export const PROVIDERS = {
         name: 'llama.cpp (Local)',
         description: 'Local llama.cpp server',
         needsKey: false,
-        endpoint: 'http://localhost:8080/v1',
+        endpoint: LLAMACPP_DEFAULT_ENDPOINT,
         models: [], // Fetched dynamically
-        detectEndpoint: 'http://localhost:8080/v1',
+        detectEndpoint: LLAMACPP_DEFAULT_ENDPOINT,
     },
     custom: {
         id: 'custom',
@@ -130,6 +132,15 @@ function setStored(key, value) {
     }
 }
 
+function getStoredLlamacppEndpoint() {
+    const endpoint = getStored(KEYS.llamacppEndpoint, LLAMACPP_DEFAULT_ENDPOINT);
+    if (endpoint === 'http://localhost:8080/v1' || endpoint === 'http://127.0.0.1:8080/v1') {
+        setStored(KEYS.llamacppEndpoint, LLAMACPP_DEFAULT_ENDPOINT);
+        return LLAMACPP_DEFAULT_ENDPOINT;
+    }
+    return endpoint;
+}
+
 // Get API key for a provider (checks localStorage, then env vars)
 function getApiKeyForProvider(providerId) {
     // First check localStorage
@@ -164,7 +175,7 @@ function getInitialState() {
         apiKey: getApiKeyForProvider(providerId),
         customEndpoint: getStored(KEYS.customEndpoint, ''),
         customModel: getStored(KEYS.customModel, ''),
-        llamacppEndpoint: getStored(KEYS.llamacppEndpoint, 'http://localhost:8080/v1'),
+        llamacppEndpoint: getStoredLlamacppEndpoint(),
         llamacppModel: getStored(KEYS.llamacppModel, ''),
 
         // Connection status (runtime only)
@@ -303,7 +314,7 @@ export function getConfig() {
         endpoint = getStored(KEYS.customEndpoint, '');
         finalModel = getStored(KEYS.customModel, '') || model;
     } else if (providerId === 'llamacpp') {
-        endpoint = getStored(KEYS.llamacppEndpoint, 'http://localhost:8080/v1');
+        endpoint = getStoredLlamacppEndpoint();
         finalModel = getStored(KEYS.llamacppModel, '') || model;
     }
 

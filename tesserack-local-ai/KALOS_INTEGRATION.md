@@ -7,7 +7,7 @@ It is intentionally isolated from the existing KalosAgent Python package.
 
 1. Start an OpenAI-compatible `llama.cpp` server.
 2. In Tesserack, select **llama.cpp (Local)** and use:
-   - Endpoint URL: `http://localhost:8080/v1`
+   - Endpoint URL: `http://localhost:8090/v1`
    - Model: `qwen3.5-0.8b`
    - API key: leave empty
 3. Start the web app:

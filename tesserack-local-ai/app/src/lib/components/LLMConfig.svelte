@@ -229,7 +229,7 @@
                                 type="text"
                                 bind:value={llamacppEndpoint}
                                 on:blur={() => setLlamacppEndpoint(llamacppEndpoint)}
-                                placeholder="http://localhost:8080/v1"
+                                placeholder="http://localhost:8090/v1"
                             />
                         </div>
                         <div class="config-group">
