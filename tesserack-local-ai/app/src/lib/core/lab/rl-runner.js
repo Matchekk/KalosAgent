@@ -71,7 +71,7 @@ export class RLRunner {
         const done = env.checkDone(prevState, nextState);
 
         // 7. Store transition (observe)
-        core.observe(env.stateVec, actionIdx, reward, done, logProb);
+        core.observe(env.stateVec, actionIdx, reward, done, logProb, env.streamId ?? 0);
 
         // 8. Reset env if done
         if (done && env.resetEnv) {
@@ -86,6 +86,7 @@ export class RLRunner {
 
         // Return rich object for UI
         return {
+            ...rewardResult,
             actionIdx,
             actionStr,
             reward,

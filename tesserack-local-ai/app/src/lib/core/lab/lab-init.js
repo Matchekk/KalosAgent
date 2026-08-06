@@ -12,6 +12,8 @@ import { Emulator } from '../emulator.js';
 import { MemoryReader } from '../memory-reader.js';
 import { GuideAgent } from './guide-agent.js';
 import { PureRLAgent } from './pure-rl-agent.js';
+import { ParallelTrainingCoordinator } from './parallel-trainer.js';
+import { createParallelTrainingPlan, trainingIntervalMs } from './parallel-training.js';
 import { CombinedRewardSystem } from '../adaptive-rewards.js';
 import { feedSystem } from '$lib/stores/feed';
 import {
@@ -27,7 +29,7 @@ import {
 } from '$lib/stores/lab';
 import { gameState, updateGameState } from '$lib/stores/game';
 import { assetUrl } from '$lib/core/asset-url.js';
-import { getPositiveRewardEventIds, getRewardTelemetry } from './training-utils.js';
+import { getPositiveRewardEventIds } from './training-utils.js';
 import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
 
 // Lab mode instances
@@ -35,12 +37,17 @@ let labEmulator = null;
 let labReader = null;
 let labAgent = null;
 let labPureRLAgent = null;  // Pure RL agent instance
+let parallelTrainer = null;
+let parallelInitPromise = null;
+let parallelPlan = null;
+let labRomBuffer = null;
 let labRewardSystem = null;
 let labCanvas = null;
 let isInitialized = false;
 let labSpeed = 1; // Playback speed multiplier
 let initializationGeneration = 0;
 let lastPersistedTrainStep = -1;
+const PARALLEL_ENVIRONMENT_COUNT = 4;
 
 // Current mode: 'llm' or 'purerl'
 export const labMode = writable('llm');
@@ -72,6 +79,10 @@ export const pureRLMetrics = writable({
     bestProgressScore: 0,
     checkpointCount: 0,
     confirmedWins: 0,
+    environmentCount: PARALLEL_ENVIRONMENT_COUNT,
+    samplesPerSecond: 0,
+    checkpointWorker: null,
+    workers: [],
     // Chart history (rolling window of last 50 rollouts)
     history: {
         returns: [],    // { step, value }[]
@@ -166,6 +177,10 @@ function handlePureRLStep(stepData) {
             bestProgressScore: stepData.bestProgressScore ?? prev.bestProgressScore,
             checkpointCount: stepData.checkpointCount ?? prev.checkpointCount,
             confirmedWins: stepData.confirmedWins ?? prev.confirmedWins,
+            environmentCount: stepData.environmentCount ?? prev.environmentCount,
+            samplesPerSecond: stepData.samplesPerSecond ?? prev.samplesPerSecond,
+            checkpointWorker: stepData.checkpointWorker ?? prev.checkpointWorker,
+            workers: stepData.workers ?? prev.workers,
             // Preserve history
             history: prev.history,
             maxHistoryLength: prev.maxHistoryLength,
@@ -253,6 +268,7 @@ export async function initializeLab(romBuffer, canvas) {
 
     const generation = ++initializationGeneration;
     labCanvas = canvas;
+    labRomBuffer = romBuffer.slice(0);
 
     feedSystem('Initializing Lab mode...');
 
@@ -282,16 +298,27 @@ export async function initializeLab(romBuffer, canvas) {
 
         // 6. Create pure RL agent (REINFORCE - no epsilon, pure policy sampling)
         const currentRLConfig = get(rlConfig);
+        parallelPlan = createParallelTrainingPlan({
+            workerCount: PARALLEL_ENVIRONMENT_COUNT,
+            rolloutSize: currentRLConfig.rolloutSize,
+        });
         labPureRLAgent = new PureRLAgent(labEmulator, labReader, {
+            workerId: 0,
             actionHoldFrames: 12,
             frameSkip: 16,      // More frames per step = smoother movement
             actionRepeat: 1,    // One decision per transition for correct credit assignment
+            autoCheckpoint: false,
+            persistCheckpoint: true,
+            rehearseEvery: 0,
             // REINFORCE config
-            rolloutSize: currentRLConfig.rolloutSize,
+            rolloutSize: parallelPlan.aggregateRolloutSize,
             learningRate: currentRLConfig.learningRate,
             gamma: currentRLConfig.gamma,
             normalizeReturns: true,
         });
+        // Preserve the true ROM start even when a later curriculum checkpoint
+        // was restored from storage. One parallel worker always rehearses it.
+        labPureRLAgent.setInitialState(labEmulator.saveState());
 
         const savedPolicy = getPureRLPolicy();
         if (savedPolicy) {
@@ -303,7 +330,7 @@ export async function initializeLab(romBuffer, canvas) {
                     trainSteps: labPureRLAgent.core.trainSteps,
                     avgRawReturn: labPureRLAgent.core.lastAvgRawReturn,
                     policyEntropy: labPureRLAgent.core.lastEntropy,
-                    bufferSize: currentRLConfig.rolloutSize,
+                    bufferSize: parallelPlan.aggregateRolloutSize,
                 }));
                 feedSystem(`Restored trained policy (${labPureRLAgent.core.trainSteps} updates).`);
             } catch (err) {
@@ -341,6 +368,89 @@ export async function initializeLab(romBuffer, canvas) {
     }
 }
 
+async function ensureParallelTrainer() {
+    if (parallelTrainer) return parallelTrainer;
+    if (parallelInitPromise) return parallelInitPromise;
+    if (!labPureRLAgent || !labEmulator || !labRomBuffer || !parallelPlan) {
+        throw new Error('Parallel Train is not initialized');
+    }
+
+    parallelInitPromise = (async () => {
+        const agents = [labPureRLAgent];
+        const hiddenAgents = [];
+        try {
+            labPureRLAgent.ensureCheckpoint();
+            labPureRLAgent.loadCheckpointIntoEnvironment();
+
+            for (const worker of parallelPlan.workers.slice(1)) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 160;
+                canvas.height = 144;
+
+                const emulator = new Emulator(canvas);
+                await emulator.loadROM(labRomBuffer);
+                const reader = new MemoryReader(emulator);
+                const agent = new PureRLAgent(emulator, reader, {
+                    workerId: worker.workerId,
+                    sharedCore: labPureRLAgent.core,
+                    actionHoldFrames: labPureRLAgent.config.actionHoldFrames,
+                    frameSkip: labPureRLAgent.config.frameSkip,
+                    actionRepeat: 1,
+                    maxEpisodeSteps: labPureRLAgent.config.maxEpisodeSteps,
+                    noProgressSteps: labPureRLAgent.config.noProgressSteps,
+                    resetFromInitial: worker.resetFromInitial,
+                    rehearseEvery: 0,
+                    autoCheckpoint: false,
+                    persistCheckpoint: false,
+                    rolloutSize: parallelPlan.aggregateRolloutSize,
+                    learningRate: labPureRLAgent.core.learningRate,
+                    gamma: labPureRLAgent.core.gamma,
+                    normalizeReturns: labPureRLAgent.core.normalizeReturns,
+                    entropyCoefficient: labPureRLAgent.core.entropyCoefficient,
+                });
+
+                agent.setInitialState(labPureRLAgent.initialState);
+                agent.adoptCheckpoint(
+                    labPureRLAgent.checkpointState,
+                    labPureRLAgent.bestProgressScore,
+                );
+                if (worker.resetFromInitial) {
+                    emulator.loadState(agent.initialState);
+                } else {
+                    agent.loadCheckpointIntoEnvironment();
+                }
+                for (let frame = 0; frame < 4; frame++) emulator.runFrame();
+                await agent.rewards.loadBundles(assetUrl('data/redpp-oak-guide.json'));
+                hiddenAgents.push(agent);
+                agents.push(agent);
+            }
+
+            parallelTrainer = new ParallelTrainingCoordinator({
+                agents,
+                visibleWorker: parallelPlan.visibleWorker,
+                onCheckpoint(candidate) {
+                    feedSystem(`Global checkpoint: environment ${candidate.workerId + 1} advanced durable Red++ progress.`);
+                },
+            });
+            feedSystem(`Parallel Train ready: ${agents.length} environments share one policy; environment ${parallelPlan.startWorker + 1} rehearses from ROM start.`);
+            return parallelTrainer;
+        } catch (error) {
+            for (const agent of hiddenAgents) agent.emu.destroy();
+            throw error;
+        } finally {
+            parallelInitPromise = null;
+        }
+    })();
+
+    return parallelInitPromise;
+}
+
+function destroyParallelTrainer() {
+    if (!parallelTrainer) return;
+    parallelTrainer.destroy();
+    parallelTrainer = null;
+}
+
 /**
  * Set the lab mode
  * @param {'llm' | 'purerl'} mode - The mode to switch to
@@ -358,8 +468,13 @@ export function setLabMode(mode) {
     labMode.set(mode);
 
     if (mode === 'purerl') {
+        // Train advances frames only through credited policy transitions.
+        // Stopping RAF also makes 16x/headless training substantially faster.
+        labEmulator?.stop();
         feedSystem('Switched to Pure RL mode (no LLM calls)');
     } else {
+        destroyParallelTrainer();
+        if (labEmulator?.e && !labEmulator.running) labEmulator.start();
         feedSystem('Switched to LLM mode (Guide-enhanced agent)');
     }
 }
@@ -374,14 +489,14 @@ export function getLabMode() {
 /**
  * Start the lab agent
  */
-export function startLabAgent() {
+export async function startLabAgent() {
     if (currentMode === 'purerl') {
         if (!labPureRLAgent) {
             console.error('[Lab] Pure RL agent not initialized');
             return false;
         }
-        labPureRLAgent.running = true;
-        labPureRLAgent.ensureCheckpoint();
+        const trainer = await ensureParallelTrainer();
+        trainer.start();
         runPureRLLoop();
     } else {
         if (!labAgent) {
@@ -401,9 +516,8 @@ export function stopLabAgent() {
     if (labAgent) {
         labAgent.running = false;
     }
-    if (labPureRLAgent) {
-        labPureRLAgent.stop();
-    }
+    parallelTrainer?.stop();
+    labPureRLAgent?.stop();
 }
 
 /**
@@ -429,51 +543,31 @@ async function runLabLoop() {
  * Pure RL agent loop
  */
 async function runPureRLLoop() {
-    if (!labPureRLAgent || !labPureRLAgent.running) return;
+    if (!labPureRLAgent || !parallelTrainer?.running) return;
 
     try {
-        const result = await labPureRLAgent.step();
+        const result = await parallelTrainer.stepRound();
         if (result.trainInfo) persistPureRLPolicy();
-        // Get current state for the callback
-        const state = labReader?.getGameState();
-        // Get training metrics from agent
-        const metrics = labPureRLAgent.getMetrics();
-        const rewardTelemetry = getRewardTelemetry(metrics);
         handlePureRLStep({
-            step: labPureRLAgent.totalSteps,
-            action: result.actionStr ?? result.action,
-            reward: result.reward,
-            totalReward: labPureRLAgent.totalReward,
-            breakdown: result.breakdown,
+            ...result,
             firedTests: result.firedTests ?? [],
-            state,
-            // Training metrics
-            trainSteps: metrics.trainSteps,
-            bufferFill: metrics.bufferFill,
-            bufferSize: metrics.bufferSize,
-            avgRawReturn: metrics.avgRawReturn,
-            policyEntropy: metrics.policyEntropy,
-            ...rewardTelemetry,
-            episode: metrics.episode,
-            episodeSteps: metrics.episodeSteps,
-            bestProgressScore: metrics.bestProgressScore,
-            checkpointCount: metrics.checkpointCount,
-            confirmedWins: metrics.confirmedWins,
         });
     } catch (err) {
         console.error('[Lab] Pure RL step error:', err);
+        feedSystem(`Parallel Train paused: ${err.message}`);
+        parallelTrainer?.stop();
     }
 
     // Continue loop with speed adjustment
-    if (labPureRLAgent.running) {
-        const interval = Math.max(16, 200 / labSpeed); // ~5 steps/sec at 1x, comfortable to watch
+    if (parallelTrainer?.running) {
+        const interval = trainingIntervalMs(labSpeed);
         setTimeout(runPureRLLoop, interval);
     }
 }
 
 /**
  * Set playback speed
- * @param {number} speed - Speed multiplier (1, 2, 4, 8)
+ * @param {number} speed - Speed multiplier (0.5, 1, 2, 4, 8, 16)
  */
 export function setLabSpeed(speed) {
     labSpeed = speed;
@@ -490,30 +584,13 @@ export async function stepLabAgent() {
             return false;
         }
         try {
-            const result = await labPureRLAgent.step();
+            labEmulator?.stop();
+            const trainer = await ensureParallelTrainer();
+            const result = await trainer.stepRound();
             if (result.trainInfo) persistPureRLPolicy();
-            const state = labReader?.getGameState();
-            const metrics = labPureRLAgent.getMetrics();
-            const rewardTelemetry = getRewardTelemetry(metrics);
             handlePureRLStep({
-                step: labPureRLAgent.totalSteps,
-                action: result.actionStr ?? result.action,
-                reward: result.reward,
-                totalReward: labPureRLAgent.totalReward,
-                breakdown: result.breakdown,
+                ...result,
                 firedTests: result.firedTests ?? [],
-                state,
-                trainSteps: metrics.trainSteps,
-                bufferFill: metrics.bufferFill,
-                bufferSize: metrics.bufferSize,
-                avgRawReturn: metrics.avgRawReturn,
-                policyEntropy: metrics.policyEntropy,
-                ...rewardTelemetry,
-                episode: metrics.episode,
-                episodeSteps: metrics.episodeSteps,
-                bestProgressScore: metrics.bestProgressScore,
-                checkpointCount: metrics.checkpointCount,
-                confirmedWins: metrics.confirmedWins,
             });
             return true;
         } catch (err) {
@@ -551,10 +628,9 @@ export function resetLab() {
         episodeReward: 0
     }));
 
-    // Reset pure RL agent
-    if (labPureRLAgent) {
-        labPureRLAgent.reset();
-    }
+    // Reset all environments while keeping the shared learned policy.
+    if (parallelTrainer) parallelTrainer.reset();
+    else labPureRLAgent?.reset();
 
     // Reset pure RL metrics store
     pureRLMetrics.set({
@@ -574,7 +650,7 @@ export function resetLab() {
         // Training metrics
         trainSteps: 0,
         bufferFill: 0,
-        bufferSize: 128,
+        bufferSize: parallelPlan?.aggregateRolloutSize ?? 512,
         avgRawReturn: 0,
         policyEntropy: 0,
         episode: 1,
@@ -582,6 +658,10 @@ export function resetLab() {
         bestProgressScore: 0,
         checkpointCount: 0,
         confirmedWins: 0,
+        environmentCount: parallelPlan?.workerCount ?? PARALLEL_ENVIRONMENT_COUNT,
+        samplesPerSecond: 0,
+        checkpointWorker: null,
+        workers: [],
         history: {
             returns: [],
             entropy: [],
@@ -601,6 +681,8 @@ export function getLabInstances() {
         pureRLAgent: labPureRLAgent,
         reader: labReader,
         rewardSystem: labRewardSystem,
+        parallelTrainer,
+        parallelPlan,
         isInitialized,
         currentMode
     };
@@ -619,7 +701,15 @@ export function isLabInitialized() {
  */
 export function updateRLConfig(config) {
     if (labPureRLAgent) {
-        labPureRLAgent.updateConfig(config);
+        parallelPlan = createParallelTrainingPlan({
+            workerCount: PARALLEL_ENVIRONMENT_COUNT,
+            rolloutSize: config.rolloutSize,
+        });
+        labPureRLAgent.updateConfig({
+            ...config,
+            rolloutSize: parallelPlan.aggregateRolloutSize,
+        });
+        parallelTrainer?.setSharedCore(labPureRLAgent.core);
         feedSystem(`Config updated: LR=${config.learningRate}, Rollout=${config.rolloutSize}, γ=${config.gamma}`);
     }
 }
@@ -630,6 +720,7 @@ export function updateRLConfig(config) {
 export function cleanupLab() {
     initializationGeneration++;
     stopLabAgent();
+    destroyParallelTrainer();
 
     if (labEmulator) {
         labEmulator.destroy();
@@ -641,6 +732,9 @@ export function cleanupLab() {
     labPureRLAgent = null;
     labRewardSystem = null;
     labCanvas = null;
+    labRomBuffer = null;
+    parallelPlan = null;
+    parallelInitPromise = null;
     isInitialized = false;
     currentMode = 'llm';
     labMode.set('llm');

@@ -17,6 +17,7 @@ export class RolloutBuffer {
         this.rewards = new Float32Array(rolloutSize);
         this.logProbs = new Float32Array(rolloutSize); // Stored for PPO; unused in REINFORCE
         this.dones = new Uint8Array(rolloutSize); // 0/1
+        this.streamIds = new Uint16Array(rolloutSize);
 
         this.length = 0;
     }
@@ -37,7 +38,7 @@ export class RolloutBuffer {
      * @param {number} logProb - Log probability of action
      * @param {boolean} done - Episode termination flag
      */
-    push(stateVec, actionIdx, reward, logProb, done) {
+    push(stateVec, actionIdx, reward, logProb, done, streamId = 0) {
         const t = this.length;
         if (t >= this.rolloutSize) return false;
 
@@ -50,6 +51,7 @@ export class RolloutBuffer {
         this.rewards[t] = reward;
         this.logProbs[t] = logProb;
         this.dones[t] = done ? 1 : 0;
+        this.streamIds[t] = Math.max(0, Math.trunc(Number(streamId) || 0));
 
         this.length++;
         return true;

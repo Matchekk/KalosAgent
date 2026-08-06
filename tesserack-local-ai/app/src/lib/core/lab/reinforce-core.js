@@ -91,8 +91,8 @@ export class ReinforceCore {
      * @param {boolean} done - Episode ended
      * @param {number} logProb - Log probability of action
      */
-    observe(stateVec, actionIdx, reward, done, logProb) {
-        this.buffer.push(stateVec, actionIdx, reward, logProb, done);
+    observe(stateVec, actionIdx, reward, done, logProb, streamId = 0) {
+        this.buffer.push(stateVec, actionIdx, reward, logProb, done, streamId);
     }
 
     /**
@@ -109,15 +109,20 @@ export class ReinforceCore {
      */
     _computeReturns() {
         const returns = this._returns;
-        let R = 0;
+        // Interleaved environments must never bootstrap from one another.
+        // A sparse array keeps this allocation proportional to active streams.
+        const returnByStream = [];
 
         for (let t = this.buffer.length - 1; t >= 0; t--) {
+            const streamId = this.buffer.streamIds[t];
             // Reset return at episode boundary
             if (this.buffer.dones[t]) {
-                R = 0;
+                returnByStream[streamId] = 0;
             }
-            R = this.buffer.rewards[t] + this.gamma * R;
-            returns[t] = R;
+            const futureReturn = returnByStream[streamId] || 0;
+            const currentReturn = this.buffer.rewards[t] + this.gamma * futureReturn;
+            returnByStream[streamId] = currentReturn;
+            returns[t] = currentReturn;
         }
 
         return returns;

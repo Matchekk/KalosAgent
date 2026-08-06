@@ -79,7 +79,7 @@
 
     // Playback controls
     let playbackSpeed = 1;
-    const speeds = [0.5, 1, 2, 4, 8];
+    const speeds = [0.5, 1, 2, 4, 8, 16];
 
     // Save states
     let savedStates = [];
@@ -238,7 +238,7 @@
             }
         }
 
-        if (startLabAgent()) {
+        if (await startLabAgent()) {
             isRunning = true;
             feedSystem(mode === 'train' ? 'Training started...' : 'Playing with LLM guidance...');
         } else {
@@ -544,7 +544,7 @@
         {:else if runBlockReason}
             {runBlockReason}
         {:else}
-            {mode === 'train' ? 'Ready to train · Policy autosaves after each update' : 'Ready to run'}
+            {mode === 'train' ? 'Ready to train · 4 environments share one policy (1 visible + 3 headless)' : 'Ready to run'}
         {/if}
     </div>
 
@@ -570,7 +570,7 @@
                 </button>
                 {#if howItWorksExpanded}
                     <p class="how-desc">
-                        Pure reinforcement learning for Red++. The policy chooses every button itself, including Start and party menus. Rewards use WRAM battle, type, move and durable progress data; novel exploration replaces circle-farming. Policies and milestone checkpoints autosave locally.
+                        Four Red++ environments collect on-policy experience for one shared REINFORCE learner. Three resume from the strongest RAM-verified checkpoint while one always rehearses from ROM start. Only environment 1 is rendered; all four choose every button themselves.
                     </p>
                 {/if}
 
@@ -591,6 +591,14 @@
                         <span class="metric-value mono">{$pureRLMetrics.trainSteps}</span>
                     </div>
                     <div class="metric-row">
+                        <span class="metric-label">Environments</span>
+                        <span class="metric-value mono">{$pureRLMetrics.environmentCount}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Samples/s</span>
+                        <span class="metric-value mono">{$pureRLMetrics.samplesPerSecond.toFixed(1)}</span>
+                    </div>
+                    <div class="metric-row">
                         <span class="metric-label">Episode</span>
                         <span class="metric-value mono">{$pureRLMetrics.episode} / {$pureRLMetrics.episodeSteps} steps</span>
                     </div>
@@ -601,6 +609,12 @@
                     <div class="metric-row">
                         <span class="metric-label">Checkpoints</span>
                         <span class="metric-value mono">{$pureRLMetrics.checkpointCount}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Best environment</span>
+                        <span class="metric-value mono">
+                            {$pureRLMetrics.checkpointWorker === null ? '-' : $pureRLMetrics.checkpointWorker + 1}
+                        </span>
                     </div>
                 </div>
 

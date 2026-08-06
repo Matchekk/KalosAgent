@@ -19,6 +19,7 @@ import {
     executeRepeatedAction,
     restoreReinforceSnapshot,
 } from './training-utils.js';
+import { progressScore } from './parallel-training.js';
 
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
@@ -152,31 +153,37 @@ export class PureRLAgent {
     constructor(emulator, memoryReader, config = {}) {
         this.emu = emulator;
         this.mem = memoryReader;
+        const { sharedCore = null, ...agentConfig } = config;
+        this.workerId = Math.max(0, Math.trunc(Number(agentConfig.workerId) || 0));
 
         // Config - pacing/UI options
         this.config = {
-            actionHoldFrames: config.actionHoldFrames ?? 12,
-            frameSkip: config.frameSkip ?? 16,
-            actionRepeat: config.actionRepeat ?? 1,
-            maxEpisodeSteps: config.maxEpisodeSteps ?? 4000,
-            noProgressSteps: config.noProgressSteps ?? 900,
+            actionHoldFrames: agentConfig.actionHoldFrames ?? 12,
+            frameSkip: agentConfig.frameSkip ?? 16,
+            actionRepeat: agentConfig.actionRepeat ?? 1,
+            maxEpisodeSteps: agentConfig.maxEpisodeSteps ?? 4000,
+            noProgressSteps: agentConfig.noProgressSteps ?? 900,
+            resetFromInitial: agentConfig.resetFromInitial ?? false,
+            rehearseEvery: agentConfig.rehearseEvery ?? 5,
+            autoCheckpoint: agentConfig.autoCheckpoint ?? true,
+            persistCheckpoint: agentConfig.persistCheckpoint ?? (this.workerId === 0),
             // REINFORCE config
-            rolloutSize: config.rolloutSize ?? 128,
-            learningRate: config.learningRate ?? 0.001,
-            gamma: config.gamma ?? 0.99,
-            normalizeReturns: config.normalizeReturns ?? true,
-            entropyCoefficient: config.entropyCoefficient ?? 0.01,
-            ...config
+            rolloutSize: agentConfig.rolloutSize ?? 128,
+            learningRate: agentConfig.learningRate ?? 0.001,
+            gamma: agentConfig.gamma ?? 0.99,
+            normalizeReturns: agentConfig.normalizeReturns ?? true,
+            entropyCoefficient: agentConfig.entropyCoefficient ?? 0.01,
+            ...agentConfig
         };
 
         // Unit test rewards
-        this.rewards = new UnitTestRewards(config.rewards || {});
+        this.rewards = new UnitTestRewards(agentConfig.rewards || {});
 
         // Create the Pokemon environment interface for RLRunner
         this.env = this._createEnv();
 
         // Create core (pure RL algorithm)
-        this.core = new ReinforceCore({
+        this.core = sharedCore || new ReinforceCore({
             stateSize: REDPP_STATE_SIZE,
             numActions: PURE_RL_ACTIONS.length,
             rolloutSize: this.config.rolloutSize,
@@ -206,11 +213,12 @@ export class PureRLAgent {
         this.checkpointCount = 0;
         this.confirmedWins = 0;
         this.resetReason = null;
+        this.pendingCheckpointCandidate = null;
 
         // Checkpoint state for resets
         this.checkpointState = null;
         this.initialState = null;
-        this._restorePersistedCheckpoint();
+        if (this.config.persistCheckpoint) this._restorePersistedCheckpoint();
 
         // Callbacks
         this.onStep = null;
@@ -226,6 +234,7 @@ export class PureRLAgent {
         return {
             ACTIONS: PURE_RL_ACTIONS,
             stateVec: new Float32Array(REDPP_STATE_SIZE),
+            streamId: this.workerId,
 
             getState() {
                 return self.mem.getGameState();
@@ -274,7 +283,14 @@ export class PureRLAgent {
             // Starter, rival, level and badge milestones become curriculum
             // checkpoints. No action is supplied: the policy earned the state.
             if (this.checkpointState && this._isDurableProgress(prevState, currState)) {
-                this.saveCheckpoint(currState);
+                this.pendingCheckpointCandidate = {
+                    workerId: this.workerId,
+                    steps: this.totalSteps + 1,
+                    episodeSteps: this.episodeSteps,
+                    state: currState,
+                    checkpoint: this.emu.saveState(),
+                };
+                if (this.config.autoCheckpoint) this.saveCheckpoint(currState);
             }
         }
 
@@ -301,7 +317,9 @@ export class PureRLAgent {
      * @private
      */
     async _resetEnv() {
-        const rehearseFromStart = this.episode % 5 === 0 && this.initialState;
+        const rehearseEvery = Math.max(0, Math.trunc(Number(this.config.rehearseEvery) || 0));
+        const rehearseFromStart = this.config.resetFromInitial
+            || (rehearseEvery > 0 && this.episode % rehearseEvery === 0);
         const state = rehearseFromStart ? this.initialState : this.checkpointState;
         if (state) {
             this.emu.loadState(state);
@@ -437,7 +455,7 @@ export class PureRLAgent {
         if (!this.initialState) this.initialState = this.checkpointState.slice();
         this.bestProgressScore = Math.max(this.bestProgressScore, this._progressScore(state));
         this.checkpointCount++;
-        this._persistCheckpoint();
+        if (this.config.persistCheckpoint) this._persistCheckpoint();
     }
 
     ensureCheckpoint() {
@@ -445,14 +463,7 @@ export class PureRLAgent {
     }
 
     _progressScore(state) {
-        if (!state) return 0;
-        const party = state.party || [];
-        const totalLevels = party.reduce((sum, mon) => sum + (mon.level || 0), 0);
-        const champion = ['HALL OF FAME', 'CHAMPIONS ROOM'].includes(state.location) ? 10_000_000 : 0;
-        return champion + (state.badgeCount || 0) * 1_000_000
-            + (state.progressFlags?.battledRivalInOaksLab ? 100_000 : 0)
-            + party.length * 20_000
-            + totalLevels * 100;
+        return progressScore(state);
     }
 
     _isDurableProgress(prev, curr) {
@@ -485,6 +496,41 @@ export class PureRLAgent {
         } catch (error) {
             console.warn('[PureRLAgent] Could not persist curriculum checkpoint:', error.message);
         }
+    }
+
+    setInitialState(stateBytes) {
+        if (!(stateBytes instanceof Uint8Array)) throw new Error('Initial state must be Uint8Array');
+        this.initialState = stateBytes.slice();
+    }
+
+    adoptCheckpoint(stateBytes, stateOrScore, { persist = false, count = false } = {}) {
+        if (!(stateBytes instanceof Uint8Array)) throw new Error('Checkpoint must be Uint8Array');
+        this.checkpointState = stateBytes.slice();
+        const score = typeof stateOrScore === 'number' ? stateOrScore : this._progressScore(stateOrScore);
+        this.bestProgressScore = Math.max(this.bestProgressScore, Number(score) || 0);
+        if (count) this.checkpointCount++;
+        if (persist && this.config.persistCheckpoint) this._persistCheckpoint();
+    }
+
+    loadCheckpointIntoEnvironment() {
+        if (!this.checkpointState) return false;
+        this.emu.loadState(this.checkpointState);
+        for (let frame = 0; frame < 4; frame++) this.emu.runFrame();
+        return true;
+    }
+
+    consumeCheckpointCandidate() {
+        const candidate = this.pendingCheckpointCandidate;
+        this.pendingCheckpointCandidate = null;
+        return candidate;
+    }
+
+    setSharedCore(core) {
+        if (!core || core.stateSize !== REDPP_STATE_SIZE || core.numActions !== PURE_RL_ACTIONS.length) {
+            throw new Error('Incompatible shared REINFORCE core');
+        }
+        this.core = core;
+        this.runner = new RLRunner(this.core, this.env);
     }
 
     _restorePersistedCheckpoint() {

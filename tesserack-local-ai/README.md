@@ -6,6 +6,8 @@ Browser-based autonomous training and local-LLM play for Pokemon Red++.
 
 Train mode uses a REINFORCE policy that chooses every required Game Boy action itself, including Start and party/battle menus. There is no scripted early-game controller.
 
+Training runs four independent Red++ emulator environments against one shared on-policy learner. The visible environment and two headless environments resume from the strongest RAM-verified checkpoint; a fourth environment always starts from the original ROM state so the policy cannot forget the opening. Checkpoints are ranked by durable progress (Champion, badges, Oak rival, party, levels) and never by noisy short-term reward. Only one emulator is rendered, and the aggregate 512-sample rollout keeps discounted returns isolated per environment.
+
 Numeric learning signals come from one versioned, context-gated matrix:
 
 - dialog: rewards actual page advancement and closing, with no generic step or stuck cost;
@@ -14,10 +16,11 @@ Numeric learning signals come from one versioned, context-gated matrix:
 - milestones: orders battle wins, party growth, badges and Champion on explicit scales;
 - menus/saving: allows purposeful access but applies escalating penalties to repeated Start and save loops.
 
-Run the deterministic quality benchmark with:
+The Train toolbar supports up to 16x pacing and reports aggregate samples per second. Run both deterministic quality benchmarks with:
 
 ```bash
 npm run benchmark:rewards --prefix app
+npm run benchmark:parallel --prefix app
 ```
 
 ## Red++ guide data
@@ -36,7 +39,7 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 4173
 ```
 
-Open `http://127.0.0.1:4173/tesserack/`, load the Red++ ROM, then select Play or Train.
+Open `http://127.0.0.1:4173/`, load the Red++ ROM, then select Play or Train.
 
 For the bundled local llama.cpp setup, use endpoint `http://localhost:8090/v1` and model `qwen3.5-0.8b`.
 
