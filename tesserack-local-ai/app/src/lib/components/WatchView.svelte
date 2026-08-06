@@ -102,7 +102,7 @@
             <div class="info-icon"><Cpu size={20} /></div>
             <div class="info-content">
                 <h3>What's happening?</h3>
-                <p>A REINFORCE policy network is learning to play Pokemon Red using dense rewards extracted from the Prima Strategy Guide. No human input - pure reinforcement learning.</p>
+                <p>A REINFORCE policy network learns Red++ from a context-gated, normalized reward matrix. It chooses every button itself; no scripted early-game controller is used.</p>
             </div>
         </div>
 
@@ -110,7 +110,7 @@
             <div class="info-icon"><BookOpen size={20} /></div>
             <div class="info-content">
                 <h3>How it works</h3>
-                <p>Claude Vision read 55 pages of the guide and extracted 675 unit tests across 41 locations. The agent gets rewarded for walking toward objectives, reaching landmarks, and completing goals.</p>
+                <p>The supplied Red++ Oak Guide provides route, encounter and evolution context. It is kept separate from rewards, so optional collection advice cannot distort the Champion objective.</p>
             </div>
         </div>
 

@@ -8,6 +8,7 @@ import {
     PureRLAgent,
 } from '../src/lib/core/lab/pure-rl-agent.js';
 import { UnitTestRewards } from '../src/lib/core/lab/unit-test-rewards.js';
+import { REDPP_REWARD_MATRIX } from '../src/lib/core/lab/redpp-reward-matrix.js';
 import { MAP_NAMES } from '../src/lib/core/memory-reader.js';
 
 function state(overrides = {}) {
@@ -68,21 +69,24 @@ test('Train rewards only confirmed Red++ wins and battle damage', () => {
         state({ inBattle: true, battle: { ...battle, opponent: { ...battle.opponent, currentHP: 5 } } }),
         'a',
     );
-    assert.ok(damage.breakdown.tier3 > 2);
+    assert.ok(damage.total > 0);
+    assert.ok(damage.firedTests.some(event => event.id === 'redpp_battle_progress'));
 
     const ran = rewards.evaluate(
         state({ inBattle: true, battle }),
         state({ battleResult: 2 }),
         'b',
     );
-    assert.ok(ran.breakdown.tier3 < 0);
+    assert.ok(ran.total < 0);
+    assert.ok(ran.firedTests.some(event => event.id === 'redpp_battle_escaped'));
 
     const won = rewards.evaluate(
         state({ inBattle: true, battle }),
         state({ battleResult: 0 }),
         'a',
     );
-    assert.ok(won.breakdown.tier3 >= 20);
+    assert.ok(won.firedTests.some(event =>
+        event.id === 'redpp_battle_won' && event.reward === REDPP_REWARD_MATRIX.battle.wildWin));
 });
 
 test('Train cannot farm reward by walking in a circle or spamming Start', () => {
@@ -120,5 +124,52 @@ test('Train checkpoints earned durable progress without choosing an action', () 
 test('becoming Red++ Champion is an explicit terminal-scale objective', () => {
     const rewards = new UnitTestRewards();
     const result = rewards.evaluate(state(), state({ location: 'HALL OF FAME' }), 'up');
-    assert.ok(result.firedTests.some(event => event.id === 'redpp_champion' && event.reward === 1000));
+    assert.ok(result.firedTests.some(event =>
+        event.id === 'redpp_champion' && event.reward === REDPP_REWARD_MATRIX.milestone.champion));
+});
+
+test('mandatory dialog never accrues movement, step, or stuck penalties', () => {
+    const rewards = new UnitTestRewards();
+    let result;
+    for (let page = 0; page < 60; page++) {
+        result = rewards.evaluate(
+            state({ dialog: `PAGE ${page}` }),
+            state({ dialog: `PAGE ${page + 1}` }),
+            'a',
+        );
+    }
+    const forbidden = new Set(['decision_cost', 'step_cost', 'stuck', 'blocked_movement', 'revisited_tile']);
+    assert.equal(result.context, 'dialog');
+    assert.ok(result.total > 0);
+    assert.equal(result.firedTests.some(event => forbidden.has(event.id)), false);
+
+    const closed = rewards.evaluate(state({ dialog: 'THE END' }), state({ dialog: '' }), 'a');
+    assert.ok(closed.firedTests.some(event =>
+        event.id === 'dialog_advanced' && event.reward === REDPP_REWARD_MATRIX.dialog.closed));
+});
+
+test('repeated saves receive an exponentially escalating, capped penalty', () => {
+    const rewards = new UnitTestRewards();
+    const save = () => rewards.evaluate(
+        state({ dialog: 'WOULD YOU LIKE TO SAVE?' }),
+        state({ dialog: 'SAVED THE GAME' }),
+        'a',
+    );
+
+    const first = save();
+    const second = save();
+    const third = save();
+    assert.equal(first.firedTests.some(event => event.id === 'repeat_save'), false);
+    assert.ok(second.firedTests.some(event => event.id === 'repeat_save' && event.reward === -1));
+    assert.ok(third.firedTests.some(event => event.id === 'repeat_save' && event.reward === -2));
+    assert.ok(third.total < second.total);
+});
+
+test('reward hierarchy and normalized battle coefficients stay coherent', () => {
+    const { battle, milestone, overworld } = REDPP_REWARD_MATRIX;
+    assert.ok(Math.abs(overworld.decisionCost) < overworld.novelTile);
+    assert.ok(battle.trainerWin > battle.wildWin);
+    assert.ok(milestone.badge > battle.trainerWin);
+    assert.ok(milestone.champion > milestone.badge);
+    assert.ok(battle.enemyHpFraction > 0 && battle.ownHpFraction < 0);
 });

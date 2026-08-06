@@ -658,6 +658,8 @@
                     firedTests={$pureRLMetrics.firedTests || []}
                     totalRewards={$pureRLMetrics.totalRewards || { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 }}
                     completedObjectives={$pureRLMetrics.completedObjectives || []}
+                    context={$pureRLMetrics.context}
+                    matrixVersion={$pureRLMetrics.matrixVersion}
                 />
 
             {:else}

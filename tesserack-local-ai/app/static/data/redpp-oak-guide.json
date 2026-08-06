@@ -1,0 +1,345 @@
+{
+  "meta": {
+    "id": "redpp-oak-guide",
+    "title": "Mewlax's Professor Oak Challenge Guide for Pokemon Red++",
+    "sourceGuideVersion": "4.5.3",
+    "targetRomVersion": "3.0.2",
+    "strategyMode": "champion-first-with-optional-collection-knowledge",
+    "compatibility": "The user-supplied guide targets Red++ 4.5.3 while runtime RAM mapping targets 3.0.2. Route, encounter and evolution facts are advisory; observed v3.0.2 RAM is authoritative.",
+    "rewardPolicy": "Guide content supplies context and curriculum only. It never defines numeric reinforcement rewards.",
+    "challengeRulesApplied": false
+  },
+  "principles": [
+    "Red++ adds later-generation Pokemon, Dark/Steel/Fairy types, physical-special split and altered evolution methods.",
+    "Headbutt trees, breeding without egg hatching and location-based evolutions are useful optional collection mechanics.",
+    "Keep attacking moves and PP coverage while grinding; do not replace all weak attacks with status moves.",
+    "The Oak challenge's catch-everything gates are optional because the active objective is becoming Champion quickly."
+  ],
+  "championRoute": [
+    { "order": 1, "location": "Pallet Town", "objective": "Choose a starter and finish Oak's opening sequence" },
+    { "order": 2, "location": "Pewter City", "objective": "Defeat Brock for the Boulder Badge" },
+    { "order": 3, "location": "Cerulean City", "objective": "Defeat Misty for the Cascade Badge and Cut access" },
+    { "order": 4, "location": "Fuchsia City", "objective": "Defeat Koga for Surf access" },
+    { "order": 5, "location": "Celadon City", "objective": "Defeat Erika for Strength access" },
+    { "order": 6, "location": "Vermilion City", "objective": "Defeat Lt. Surge" },
+    { "order": 7, "location": "Saffron City", "objective": "Defeat Sabrina" },
+    { "order": 8, "location": "Cinnabar Island", "objective": "Get the Secret Key and defeat Blaine" },
+    { "order": 9, "location": "Viridian City", "objective": "Defeat Giovanni for the Earth Badge" },
+    { "order": 10, "location": "Victory Road", "objective": "Reach Indigo Plateau" },
+    { "order": 11, "location": "Indigo Plateau", "objective": "Defeat the Elite Four and Champion" }
+  ],
+  "sections": [
+    {
+      "id": "pre-brock",
+      "title": "Part 1 - Before Brock",
+      "dexTarget": 36,
+      "locations": [
+        {
+          "name": "Pallet Town",
+          "summary": "Choose Bulbasaur, Charmander or Squirtle. Bulbasaur reaches its final form four levels earlier, but all starters can work.",
+          "objectives": [{ "name": "Choose a starter Pokemon", "description": "Complete Oak's opening sequence and obtain the first party member." }],
+          "encounters": ["Bulbasaur -> Ivysaur (16) -> Venusaur (32)", "Charmander -> Charmeleon (16) -> Charizard (36)", "Squirtle -> Wartortle (16) -> Blastoise (36)"],
+          "nextLocations": ["Route 1"]
+        },
+        {
+          "name": "Route 1",
+          "summary": "Early catches; Zigzagoon can learn Pay Day and Headbutt.",
+          "objectives": ["Reach Viridian City"],
+          "encounters": ["Pidgey -> Pidgeotto (18) -> Pidgeot (36)", "Rattata -> Raticate (20)", "Zigzagoon -> Linoone (20)"],
+          "nextLocations": ["Pallet Town", "Viridian City"]
+        },
+        {
+          "name": "Viridian City",
+          "summary": "Opening hub between Pallet Town, Route 22 and Viridian Forest.",
+          "objectives": ["Complete Oak's parcel and Pokedex sequence"],
+          "nextLocations": ["Route 1", "Route 22", "Viridian Forest"]
+        },
+        {
+          "name": "Route 22",
+          "summary": "Optional early rival battle and several useful catches.",
+          "objectives": [{ "name": "Defeat the optional Route 22 rival", "requiredForChampion": false }],
+          "encounters": ["Nidoran F -> Nidorina (16)", "Nidoran M -> Nidorino (16)", "Spearow -> Fearow (20)", "Meowth -> Persian (28)", "Mankey -> Primeape (28)"],
+          "nextLocations": ["Viridian City"]
+        },
+        {
+          "name": "Viridian Forest",
+          "summary": "Catch the early bug lines and Pikachu; a spare Pikachu enables the Pewter museum trade.",
+          "objectives": ["Traverse Viridian Forest to Pewter City"],
+          "encounters": ["Caterpie -> Metapod (7) -> Butterfree (10)", "Weedle -> Kakuna (7) -> Beedrill (10)", "Pikachu"],
+          "nextLocations": ["Viridian City", "Pewter City"]
+        },
+        {
+          "name": "Pewter City",
+          "summary": "Brock is the first mandatory progression wall. Optional: trade a spare Pikachu for Togepi; Headbutt trees add Red++ encounters.",
+          "objectives": [{ "name": "Defeat Brock for the Boulder Badge", "description": "Unlock the eastern route from Pewter City." }],
+          "encounters": ["Togepi -> Togetic (15)", "Murkrow", "Paras -> Parasect (24)", "Ekans -> Arbok (22)", "Venonat -> Venomoth (31)"],
+          "nextLocations": ["Route 3"]
+        }
+      ]
+    },
+    {
+      "id": "pre-misty",
+      "title": "Part 2 - Before Misty",
+      "dexTarget": 82,
+      "locations": [
+        {
+          "name": "Route 3",
+          "summary": "Progress east after Brock; Magikarp can be trained on preserved trainers.",
+          "objectives": ["Reach Mt. Moon"],
+          "encounters": ["Jigglypuff", "Sandshrew -> Sandslash (22)"],
+          "nextLocations": ["Pewter City", "Route 4", "Mt. Moon"]
+        },
+        {
+          "name": "Route 4",
+          "summary": "A Magikarp is available from the Pokemon Center salesman before Mt. Moon.",
+          "objectives": [{ "name": "Buy or later catch Magikarp", "requiredForChampion": false }],
+          "encounters": ["Magikarp -> Gyarados (20)"],
+          "nextLocations": ["Route 3", "Mt. Moon", "Cerulean City"]
+        },
+        {
+          "name": "Mt. Moon",
+          "summary": "Red++ allows returning after the ledges. Mt. Moon Square sells Moon Stones; collect both fossils on the way out.",
+          "objectives": ["Cross Mt. Moon", { "name": "Collect both fossils", "requiredForChampion": false }],
+          "items": ["Moon Stone", "Helix Fossil", "Dome Fossil"],
+          "encounters": ["Zubat -> Golbat (22) -> Crobat (Moon Stone)", "Geodude -> Graveler (25) -> Golem (40)", "Clefairy -> Clefable (Moon Stone)", "Onix -> Steelix (level with Iron Tail)"],
+          "nextLocations": ["Route 3", "Route 4", "Cerulean City"]
+        },
+        {
+          "name": "Cerulean City",
+          "summary": "Use this hub for Nugget Bridge, Bill, the bike and the second mandatory badge.",
+          "objectives": [{ "name": "Defeat Misty for the Cascade Badge", "description": "Enables Cut progression in this Red++ route." }],
+          "nextLocations": ["Route 24", "Route 5", "Route 4"]
+        },
+        {
+          "name": "Route 24",
+          "summary": "Catch Abra, Oddish and Bellsprout; continue to Bill for the S.S. Ticket.",
+          "objectives": ["Visit Bill and obtain the S.S. Ticket"],
+          "items": ["S.S. Ticket"],
+          "encounters": ["Abra -> Kadabra (16) -> Alakazam (Moon Stone)", "Oddish -> Gloom (21)", "Bellsprout -> Weepinbell (21)"],
+          "nextLocations": ["Cerulean City"]
+        },
+        {
+          "name": "Route 5",
+          "summary": "The daycare supplies a Ditto and breeding completes immediately after enough steps rather than egg hatching.",
+          "objectives": [{ "name": "Use daycare breeding when useful", "requiredForChampion": false }],
+          "encounters": ["Pichu from Pikachu", "Cleffa from Clefairy/Clefable", "Igglybuff from Jigglypuff/Wigglytuff"],
+          "nextLocations": ["Cerulean City", "Vermilion City"]
+        },
+        {
+          "name": "Vermilion City",
+          "summary": "Collect the Old Rod and Bike Voucher; Red++ trades can supply Squirtle.",
+          "objectives": ["Prepare and board the S.S. Anne"],
+          "items": ["Old Rod", "Bike Voucher"],
+          "encounters": ["Poliwag -> Poliwhirl (25) -> Politoed (Moon Stone)"],
+          "nextLocations": ["Route 11", "S.S. Anne", "Diglett Cave"]
+        },
+        {
+          "name": "Route 11",
+          "summary": "Headbutt trees add Exeggcute and Heracross.",
+          "objectives": [],
+          "encounters": ["Drowzee -> Hypno (26)", "Exeggcute", "Heracross"],
+          "nextLocations": ["Vermilion City", "Diglett Cave"]
+        },
+        {
+          "name": "Diglett Cave",
+          "summary": "Connects Vermilion to Route 2 and the Abra-for-Sneasel trade.",
+          "objectives": [{ "name": "Use Diglett Cave for Route 2 access", "requiredForChampion": false }],
+          "encounters": ["Diglett -> Dugtrio (26)"],
+          "nextLocations": ["Vermilion City", "Route 2"]
+        },
+        {
+          "name": "Route 2",
+          "summary": "Trade a spare Abra for Sneasel; Moon Stone evolves it to Weavile.",
+          "objectives": [{ "name": "Optional Abra-for-Sneasel trade", "requiredForChampion": false }],
+          "encounters": ["Sneasel -> Weavile (Moon Stone)"],
+          "nextLocations": ["Diglett Cave", "Viridian Forest"]
+        },
+        {
+          "name": "S.S. Anne",
+          "summary": "Clear the ship and obtain HM01 Cut before it departs permanently.",
+          "objectives": ["Obtain HM01 Cut"],
+          "items": ["HM01 Cut"],
+          "nextLocations": ["Vermilion City"]
+        }
+      ]
+    },
+    {
+      "id": "pre-koga",
+      "title": "Part 3 - Before Koga",
+      "dexTarget": 177,
+      "locations": [
+        {
+          "name": "Route 9",
+          "summary": "Cut opens the eastern route toward Rock Tunnel.",
+          "objectives": ["Reach Rock Tunnel"],
+          "encounters": ["Cubone -> Marowak (28)"],
+          "nextLocations": ["Cerulean City", "Route 10"]
+        },
+        {
+          "name": "Route 10",
+          "summary": "Red++ adds Skarmory, Bellossom and other useful encounters before Rock Tunnel.",
+          "objectives": ["Enter Rock Tunnel"],
+          "encounters": ["Machop -> Machoke (28) -> Machamp (40)", "Voltorb -> Electrode (30)", "Magnemite -> Magneton (30)", "Skarmory", "Bellossom"],
+          "nextLocations": ["Route 9", "Rock Tunnel", "Power Plant"]
+        },
+        {
+          "name": "Rock Tunnel",
+          "summary": "Flash helps but is not required; Ditto and Torkoal are Red++ additions to the route knowledge.",
+          "objectives": ["Cross Rock Tunnel"],
+          "encounters": ["Ditto", "Torkoal", "Machop"],
+          "nextLocations": ["Route 10", "Lavender Town"]
+        },
+        {
+          "name": "Route 8",
+          "summary": "Western route from Lavender toward Celadon.",
+          "objectives": ["Reach Celadon City"],
+          "encounters": ["Growlithe", "Vulpix", "Lickitung -> Lickilicky (level with Ancient Power)", "Houndour -> Houndoom (24)"],
+          "nextLocations": ["Lavender Town", "Celadon City"]
+        },
+        {
+          "name": "Celadon City",
+          "summary": "Get Eevee, stones and Porygon; clear Rocket Hideout for the Silph Scope. Location-based and stone evolutions differ from vanilla Red.",
+          "objectives": ["Clear Rocket Hideout and obtain the Silph Scope", "Defeat Erika for the Rainbow Badge and Strength access"],
+          "items": ["Silph Scope", "Fly HM", "Evolution Stones"],
+          "encounters": ["Eevee -> Leafeon (Viridian Forest)", "Eevee -> Sylveon (Mt. Moon Square)", "Eevee -> Umbreon (Moon Stone)", "Porygon -> Porygon2 (Thunder Stone)"],
+          "nextLocations": ["Route 8", "Route 16", "Saffron City"]
+        },
+        {
+          "name": "Route 16",
+          "summary": "Cut accesses grass and Fly; Cycling Road leads toward Fuchsia.",
+          "objectives": ["Obtain Fly", "Continue toward Fuchsia City"],
+          "encounters": ["Doduo -> Dodrio (31)", "Grimer -> Muk (38)", "Slugma -> Magcargo (38)"],
+          "nextLocations": ["Celadon City", "Fuchsia City"]
+        },
+        {
+          "name": "Lavender Town",
+          "summary": "Use the Silph Scope in Pokemon Tower, rescue Mr. Fuji and obtain the Poke Flute.",
+          "objectives": ["Clear Pokemon Tower", "Obtain the Poke Flute"],
+          "items": ["Poke Flute"],
+          "encounters": ["Gastly -> Haunter (25) -> Gengar (Moon Stone)", "Misdreavus -> Mismagius (Moon Stone)", "Snorlax -> Munchlax (breed)"],
+          "nextLocations": ["Route 8", "Route 12"]
+        },
+        {
+          "name": "Route 12",
+          "summary": "Wake Snorlax and obtain the Super Rod while heading south.",
+          "objectives": ["Obtain the Super Rod"],
+          "items": ["Super Rod"],
+          "nextLocations": ["Lavender Town", "Fuchsia City"]
+        },
+        {
+          "name": "Fuchsia City",
+          "summary": "Collect the rods and Exp. Share; Koga is prioritized because his badge unlocks Surf.",
+          "objectives": ["Defeat Koga for the Soul Badge and Surf access"],
+          "items": ["Good Rod", "Exp. Share"],
+          "encounters": ["Ponyta -> Rapidash (40)", "Tentacool -> Tentacruel (30)"],
+          "nextLocations": ["Safari Zone", "Route 12", "Route 16"]
+        },
+        {
+          "name": "Safari Zone",
+          "summary": "HM03 Surf and Gold Teeth are progression-critical; Gold Teeth trade for Strength.",
+          "objectives": ["Obtain HM03 Surf", "Find Gold Teeth and obtain Strength"],
+          "items": ["HM03 Surf", "Gold Teeth", "HM04 Strength"],
+          "encounters": ["Dratini -> Dragonair (30) -> Dragonite (55)", "Rhyhorn -> Rhydon (42) -> Rhyperior (Ancient Power)", "Scyther -> Scizor (Metal Claw)", "Pinsir", "Tauros", "Kangaskhan", "Chansey -> Blissey (Sun Stone)"],
+          "nextLocations": ["Fuchsia City"]
+        },
+        {
+          "name": "Saffron City",
+          "summary": "Clear Silph Co., receive Lapras and later defeat Sabrina. The Fighting Dojo supports the Tyrogue line.",
+          "objectives": ["Clear Silph Co.", "Defeat Sabrina for the Marsh Badge"],
+          "items": ["Master Ball"],
+          "encounters": ["Lapras", "Tyrogue -> Hitmontop/Hitmonlee/Hitmonchan (20 by stats)"],
+          "nextLocations": ["Celadon City"]
+        }
+      ]
+    },
+    {
+      "id": "pre-erika",
+      "title": "Part 4 - After Surf, Before Erika",
+      "dexTarget": 203,
+      "locations": [
+        {
+          "name": "Power Plant",
+          "summary": "Surf access opens Zapdos and Red++ location evolutions for Magneton, Porygon2 and Electabuzz.",
+          "objectives": [{ "name": "Optional Power Plant catches and evolutions", "requiredForChampion": false }],
+          "encounters": ["Zapdos", "Electabuzz -> Electivire", "Magneton -> Magnezone", "Porygon2 -> Porygon-Z"],
+          "nextLocations": ["Route 10"]
+        },
+        {
+          "name": "Cinnabar Island",
+          "summary": "Revive fossils, explore Pokemon Mansion for the Secret Key and Old Sea Map, then defeat Blaine.",
+          "objectives": ["Find the Secret Key in Pokemon Mansion", "Defeat Blaine for the Volcano Badge"],
+          "items": ["Secret Key", "Old Sea Map", "Ancient Power TM"],
+          "encounters": ["Aerodactyl", "Omanyte -> Omastar (40)", "Kabuto -> Kabutops (40)", "Koffing -> Weezing (35)", "Magmar -> Magmortar (Pokemon Mansion) -> Magby (breed)"],
+          "nextLocations": ["Pallet Town", "Seafoam Islands", "Faraway Island"]
+        },
+        {
+          "name": "Seafoam Islands",
+          "summary": "B4F enables Glaceon. Strength solves the boulder-current puzzle and opens Articuno.",
+          "objectives": [{ "name": "Catch Articuno after Strength", "requiredForChampion": false }],
+          "encounters": ["Articuno", "Seel -> Dewgong (34)", "Jynx -> Smoochum (breed)", "Eevee -> Glaceon (level on B4F)"],
+          "nextLocations": ["Cinnabar Island", "Fuchsia City"]
+        },
+        {
+          "name": "Faraway Island",
+          "summary": "The Old Sea Map unlocks the ferry to the static level-30 Mew encounter.",
+          "objectives": [{ "name": "Optional Mew encounter", "requiredForChampion": false }],
+          "encounters": ["Mew"],
+          "nextLocations": ["Vermilion City"]
+        }
+      ]
+    },
+    {
+      "id": "pre-league",
+      "title": "Parts 5-6 - Remaining Badges and Elite Four Access",
+      "dexTarget": 207,
+      "locations": [
+        {
+          "name": "Vermilion City",
+          "summary": "Lt. Surge can be delayed in the Oak route because Fly does not unlock new species, but his badge is required for the League.",
+          "objectives": ["Defeat Lt. Surge for the Thunder Badge"],
+          "nextLocations": ["Saffron City", "Cinnabar Island"]
+        },
+        {
+          "name": "Viridian City",
+          "summary": "Return after the other badges and defeat Giovanni.",
+          "objectives": ["Defeat Giovanni for the Earth Badge"],
+          "nextLocations": ["Route 22", "Victory Road"]
+        },
+        {
+          "name": "Victory Road",
+          "summary": "Cross the final cave and optionally catch Moltres. Three legendary birds unlock the Mystic Ticket at Cinnabar Lab.",
+          "objectives": ["Cross Victory Road and reach Indigo Plateau"],
+          "encounters": ["Moltres"],
+          "nextLocations": ["Viridian City", "Indigo Plateau"]
+        },
+        {
+          "name": "Navel Rock",
+          "summary": "The Mystic Ticket unlocks optional level-40 Lugia and Ho-Oh encounters.",
+          "objectives": [{ "name": "Optional Lugia and Ho-Oh encounters", "requiredForChampion": false }],
+          "encounters": ["Lugia", "Ho-Oh"],
+          "nextLocations": ["Vermilion City"]
+        },
+        {
+          "name": "Indigo Plateau",
+          "summary": "Final sequence: defeat Lorelei, Bruno, Agatha, Lance and the Champion.",
+          "objectives": ["Defeat the Elite Four", "Become Pokemon Champion"],
+          "nextLocations": ["Victory Road"]
+        }
+      ]
+    },
+    {
+      "id": "post-game",
+      "title": "Part 7 - Post Game",
+      "dexTarget": 208,
+      "locations": [
+        {
+          "name": "Cerulean Cave",
+          "summary": "Post-Champion cave containing the final level-70 Mewtwo encounter.",
+          "objectives": [{ "name": "Optional post-game Mewtwo encounter", "requiredForChampion": false }],
+          "encounters": ["Mewtwo"],
+          "nextLocations": ["Cerulean City"]
+        }
+      ]
+    }
+  ]
+}

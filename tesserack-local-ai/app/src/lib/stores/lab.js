@@ -1,8 +1,9 @@
 // Lab mode state store
 import { writable, derived } from 'svelte/store';
 import { assetUrl } from '$lib/core/asset-url.js';
+import { redppGuideToGraph } from '$lib/core/lab/redpp-guide-data.js';
 
-// Graph data from Prima guide
+// Graph data derived from the user-supplied Red++ Oak guide.
 export const walkthroughGraph = writable({ nodes: [], edges: [] });
 
 // Current agent position on graph
@@ -48,15 +49,16 @@ export const experimentRuns = writable([]);
 // Load walkthrough graph
 export async function loadWalkthroughGraph() {
     try {
-        console.log('[Lab] Loading walkthrough graph...');
-        const response = await fetch(assetUrl('data/walkthrough-graph.json'));
+        console.log('[Lab] Loading Red++ guide...');
+        const response = await fetch(assetUrl('data/redpp-oak-guide.json'));
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        const data = await response.json();
-        console.log(`[Lab] Loaded graph: ${data.nodes?.length || 0} nodes, ${data.edges?.length || 0} edges`);
-        walkthroughGraph.set(data);
-        return data;
+        const guide = await response.json();
+        const graph = redppGuideToGraph(guide);
+        console.log(`[Lab] Loaded Red++ graph: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
+        walkthroughGraph.set(graph);
+        return graph;
     } catch (e) {
         console.error('[Lab] Failed to load walkthrough graph:', e);
         return null;

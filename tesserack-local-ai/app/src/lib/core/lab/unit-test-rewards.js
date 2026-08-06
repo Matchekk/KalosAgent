@@ -1,519 +1,399 @@
 /**
- * Unit Test Rewards - Pre-compiled test bundle evaluation for pure RL mode.
+ * Context-gated Red++ reinforcement rewards.
  *
- * Loads location-specific test bundles generated from the Prima Strategy Guide
- * and evaluates state transitions against them for dense, deterministic rewards.
- *
- * Inspired by OLMoCR-2's unit test reward methodology.
- *
- * Test tiers:
- * - Tier 1: Movement (coordinates changed, directional movement)
- * - Tier 2: Landmarks (reached specific regions, location changes)
- * - Tier 3: Objectives (badges, Pokemon caught, major milestones)
- * - Penalties: Stuck detection, whiteout
+ * Test bundles now provide guide metadata only. Numeric learning signals come
+ * from one versioned matrix so an outdated walkthrough cannot silently alter
+ * the optimization objective.
  */
+import {
+    REDPP_REWARD_MATRIX,
+    REDPP_REWARD_MATRIX_VERSION,
+    REWARD_CONTEXT,
+    clamp,
+    classifyRewardContext,
+    dialogProgress,
+    hpRatio,
+} from './redpp-reward-matrix.js';
+import { redppGuideToBundles } from './redpp-guide-data.js';
+
+const DIRECTIONS = new Set(['up', 'down', 'left', 'right']);
+const CHAMPION_LOCATIONS = new Set(['HALL OF FAME', 'CHAMPIONS ROOM']);
+const SAVE_TEXT = /(?:SAVED THE GAME|SAVE COMPLETE|GAME HAS BEEN SAVED)/i;
 
 export class UnitTestRewards {
     constructor(config = {}) {
         this.config = {
-            // Tier weights
-            tier1Weight: config.tier1Weight ?? 1.0,
-            tier2Weight: config.tier2Weight ?? 1.0,
-            tier3Weight: config.tier3Weight ?? 1.0,
-            penaltyWeight: config.penaltyWeight ?? 1.0,
-
-            // Enable/disable tiers
+            tier1Weight: config.tier1Weight ?? 1,
+            tier2Weight: config.tier2Weight ?? 1,
+            tier3Weight: config.tier3Weight ?? 1,
+            penaltyWeight: config.penaltyWeight ?? 1,
             enableTier1: config.enableTier1 ?? true,
             enableTier2: config.enableTier2 ?? true,
             enableTier3: config.enableTier3 ?? true,
             enablePenalties: config.enablePenalties ?? true,
-
-            // Stuck detection
-            stuckThreshold: config.stuckThreshold ?? 30,
-
-            // Bundle URL
-            bundlesUrl: config.bundlesUrl ?? '/data/test-bundles.json',
+            bundlesUrl: config.bundlesUrl ?? '/data/redpp-oak-guide.json',
         };
 
-        // Test bundles (loaded async)
         this.bundles = null;
         this.bundlesLoaded = false;
         this.currentLocation = null;
         this.currentBundle = null;
-
-        // Track one-time tests that have fired
         this.firedOnce = new Set();
+        this.completedObjectives = [];
 
-        // Track state for tests that need history
-        this.stuckCounter = 0;
-        this.visitedLocations = new Set();
+        this.positionVisits = new Map();
         this.visitedPositions = new Set();
+        this.visitedLocations = new Set();
         this.recentPositions = [];
-        this.seenBadges = 0;
-        this.seenPartyCount = 0;
-        this.lastPartyLevels = [];
+        this.stuckCounter = 0;
         this.consecutiveStartActions = 0;
+        this.transitionCount = 0;
+        this.lastSaveTransition = -Infinity;
+        this.saveStreak = 0;
         this.championReached = false;
 
-        // Metrics
-        this.totalRewards = {
-            tier1: 0,
-            tier2: 0,
-            tier3: 0,
-            penalties: 0,
-            total: 0
-        };
+        this.totalRewards = this._emptyBreakdown(true);
         this.firedTests = [];
-        this.completedObjectives = [];
+        this.lastContext = REWARD_CONTEXT.OVERWORLD;
     }
 
-    /**
-     * Load test bundles from JSON file
-     */
     async loadBundles(url = null) {
         const bundleUrl = url || this.config.bundlesUrl;
-
         try {
             const response = await fetch(bundleUrl);
-            if (!response.ok) {
-                console.warn(`[UnitTestRewards] Failed to load bundles: ${response.status}`);
-                this.bundles = this._getDefaultBundles();
-            } else {
-                const data = await response.json();
-                this.bundles = data.bundles || data;
-                console.log(`[UnitTestRewards] Loaded ${Object.keys(this.bundles).length - 1} location bundles`);
-            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            this.bundles = data.sections ? redppGuideToBundles(data) : (data.bundles || data);
         } catch (error) {
-            console.warn('[UnitTestRewards] Error loading bundles, using defaults:', error.message);
+            console.warn('[UnitTestRewards] Guide metadata unavailable:', error.message);
             this.bundles = this._getDefaultBundles();
         }
-
         this.bundlesLoaded = true;
-
-        // Start with default bundle
         this.currentBundle = this.bundles._default || this._getDefaultBundle();
     }
 
-    /**
-     * Get default bundles if loading fails
-     */
-    _getDefaultBundles() {
-        return {
-            _default: this._getDefaultBundle(),
-        };
-    }
-
-    /**
-     * Get default bundle with universal tests
-     */
-    _getDefaultBundle() {
-        return {
-            tests: [
-                { id: 'moved', type: 'coords_changed', reward: 0.1, tier: 1 },
-                { id: 'map_changed', type: 'location_changed', reward: 1.0, tier: 2 },
-                { id: 'new_map', type: 'new_location', reward: 2.0, tier: 2, once: true },
-                { id: 'badge_earned', type: 'badge_count_increased', reward: 10.0, tier: 3, once: true },
-                { id: 'pokemon_caught', type: 'party_size_increased', reward: 5.0, tier: 3, once: true },
-                { id: 'level_up', type: 'level_increased', reward: 1.0, tier: 3 },
-            ],
-            penalties: [
-                { id: 'stuck', type: 'coords_same', threshold: 30, reward: -0.5 },
-                { id: 'step_cost', type: 'always', reward: -0.01 },
-            ],
-        };
-    }
-
-    /**
-     * Set current location and switch to appropriate bundle
-     */
     setLocation(locationName) {
         if (!this.bundles || !locationName) return;
-
-        // Normalize location name for matching
-        const normalized = locationName.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
-
-        // Try exact match first
-        if (this.bundles[normalized]) {
-            this.currentBundle = this.bundles[normalized];
-            this.currentLocation = normalized;
-            return;
-        }
-
-        // Try partial match
-        for (const [key, bundle] of Object.entries(this.bundles)) {
-            if (key === '_default') continue;
-            if (normalized.includes(key) || key.includes(normalized)) {
-                this.currentBundle = bundle;
-                this.currentLocation = key;
-                return;
-            }
-        }
-
-        // Fall back to default
-        this.currentBundle = this.bundles._default || this._getDefaultBundle();
+        const normalized = normalizeLocation(locationName);
+        this.currentBundle = this.bundles[normalized] || Object.entries(this.bundles)
+            .find(([key]) => key !== '_default' && (normalized.includes(key) || key.includes(normalized)))?.[1]
+            || this.bundles._default
+            || this._getDefaultBundle();
         this.currentLocation = normalized;
     }
 
-    /**
-     * Evaluate rewards for a state transition
-     */
-    evaluate(prevState, currState, action = null) {
-        // Ensure bundles are loaded (use defaults if not)
-        if (!this.bundlesLoaded) {
-            this.bundles = this._getDefaultBundles();
-            this.currentBundle = this.bundles._default;
-            this.bundlesLoaded = true;
-        }
-
-        // Update location if changed
-        if (currState?.location && currState.location !== this.currentLocation) {
+    evaluate(prevState = {}, currState = {}, action = null) {
+        this._ensureBundles();
+        this.transitionCount++;
+        if (currState?.location && normalizeLocation(currState.location) !== this.currentLocation) {
             this.setLocation(currState.location);
         }
 
-        let tier1 = 0;
-        let tier2 = 0;
-        let tier3 = 0;
-        let penalties = 0;
+        const context = classifyRewardContext(prevState, currState);
+        const breakdown = this._emptyBreakdown();
         const fired = [];
+        const add = (id, reward, tier, metadata = {}) => {
+            if (!Number.isFinite(reward) || reward === 0) return;
+            const weighted = this._weightedReward(reward, tier);
+            if (weighted === 0) return;
+            const key = tier === 1 ? 'tier1' : tier === 2 ? 'tier2' : tier === 3 ? 'tier3' : 'penalties';
+            breakdown[key] += weighted;
+            fired.push({ id, reward: weighted, tier: tier === 'penalty' ? 'penalty' : tier, ...metadata });
+        };
 
-        // Movement is useful only when it discovers state. Rewarding every
-        // coordinate change teaches profitable circles instead of progress.
-        const positionKey = this._positionKey(currState);
-        const moved = this._testCoordsChanged(prevState, currState);
-        const novelPosition = moved && positionKey && !this.visitedPositions.has(positionKey);
-        if (positionKey) {
-            this.visitedPositions.add(positionKey);
-            this.recentPositions.push(positionKey);
-            if (this.recentPositions.length > 24) this.recentPositions.shift();
+        this._evaluateDurableMilestones(prevState, currState, add);
+
+        if (context === REWARD_CONTEXT.DIALOG) {
+            this._evaluateDialog(prevState, currState, action, add);
+        } else if (context === REWARD_CONTEXT.BATTLE) {
+            this._evaluateBattle(prevState, currState, add);
+            this._resetSpatialPenaltyState();
+        } else {
+            this._evaluateOverworld(prevState, currState, action, add);
         }
+
+        this._evaluateSaveBehavior(prevState, currState, add);
+        breakdown.total = breakdown.tier1 + breakdown.tier2 + breakdown.tier3 + breakdown.penalties;
+
+        for (const key of ['tier1', 'tier2', 'tier3', 'penalties', 'total']) {
+            this.totalRewards[key] += breakdown[key];
+        }
+        this.firedTests = fired;
+        this.lastContext = context;
 
         const bundle = this.currentBundle || this._getDefaultBundle();
-
-        // Evaluate tests
-        if (bundle.tests) {
-            for (const test of bundle.tests) {
-                // Skip one-time tests that already fired
-                if (test.once && this.firedOnce.has(test.id)) continue;
-
-                // Check tier enablement
-                const tier = test.tier || 1;
-                if (tier === 1 && !this.config.enableTier1) continue;
-                if (tier === 2 && !this.config.enableTier2) continue;
-                if (tier === 3 && !this.config.enableTier3) continue;
-
-                // Evaluate test
-                const isSpatialTier1 = tier === 1 && ['coords_changed', 'coord_delta'].includes(test.type);
-                if ((!isSpatialTier1 || novelPosition) && this._evalTest(test, prevState, currState)) {
-                    const weight = this._getTierWeight(tier);
-                    const reward = test.reward * weight;
-
-                    if (tier === 1) tier1 += reward;
-                    else if (tier === 2) tier2 += reward;
-                    else if (tier === 3) tier3 += reward;
-
-                    fired.push({ id: test.id, reward, tier });
-
-                    if (test.once) {
-                        this.firedOnce.add(test.id);
-                        this.completedObjectives.push(test.id);
-                    }
-                }
-            }
-        }
-
-        // Red++ battle shaping. These values come from its WRAM battle
-        // structs, so the policy can learn move/type choices without any
-        // scripted button sequence.
-        const battleReward = this._redppBattleReward(prevState, currState);
-        if (battleReward !== 0) {
-            tier3 += battleReward;
-            fired.push({ id: 'redpp_battle_progress', reward: battleReward, tier: 3 });
-        }
-
-        if (action === 'a' && this._testDialogChanged(prevState, currState)) {
-            tier2 += 0.2;
-            fired.push({ id: 'dialog_advanced', reward: 0.2, tier: 2 });
-        }
-
-        const worldChanged = moved || this._testLocationChanged(prevState, currState)
-            || this._testDialogChanged(prevState, currState)
-            || prevState?.inBattle !== currState?.inBattle;
-        if (['up', 'down', 'left', 'right'].includes(action) && !worldChanged) {
-            penalties -= 0.03;
-            fired.push({ id: 'blocked_movement', reward: -0.03, tier: 'penalty' });
-        }
-
-        if (action === 'start' && !currState?.inBattle) {
-            this.consecutiveStartActions++;
-            if (this.consecutiveStartActions > 2) {
-                const menuSpamPenalty = -Math.min(1, 0.15 * (this.consecutiveStartActions - 2));
-                penalties += menuSpamPenalty;
-                fired.push({ id: 'menu_spam', reward: menuSpamPenalty, tier: 'penalty' });
-            }
-        } else if (action !== 'start') {
-            this.consecutiveStartActions = 0;
-        }
-
-        if (moved && !novelPosition) {
-            penalties -= 0.02;
-            fired.push({ id: 'revisited_tile', reward: -0.02, tier: 'penalty' });
-        }
-
-        if (!this.championReached && this._isChampionState(currState)) {
-            this.championReached = true;
-            tier3 += 1000;
-            fired.push({ id: 'redpp_champion', reward: 1000, tier: 3 });
-            this.completedObjectives.push('redpp_champion');
-        }
-
-        // Evaluate penalties
-        if (bundle.penalties && this.config.enablePenalties) {
-            for (const penalty of bundle.penalties) {
-                if (this._evalTest(penalty, prevState, currState)) {
-                    const reward = penalty.reward * this.config.penaltyWeight;
-                    penalties += reward;
-                    fired.push({ id: penalty.id, reward, tier: 'penalty' });
-                }
-            }
-        }
-
-        const total = tier1 + tier2 + tier3 + penalties;
-
-        // Update totals
-        this.totalRewards.tier1 += tier1;
-        this.totalRewards.tier2 += tier2;
-        this.totalRewards.tier3 += tier3;
-        this.totalRewards.penalties += penalties;
-        this.totalRewards.total += total;
-        this.firedTests = fired;
-
         return {
-            total,
-            breakdown: { tier1, tier2, tier3, penalties },
+            total: breakdown.total,
+            breakdown: {
+                tier1: breakdown.tier1,
+                tier2: breakdown.tier2,
+                tier3: breakdown.tier3,
+                penalties: breakdown.penalties,
+            },
             firedTests: fired,
+            context,
+            matrixVersion: REDPP_REWARD_MATRIX_VERSION,
             currentLocation: this.currentLocation,
             bundleInfo: {
                 location: this.currentLocation,
                 testCount: bundle.tests?.length || 0,
-                penaltyCount: bundle.penalties?.length || 0,
+                penaltyCount: 0,
+                objectiveCount: bundle.objectives?.length || 0,
+                encounterCount: bundle.encounters?.length || 0,
+                source: bundle.source || 'Red++ reward matrix',
+                guideVersion: bundle.guide_version || null,
+                targetRomVersion: bundle.target_rom_version || null,
             },
         };
     }
 
-    /**
-     * Get tier weight from config
-     */
-    _getTierWeight(tier) {
-        if (tier === 1) return this.config.tier1Weight;
-        if (tier === 2) return this.config.tier2Weight;
-        if (tier === 3) return this.config.tier3Weight;
-        return 1.0;
-    }
-
-    /**
-     * Evaluate a single test
-     */
-    _evalTest(test, prev, curr) {
-        switch (test.type) {
-            case 'coords_changed':
-                return this._testCoordsChanged(prev, curr);
-
-            case 'coords_same':
-                if (!this._testCoordsChanged(prev, curr)) {
-                    this.stuckCounter++;
-                    return this.stuckCounter >= (test.threshold || 30);
-                }
-                this.stuckCounter = 0;
-                return false;
-
-            case 'coord_delta':
-                return this._testCoordDelta(prev, curr, test.axis, test.direction);
-
-            case 'coord_in_region':
-                return this._testCoordInRegion(curr, test.minX, test.maxX, test.minY, test.maxY);
-
-            case 'location_changed':
-                return this._testLocationChanged(prev, curr);
-
-            case 'location_changed_to':
-                return this._testLocationChangedTo(prev, curr, test.target);
-
-            case 'new_location':
-                return this._testNewLocation(curr);
-
-            case 'party_size_increased':
-                return this._testPartySizeIncreased(prev, curr);
-
-            case 'badge_count_increased':
-                return this._testBadgeIncreased(prev, curr);
-
-            case 'level_increased':
-                return this._testLevelIncreased(prev, curr);
-
-            case 'dialog_changed':
-                return this._testDialogChanged(prev, curr);
-
-            case 'battle_won':
-                return this._testBattleWon(prev, curr);
-
-            case 'pokemon_evolved':
-                return this._testPokemonEvolved(prev, curr);
-
-            case 'all_fainted':
-                return this._testAllFainted(curr);
-
-            case 'always':
-                return true;
-
-            default:
-                console.warn(`[UnitTestRewards] Unknown test type: ${test.type}`);
-                return false;
+    _evaluateDialog(prev, curr, action, add) {
+        this._resetSpatialPenaltyState();
+        const progress = dialogProgress(prev, curr);
+        if (action === 'a' && (progress.changed || progress.closed)) {
+            add('dialog_advanced', progress.closed
+                ? REDPP_REWARD_MATRIX.dialog.closed
+                : REDPP_REWARD_MATRIX.dialog.advanced, 1,
+            { context: REWARD_CONTEXT.DIALOG });
+        } else if ((DIRECTIONS.has(action) || action === 'start') && !progress.changed && !progress.closed) {
+            add('dialog_inaction', REDPP_REWARD_MATRIX.dialog.inaction, 'penalty',
+                { context: REWARD_CONTEXT.DIALOG });
         }
     }
 
-    // === Test implementations ===
+    _evaluateOverworld(prev, curr, action, add) {
+        const matrix = REDPP_REWARD_MATRIX.overworld;
+        const prevKey = this._positionKey(prev);
+        const currKey = this._positionKey(curr);
+        this._rememberInitialPosition(prevKey);
 
-    _testCoordsChanged(prev, curr) {
-        if (!prev?.coordinates || !curr?.coordinates) return false;
-        return prev.coordinates.x !== curr.coordinates.x ||
-               prev.coordinates.y !== curr.coordinates.y;
-    }
+        const moved = this._coordsChanged(prev, curr);
+        const locationChanged = normalizeLocation(prev?.location) !== normalizeLocation(curr?.location)
+            && Boolean(prev?.location && curr?.location);
+        const dialogChanged = dialogProgress(prev, curr).changed || dialogProgress(prev, curr).closed;
 
-    _testCoordDelta(prev, curr, axis, direction) {
-        if (!prev?.coordinates || !curr?.coordinates) return false;
-        const delta = curr.coordinates[axis] - prev.coordinates[axis];
-        if (direction === 'positive') return delta > 0;
-        if (direction === 'negative') return delta < 0;
-        return false;
-    }
+        if (action) add('decision_cost', matrix.decisionCost, 'penalty', { context: REWARD_CONTEXT.OVERWORLD });
 
-    _testCoordInRegion(curr, minX, maxX, minY, maxY) {
-        if (!curr?.coordinates) return false;
-        const { x, y } = curr.coordinates;
-        return x >= minX && x <= maxX && y >= minY && y <= maxY;
-    }
-
-    _testLocationChanged(prev, curr) {
-        if (!prev?.location || !curr?.location) return false;
-        return prev.location !== curr.location;
-    }
-
-    _testLocationChangedTo(prev, curr, target) {
-        if (!curr?.location) return false;
-        const currNorm = curr.location.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
-        const targetNorm = target.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
-        const prevNorm = prev?.location?.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim() || '';
-
-        return (currNorm === targetNorm || currNorm.includes(targetNorm) || targetNorm.includes(currNorm))
-               && currNorm !== prevNorm;
-    }
-
-    _testNewLocation(curr) {
-        if (!curr?.location) return false;
-        if (this.visitedLocations.has(curr.location)) return false;
-        this.visitedLocations.add(curr.location);
-        return true;
-    }
-
-    _testPartySizeIncreased(prev, curr) {
-        const prevCount = prev?.party?.length ?? 0;
-        const currCount = curr?.party?.length ?? 0;
-        if (currCount > prevCount && currCount > this.seenPartyCount) {
-            this.seenPartyCount = currCount;
-            return true;
+        if (locationChanged && curr?.location && !this.visitedLocations.has(normalizeLocation(curr.location))) {
+            this.visitedLocations.add(normalizeLocation(curr.location));
+            add('new_location', matrix.newLocation, 2, { context: REWARD_CONTEXT.OVERWORLD });
         }
-        return false;
-    }
 
-    _testBadgeIncreased(prev, curr) {
-        const prevBadges = prev?.badgeCount ?? 0;
-        const currBadges = curr?.badgeCount ?? 0;
-        if (currBadges > prevBadges && currBadges > this.seenBadges) {
-            this.seenBadges = currBadges;
-            return true;
+        if (moved && currKey) {
+            const visits = this.positionVisits.get(currKey) || 0;
+            if (visits === 0) {
+                add('novel_tile', matrix.novelTile, 1, { context: REWARD_CONTEXT.OVERWORLD });
+            } else {
+                const revisit = Math.max(matrix.revisitCap, matrix.revisitBase * Math.sqrt(visits));
+                add('revisited_tile', revisit, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, visits });
+            }
+
+            const last = this.recentPositions.at(-1);
+            const twoBack = this.recentPositions.at(-2);
+            if (currKey === twoBack && prevKey === last) {
+                add('two_tile_loop', matrix.twoCycle, 'penalty', { context: REWARD_CONTEXT.OVERWORLD });
+            }
+            this._rememberPosition(currKey);
+            this.stuckCounter = 0;
+        } else if (DIRECTIONS.has(action) && !locationChanged && !dialogChanged) {
+            this.stuckCounter++;
+            add('blocked_movement', matrix.blockedMovement, 'penalty', { context: REWARD_CONTEXT.OVERWORLD });
+            if (this.stuckCounter >= matrix.stuckStart) {
+                const stuck = Math.max(matrix.stuckCap, matrix.stuckSlope * (this.stuckCounter - matrix.stuckStart + 1));
+                add('stuck', stuck, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, count: this.stuckCounter });
+            }
+        } else if (action !== 'start') {
+            this.stuckCounter = 0;
         }
-        return false;
+
+        if (action === 'start' && !locationChanged && !dialogChanged) {
+            this.consecutiveStartActions++;
+            const excess = this.consecutiveStartActions - REDPP_REWARD_MATRIX.menu.freeStartActions;
+            if (excess > 0) {
+                const spam = Math.max(REDPP_REWARD_MATRIX.menu.spamCap,
+                    REDPP_REWARD_MATRIX.menu.spamBase * (2 ** (excess - 1)));
+                add('menu_spam', spam, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, streak: this.consecutiveStartActions });
+            }
+        } else {
+            this.consecutiveStartActions = 0;
+        }
     }
 
-    _testLevelIncreased(prev, curr) {
-        if (!prev?.party || !curr?.party) return false;
-        const prevMaxLevel = Math.max(...prev.party.map(p => p.level || 0), 0);
-        const currMaxLevel = Math.max(...curr.party.map(p => p.level || 0), 0);
-        return currMaxLevel > prevMaxLevel;
-    }
-
-    _testDialogChanged(prev, curr) {
-        const prevDialog = prev?.dialog || '';
-        const currDialog = curr?.dialog || '';
-        return currDialog.length > 0 && currDialog !== prevDialog;
-    }
-
-    _testBattleWon(prev, curr) {
-        return Boolean(prev?.inBattle && !curr?.inBattle && curr?.battleResult === 0);
-    }
-
-    _redppBattleReward(prev, curr) {
-        let reward = 0;
+    _evaluateBattle(prev, curr, add) {
+        let dense = 0;
         const prevBattle = prev?.battle;
         const currBattle = curr?.battle;
 
         if (prev?.inBattle && curr?.inBattle && prevBattle && currBattle) {
             if (prevBattle.opponent?.speciesId === currBattle.opponent?.speciesId) {
-                const damage = Math.max(0,
-                    (prevBattle.opponent?.currentHP ?? 0) - (currBattle.opponent?.currentHP ?? 0));
-                reward += Math.min(8, damage * 0.12);
-                if (damage > 0 && currBattle.lastMove?.effectiveness === 'super effective') reward += 1.5;
-                if (damage > 0 && currBattle.lastMove?.stab) reward += 0.35;
+                const enemyDelta = Math.max(0, hpRatio(prevBattle.opponent) - hpRatio(currBattle.opponent));
+                dense += enemyDelta * REDPP_REWARD_MATRIX.battle.enemyHpFraction;
+                if (enemyDelta > 0) {
+                    const effect = currBattle.lastMove?.effectiveness;
+                    if (effect === 'super effective') dense += REDPP_REWARD_MATRIX.battle.superEffective;
+                    if (effect === 'not very effective') dense += REDPP_REWARD_MATRIX.battle.resisted;
+                    if (effect === 'immune') dense += REDPP_REWARD_MATRIX.battle.immune;
+                    if (currBattle.lastMove?.stab) dense += REDPP_REWARD_MATRIX.battle.stab;
+                }
             }
-
-            const ownDamage = Math.max(0,
-                (prevBattle.active?.currentHP ?? 0) - (currBattle.active?.currentHP ?? 0));
-            reward -= Math.min(6, ownDamage * 0.1);
+            const ownDelta = Math.max(0, hpRatio(prevBattle.active) - hpRatio(currBattle.active));
+            dense += ownDelta * REDPP_REWARD_MATRIX.battle.ownHpFraction;
         }
+
+        dense = clamp(dense, -REDPP_REWARD_MATRIX.denseRewardCap, REDPP_REWARD_MATRIX.denseRewardCap);
+        add('redpp_battle_progress', dense, dense >= 0 ? 1 : 'penalty', { context: REWARD_CONTEXT.BATTLE });
 
         if (prev?.inBattle && !curr?.inBattle) {
-            if (curr?.battleResult === 0) reward += prevBattle?.kind === 'trainer' ? 40 : 20;
-            else reward -= 2;
+            if (curr?.battleResult === 0) {
+                const trainer = prevBattle?.kind === 'trainer';
+                add('redpp_battle_won', trainer
+                    ? REDPP_REWARD_MATRIX.battle.trainerWin
+                    : REDPP_REWARD_MATRIX.battle.wildWin, 2,
+                { context: REWARD_CONTEXT.BATTLE, kind: trainer ? 'trainer' : 'wild' });
+            } else if (curr?.battleResult === 1) {
+                add('redpp_battle_lost', REDPP_REWARD_MATRIX.battle.loss, 'penalty', { context: REWARD_CONTEXT.BATTLE });
+            } else {
+                add('redpp_battle_escaped', REDPP_REWARD_MATRIX.battle.escapeOrDraw, 'penalty', { context: REWARD_CONTEXT.BATTLE });
+            }
         }
-        return reward;
+    }
+
+    _evaluateDurableMilestones(prev, curr, add) {
+        const matrix = REDPP_REWARD_MATRIX.milestone;
+        const badgeDelta = Math.max(0, (curr?.badgeCount || 0) - (prev?.badgeCount || 0));
+        if (badgeDelta > 0) add('badge_earned', matrix.badge * badgeDelta, 3, { count: badgeDelta });
+
+        const partyDelta = Math.max(0, (curr?.party?.length || 0) - (prev?.party?.length || 0));
+        if (partyDelta > 0) add('pokemon_caught', matrix.partyMember * partyDelta, 3, { count: partyDelta });
+
+        const levelDelta = this._sharedPartyLevelGain(prev?.party, curr?.party);
+        if (levelDelta > 0) {
+            add('level_up', Math.min(matrix.levelCap, matrix.levelUnit * Math.sqrt(levelDelta)), 2, { levels: levelDelta });
+        }
+
+        if (curr?.progressFlags?.battledRivalInOaksLab && !prev?.progressFlags?.battledRivalInOaksLab) {
+            add('oak_rival_defeated', matrix.oakRival, 3);
+        }
+
+        const wasWhiteout = this._allFainted(prev);
+        if (this._allFainted(curr) && !wasWhiteout) add('whiteout', matrix.whiteout, 'penalty');
+
+        if (!this.championReached && this._isChampionState(curr)) {
+            this.championReached = true;
+            add('redpp_champion', matrix.champion, 3);
+            this.completedObjectives.push('redpp_champion');
+        }
+    }
+
+    _evaluateSaveBehavior(prev, curr, add) {
+        const before = String(prev?.dialog || '');
+        const after = String(curr?.dialog || '');
+        if (!SAVE_TEXT.test(after) || after === before) return;
+
+        const distance = this.transitionCount - this.lastSaveTransition;
+        this.saveStreak = distance <= REDPP_REWARD_MATRIX.menu.saveCooldown ? this.saveStreak + 1 : 1;
+        this.lastSaveTransition = this.transitionCount;
+        if (this.saveStreak <= 1) return;
+
+        const penalty = Math.max(REDPP_REWARD_MATRIX.menu.repeatSaveCap,
+            REDPP_REWARD_MATRIX.menu.repeatSaveBase * (2 ** (this.saveStreak - 2)));
+        add('repeat_save', penalty, 'penalty', { streak: this.saveStreak, cooldown: distance });
+    }
+
+    _weightedReward(reward, tier) {
+        if (tier === 1) return this.config.enableTier1 ? reward * this.config.tier1Weight : 0;
+        if (tier === 2) return this.config.enableTier2 ? reward * this.config.tier2Weight : 0;
+        if (tier === 3) return this.config.enableTier3 ? reward * this.config.tier3Weight : 0;
+        return this.config.enablePenalties ? reward * this.config.penaltyWeight : 0;
+    }
+
+    _sharedPartyLevelGain(prevParty = [], currParty = []) {
+        let gain = 0;
+        for (let i = 0; i < Math.min(prevParty.length, currParty.length); i++) {
+            if (prevParty[i]?.speciesId !== currParty[i]?.speciesId) continue;
+            gain += Math.max(0, (currParty[i]?.level || 0) - (prevParty[i]?.level || 0));
+        }
+        return gain;
+    }
+
+    _coordsChanged(prev, curr) {
+        return Number.isFinite(prev?.coordinates?.x) && Number.isFinite(prev?.coordinates?.y)
+            && Number.isFinite(curr?.coordinates?.x) && Number.isFinite(curr?.coordinates?.y)
+            && (prev.coordinates.x !== curr.coordinates.x || prev.coordinates.y !== curr.coordinates.y);
     }
 
     _positionKey(state) {
-        if (!state?.location || !state?.coordinates) return null;
-        const maxLevel = Math.max(...(state.party || []).map(p => p.level || 0), 0);
-        const progress = `${state.badgeCount || 0}:${state.party?.length || 0}:${maxLevel}:${state.progressFlags?.battledRivalInOaksLab ? 1 : 0}`;
-        return `${progress}:${state.location}:${state.coordinates.x}:${state.coordinates.y}`;
+        if (!state?.location || !Number.isFinite(state?.coordinates?.x) || !Number.isFinite(state?.coordinates?.y)) return null;
+        const progress = `${state.badgeCount || 0}:${state.party?.length || 0}:${state.progressFlags?.battledRivalInOaksLab ? 1 : 0}`;
+        return `${progress}:${normalizeLocation(state.location)}:${state.coordinates.x}:${state.coordinates.y}`;
+    }
+
+    _rememberInitialPosition(key) {
+        if (this.positionVisits.size === 0 && key) this._rememberPosition(key);
+    }
+
+    _rememberPosition(key) {
+        if (!key) return;
+        this.positionVisits.set(key, (this.positionVisits.get(key) || 0) + 1);
+        this.visitedPositions.add(key);
+        this.recentPositions.push(key);
+        if (this.recentPositions.length > 32) this.recentPositions.shift();
+    }
+
+    _resetSpatialPenaltyState() {
+        this.stuckCounter = 0;
+        this.consecutiveStartActions = 0;
+    }
+
+    _allFainted(state) {
+        return Boolean(state?.party?.length && state.party.every(mon => mon.currentHP === 0));
     }
 
     _isChampionState(state) {
-        const location = String(state?.location || '').toUpperCase();
-        return location === 'HALL OF FAME' || location === 'CHAMPIONS ROOM';
+        return CHAMPION_LOCATIONS.has(normalizeLocation(state?.location));
     }
 
-    _testPokemonEvolved(prev, curr) {
-        // Would need to track species changes - simplified for now
-        return false;
+    _ensureBundles() {
+        if (this.bundlesLoaded) return;
+        this.bundles = this._getDefaultBundles();
+        this.currentBundle = this.bundles._default;
+        this.bundlesLoaded = true;
     }
 
-    _testAllFainted(curr) {
-        if (!curr?.party || curr.party.length === 0) return false;
-        return curr.party.every(p => p.currentHP === 0);
+    _getDefaultBundles() {
+        return { _default: this._getDefaultBundle() };
     }
 
-    // === Utility ===
+    _getDefaultBundle() {
+        return {
+            source: 'Red++ v3 reward matrix',
+            objectives: [],
+            next_locations: [],
+            tests: [],
+            penalties: [],
+        };
+    }
+
+    _emptyBreakdown(includeTotal = false) {
+        const value = { tier1: 0, tier2: 0, tier3: 0, penalties: 0 };
+        if (includeTotal) value.total = 0;
+        return value;
+    }
 
     reset() {
-        this.stuckCounter = 0;
-        this.seenBadges = 0;
-        this.seenPartyCount = 0;
-        this.visitedLocations.clear();
+        this.positionVisits.clear();
         this.visitedPositions.clear();
+        this.visitedLocations.clear();
         this.recentPositions = [];
-        this.firedOnce.clear();
+        this.stuckCounter = 0;
         this.consecutiveStartActions = 0;
+        this.transitionCount = 0;
+        this.lastSaveTransition = -Infinity;
+        this.saveStreak = 0;
         this.championReached = false;
+        this.firedOnce.clear();
         this.completedObjectives = [];
-        this.totalRewards = { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 };
+        this.totalRewards = this._emptyBreakdown(true);
         this.firedTests = [];
         this.currentLocation = null;
         this.currentBundle = this.bundles?._default || this._getDefaultBundle();
@@ -521,41 +401,32 @@ export class UnitTestRewards {
 
     getStats() {
         return {
+            matrixVersion: REDPP_REWARD_MATRIX_VERSION,
+            context: this.lastContext,
             totalRewards: { ...this.totalRewards },
             visitedLocations: this.visitedLocations.size,
             visitedPositions: this.visitedPositions.size,
             stuckCounter: this.stuckCounter,
+            saveStreak: this.saveStreak,
             completedObjectives: [...this.completedObjectives],
             currentLocation: this.currentLocation,
             bundleInfo: this.currentBundle ? {
                 testCount: this.currentBundle.tests?.length || 0,
-                penaltyCount: this.currentBundle.penalties?.length || 0,
+                penaltyCount: 0,
+                objectiveCount: this.currentBundle.objectives?.length || 0,
+                encounterCount: this.currentBundle.encounters?.length || 0,
+                objectives: this.currentBundle.objectives || [],
+                nextLocations: this.currentBundle.next_locations || [],
+                source: this.currentBundle.source || 'Red++ reward matrix',
+                guideVersion: this.currentBundle.guide_version || null,
+                targetRomVersion: this.currentBundle.target_rom_version || null,
             } : null,
         };
     }
+}
 
-    /**
-     * Get info about current bundle for UI display
-     */
-    getCurrentBundleInfo() {
-        if (!this.currentBundle) return null;
-
-        return {
-            location: this.currentLocation,
-            tests: this.currentBundle.tests || [],
-            penalties: this.currentBundle.penalties || [],
-            objectives: this.currentBundle.objectives || [],
-            nextLocations: this.currentBundle.next_locations || [],
-            hasMapData: this.currentBundle.has_map_data || false,
-        };
-    }
-
-    /**
-     * Get list of completed one-time tests (for UI checklist)
-     */
-    getCompletedTests() {
-        return [...this.firedOnce];
-    }
+function normalizeLocation(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
 }
 
 export default UnitTestRewards;

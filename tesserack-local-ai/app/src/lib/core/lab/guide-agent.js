@@ -1,7 +1,7 @@
 /**
  * Guide-Enhanced Agent
  *
- * Extends the RL agent to use Prima Strategy Guide as knowledge base.
+ * Extends the RL agent with the versioned Red++ Oak guide knowledge base.
  * Injects guide context into LLM prompts and adds guide adherence rewards.
  */
 
@@ -19,6 +19,7 @@ import {
 import { feedSystem } from '../../stores/feed.js';
 import { get } from 'svelte/store';
 import { assetUrl } from '../asset-url.js';
+import { redppGuideToGraph } from './redpp-guide-data.js';
 
 // Map interior game locations to their parent walkthrough location
 const locationToParent = {
@@ -124,7 +125,7 @@ function buildGuideContext(locationName, graph) {
     if (!location) return '';
 
     const lines = [];
-    lines.push(`[STRATEGY GUIDE - ${location.name}]`);
+    lines.push(`[RED++ OAK GUIDE - ${location.name}]`);
 
     if (location.description) {
         lines.push(location.description);
@@ -135,6 +136,7 @@ function buildGuideContext(locationName, graph) {
     const items = [];
     const connections = [];
     const trainers = [];
+    const encounters = [];
 
     for (const edge of graph.edges) {
         if (edge.from !== location.id) continue;
@@ -152,6 +154,9 @@ function buildGuideContext(locationName, graph) {
                 break;
             case 'has_trainer':
                 trainers.push(target);
+                break;
+            case 'has_pokemon':
+                encounters.push(target);
                 break;
         }
     }
@@ -171,6 +176,13 @@ function buildGuideContext(locationName, graph) {
         lines.push('\nItems to find:');
         for (const item of items.slice(0, 3)) {
             lines.push(`- ${item.name}`);
+        }
+    }
+
+    if (encounters.length > 0) {
+        lines.push('\nOptional Red++ encounters/evolutions:');
+        for (const pokemon of encounters.slice(0, 8)) {
+            lines.push(`- ${pokemon.name}`);
         }
     }
 
@@ -320,8 +332,8 @@ export class GuideAgent extends RLAgent {
 
     async loadGraph() {
         try {
-            const response = await fetch(assetUrl('data/walkthrough-graph.json'));
-            this.graph = await response.json();
+            const response = await fetch(assetUrl('data/redpp-oak-guide.json'));
+            this.graph = redppGuideToGraph(await response.json());
             walkthroughGraph.set(this.graph);
         } catch (e) {
             console.error('Failed to load walkthrough graph:', e);

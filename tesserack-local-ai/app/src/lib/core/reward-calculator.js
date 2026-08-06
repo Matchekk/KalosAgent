@@ -1,5 +1,5 @@
 // reward-calculator.js - Computes verifiable rewards from game state transitions
-// Now integrated with Prima Strategy Guide curriculum for structured checkpoints
+// Uses the Red++ Champion curriculum for informational checkpoint tracking.
 // Enhanced with continuous progress tracking for reward shaping
 
 import { curriculumTracker } from './curriculum.js';
@@ -370,7 +370,7 @@ export class RewardCalculator {
             this.stepsSinceProgress = 0; // Reset
         }
 
-        // Prima Guide curriculum checkpoints
+        // Red++ guide checkpoints are informational; their numeric reward is 0.
         const completedCheckpoints = playableTransition
             ? curriculumTracker.checkProgress(currState)
             : [];

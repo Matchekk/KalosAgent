@@ -143,7 +143,7 @@ export class RLAgent {
 
     /**
      * Build user message for LLM
-     * Now uses Prima Strategy Guide curriculum for objectives
+     * Uses the Red++ Champion curriculum for objectives
      */
     buildUserMessage(state) {
         // Check curriculum progress and get next objective

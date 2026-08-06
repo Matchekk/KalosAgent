@@ -331,7 +331,7 @@ export class PureRLAgent {
         this.totalReward += result.reward;
         this.episodeReward += result.reward;
         this.lastStepResult = result;
-        if (result.firedTests?.some(test => test.id === 'redpp_battle_progress' && test.reward >= 20)) {
+        if (result.firedTests?.some(test => test.id === 'redpp_battle_won')) {
             this.confirmedWins++;
         }
 
@@ -346,6 +346,8 @@ export class PureRLAgent {
                 reward: result.reward,
                 breakdown: result.breakdown,
                 firedTests: result.firedTests,
+                context: result.context,
+                matrixVersion: result.matrixVersion,
                 done: result.done,
                 totalReward: this.totalReward,
                 // Test bundle metrics

@@ -7,6 +7,8 @@
     export let firedTests = [];
     export let totalRewards = { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 };
     export let completedObjectives = [];
+    export let context = 'overworld';
+    export let matrixVersion = null;
 
     let showInfo = false;
 
@@ -56,12 +58,12 @@
         <!-- Bundle Info -->
         {#if bundleInfo}
             <div class="bundle-info">
-                <span class="bundle-stat">{bundleInfo.testCount} tests</span>
+                <span class="bundle-stat">{bundleInfo.objectiveCount || 0} objectives</span>
                 <span class="bundle-divider">·</span>
-                <span class="bundle-stat">{bundleInfo.penaltyCount} penalties</span>
-                {#if bundleInfo.hasMapData}
+                <span class="bundle-stat">{bundleInfo.encounterCount || 0} encounters</span>
+                {#if matrixVersion}
                     <span class="bundle-divider">·</span>
-                    <span class="bundle-stat map-badge">MAP</span>
+                    <span class="bundle-stat map-badge">{context} / {matrixVersion}</span>
                 {/if}
             </div>
         {/if}
@@ -155,18 +157,19 @@
         <!-- Info Toggle -->
         <button class="info-toggle" on:click={() => showInfo = !showInfo}>
             <Info size={12} />
-            <span>About test bundles</span>
+            <span>About Red++ training signals</span>
             <ChevronDown size={12} class="chevron {showInfo ? 'expanded' : ''}" />
         </button>
 
         {#if showInfo}
             <div class="info-box">
                 <p>
-                    Test bundles compiled from <strong>Prima Strategy Guide (1999)</strong> using Claude Vision.
-                    Location-specific tests provide dense reward signals during training.
+                    Curriculum context comes from the supplied <strong>Red++ Oak Guide 4.5.3</strong>.
+                    The running ROM uses Red++ 3.0.2, so observed RAM remains authoritative.
+                    Guide data never changes numeric rewards; the versioned Red++ matrix does.
                 </p>
                 <p class="replicate-note">
-                    To replicate or modify: run in dev mode, see <code>docs/EXTRACTION.md</code>
+                    Oak collection goals are optional; the active training objective is Champion-first.
                 </p>
             </div>
         {/if}
@@ -443,10 +446,4 @@
         color: var(--text-muted);
     }
 
-    .replicate-note code {
-        background: var(--bg-panel);
-        padding: 1px 4px;
-        border-radius: 3px;
-        font-size: 10px;
-    }
 </style>

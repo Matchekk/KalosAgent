@@ -1,141 +1,52 @@
-# Tesserack
+# Tesserack Red++
 
-**Compiling strategy guides into reward functions for reinforcement learning.**
+Browser-based autonomous training and local-LLM play for Pokemon Red++.
 
-[![Live Demo](https://img.shields.io/badge/demo-tesserack.ai-brightgreen)](https://tesserack.ai)
+## Training model
 
-## What is this?
+Train mode uses a REINFORCE policy that chooses every required Game Boy action itself, including Start and party/battle menus. There is no scripted early-game controller.
 
-Most RL game agents learn from scratch with sparse rewards ("you won" / "you lost"). Tesserack takes a different approach: it uses an LLM to read a strategy guide and extract structured "unit tests" that fire as dense rewards throughout gameplay.
+Numeric learning signals come from one versioned, context-gated matrix:
 
-The strategy guide becomes a curriculum. Instead of stumbling randomly until the agent accidentally beats Brock, it gets rewarded for:
-- Walking toward the gym (+0.1)
-- Entering the gym door (+2.0)
-- Winning the badge (+50.0)
+- dialog: rewards actual page advancement and closing, with no generic step or stuck cost;
+- overworld: rewards first-time exploration and penalizes blocked movement, revisits and short loops;
+- battle: uses normalized HP fractions, type effectiveness, STAB and exact Red++ battle results;
+- milestones: orders battle wins, party growth, badges and Champion on explicit scales;
+- menus/saving: allows purposeful access but applies escalating penalties to repeated Start and save loops.
 
-## How it works
+Run the deterministic quality benchmark with:
 
+```bash
+npm run benchmark:rewards --prefix app
 ```
-Human Knowledge     →  LLM Compiler  →  Unit Test Rewards  →  RL Agent
-(Prima Guide PDF)      (Claude Vision)   (test-bundles.json)   (REINFORCE)
-```
 
-1. **Extract**: Claude Vision reads pages from the Prima Strategy Guide and extracts locations, objectives, and map coordinates
-2. **Compile**: Extractions become tiered unit tests (movement → landmarks → objectives)
-3. **Train**: REINFORCE policy network gets dense rewards as tests fire
+## Red++ guide data
 
-The LLM acts as a "compiler" that translates human-readable instructions into machine-executable reward signals.
+The canonical curriculum is [redpp-oak-guide.json](app/static/data/redpp-oak-guide.json), summarized from the user-supplied *Mewlax's Professor Oak Challenge Guide for Pokemon Red++*.
 
-### Reward Tiers
+The supplied guide targets Red++ 4.5.3, while the configured ROM and WRAM mapping target Red++ 3.0.2. Guide facts are therefore advisory and observed v3.0.2 RAM is authoritative. Optional Professor Oak collection rules are retained as encounter/evolution knowledge but are not mandatory, because the active goal is to become Champion efficiently.
 
-| Tier | What It Rewards | Example | Reward |
-|------|-----------------|---------|--------|
-| **Tier 1** | Micro movement | Coordinates changed, moved toward objective | 0.1 - 0.2 |
-| **Tier 2** | Landmarks | Reached Oak's Lab region, entered a door | 2.0 - 5.0 |
-| **Tier 3** | Objectives | Got starter Pokemon, earned badge | 10.0 - 50.0 |
-| **Penalties** | Bad behavior | Stuck for 30+ frames | -0.5 |
+Guide data never defines numeric reinforcement rewards.
 
-### Inspired by OLMoCR-2
-
-[OLMoCR-2](https://allenai.org/blog/olmocr) showed that unit tests make excellent reward signals - deterministic, interpretable, and dense. Tesserack applies that insight to game playing: the strategy guide's objectives become the "unit tests" that shape agent behavior.
-
-## Quick Start
+## Quick start
 
 ```bash
 cd app
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 4173
 ```
 
-Open http://localhost:5173, drop a Pokemon Red ROM, and switch to **Train** mode.
+Open `http://127.0.0.1:4173/tesserack/`, load the Red++ ROM, then select Play or Train.
 
-**Requirements:** Chrome/Edge 113+ (WebGPU), Pokemon Red ROM
+For the bundled local llama.cpp setup, use endpoint `http://localhost:8090/v1` and model `qwen3.5-0.8b`.
 
-## Features
-
-- **Pure RL Mode**: REINFORCE policy network with unit test rewards (no LLM at runtime)
-- **LLM Mode**: Browser-based language model for task decomposition
-- **675 pre-compiled tests** across 41 locations from the Prima Guide
-- **Real-time visualization**: reward breakdown, policy entropy, training metrics
-- **Export/Import**: backup and restore all training data and save states
-
-## Extraction Pipeline
-
-To regenerate test bundles from the Prima Guide (requires Anthropic API key):
+## Verification
 
 ```bash
-# Download guide from archive.org
-npm run guide:download
-
-# Convert PDF pages to images
-npm run guide:extract-pages
-
-# Extract structured data via Claude Vision
-ANTHROPIC_API_KEY=sk-... npm run guide:extract-claude
-
-# Compile into test bundles
-npm run guide:generate-bundles
-
-# Validate output
-npm run guide:validate
+npm test --prefix app
+npm run build --prefix app
 ```
-
-See [docs/EXTRACTION.md](docs/EXTRACTION.md) for details.
-
-## Architecture
-
-### Pure RL Mode (Unit Test Rewards)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│   ┌─────────────┐         ┌─────────────┐                   │
-│   │   Policy    │ action  │  Emulator   │  new state        │
-│   │   πθ(a|s)   │────────▶│  (binjgb)   │─────────┐         │
-│   └─────────────┘         └─────────────┘         │         │
-│         ▲                                         │         │
-│         │ REINFORCE                               ▼         │
-│   ┌─────────────┐         ┌─────────────────────────────┐   │
-│   │  Rollout    │◀────────│  Unit Test Rewards          │   │
-│   │  Buffer     │  reward │  tests(prev, curr) → r      │   │
-│   └─────────────┘         └─────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### LLM Mode (Guide-Enhanced)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│   ┌─────────────┐         ┌─────────────┐                   │
-│   │  Browser    │  tasks  │   Policy    │  actions          │
-│   │  LLM        │────────▶│  (Executor) │─────────▶ Game    │
-│   └─────────────┘         └─────────────┘                   │
-│         ▲                       │                            │
-│         │                       │ learns                     │
-│         │ context               ▼                            │
-│   ┌─────────────┐         ┌─────────────┐                   │
-│   │  Walkthrough│         │  Reward     │                   │
-│   │  Graph      │         │  System     │                   │
-│   └─────────────┘         └─────────────┘                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Why This Matters
-
-1. **Reward engineering is hard** - Tesserack automates it by mining existing guides
-2. **Curriculum is implicit** - The guide's structure naturally provides learning progression
-3. **Transferable method** - Any game with a strategy guide could use this approach
-4. **Interpretable rewards** - You can see exactly which tests fired and why
-
-## Links
-
-- [Live Demo](https://tesserack.ai)
-- [Design Doc](docs/plans/2026-01-27-precompiled-test-bundles-design.md)
-- [Extraction Instructions](docs/EXTRACTION.md)
 
 ## License
 
-MIT
-
----
-
-Built by [Sid Mohan](https://github.com/sidmohan0)
+MIT. Original Tesserack project by [Sid Mohan](https://github.com/sidmohan0).

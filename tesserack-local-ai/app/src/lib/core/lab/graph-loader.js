@@ -3,6 +3,7 @@
  */
 
 import { assetUrl } from '../asset-url.js';
+import { redppGuideToGraph } from './redpp-guide-data.js';
 
 // Import the static graph data
 // Note: Vite handles JSON imports
@@ -12,8 +13,8 @@ let graphData = { nodes: [], edges: [] };
 async function loadGraphData() {
     if (graphData.nodes.length > 0) return graphData;
     try {
-        const response = await fetch(assetUrl('data/walkthrough-graph.json'));
-        graphData = await response.json();
+        const response = await fetch(assetUrl('data/redpp-oak-guide.json'));
+        graphData = redppGuideToGraph(await response.json());
     } catch (e) {
         console.error('Failed to load walkthrough graph:', e);
     }
@@ -149,7 +150,7 @@ export function buildGuideContext(currentLocation, completedObjectives) {
     if (!details) return '';
 
     const lines = [];
-    lines.push(`[STRATEGY GUIDE - ${currentLocation}]`);
+    lines.push(`[RED++ OAK GUIDE - ${currentLocation}]`);
 
     if (details.location.description) {
         lines.push(details.location.description);

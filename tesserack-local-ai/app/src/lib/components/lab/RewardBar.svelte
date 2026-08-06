@@ -59,17 +59,17 @@
     <div class="labels">
         <div class="label" class:active={isActive(breakdown.tier1)}>
             <span class="dot" style="background: {colors.tier1}"></span>
-            <span class="name">T1 Movement</span>
+            <span class="name">T1 Dense</span>
             <span class="value">{formatValue(breakdown.tier1)}</span>
         </div>
         <div class="label" class:active={isActive(breakdown.tier2)}>
             <span class="dot" style="background: {colors.tier2}"></span>
-            <span class="name">T2 Map</span>
+            <span class="name">T2 Progress</span>
             <span class="value">{formatValue(breakdown.tier2)}</span>
         </div>
         <div class="label" class:active={isActive(breakdown.tier3)}>
             <span class="dot" style="background: {colors.tier3}"></span>
-            <span class="name">T3 Goal</span>
+            <span class="name">T3 Milestone</span>
             <span class="value">{formatValue(breakdown.tier3)}</span>
         </div>
         <div class="label penalty" class:active={isActive(breakdown.penalties)}>

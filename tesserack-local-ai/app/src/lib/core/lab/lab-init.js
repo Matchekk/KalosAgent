@@ -54,6 +54,8 @@ export const pureRLMetrics = writable({
     totalReward: 0,
     breakdown: { tier1: 0, tier2: 0, tier3: 0, penalties: 0 },
     firedTests: [],
+    context: 'overworld',
+    matrixVersion: null,
     // Test bundle metrics
     currentLocation: null,
     bundleInfo: null,
@@ -146,6 +148,8 @@ function handlePureRLStep(stepData) {
             totalReward: stepData.totalReward,
             breakdown: stepData.breakdown,
             firedTests: stepData.firedTests,
+            context: stepData.context ?? prev.context,
+            matrixVersion: stepData.matrixVersion ?? prev.matrixVersion,
             // Test bundle metrics
             currentLocation: stepData.currentLocation ?? prev.currentLocation,
             bundleInfo: stepData.bundleInfo ?? prev.bundleInfo,
@@ -309,11 +313,11 @@ export async function initializeLab(romBuffer, canvas) {
             }
         }
 
-        // 6b. Load test bundles for reward evaluation
+        // 6b. Load Red++ guide metadata. Numeric rewards remain matrix-owned.
         try {
-            await labPureRLAgent.rewards.loadBundles(assetUrl('data/test-bundles.json'));
+            await labPureRLAgent.rewards.loadBundles(assetUrl('data/redpp-oak-guide.json'));
         } catch (err) {
-            console.warn('[Lab] Failed to load test bundles, using defaults:', err.message);
+            console.warn('[Lab] Failed to load Red++ guide metadata, using defaults:', err.message);
         }
         if (generation !== initializationGeneration) {
             emulator.destroy();
@@ -560,6 +564,8 @@ export function resetLab() {
         totalReward: 0,
         breakdown: { tier1: 0, tier2: 0, tier3: 0, penalties: 0 },
         firedTests: [],
+        context: 'overworld',
+        matrixVersion: null,
         // Test bundle metrics
         currentLocation: null,
         bundleInfo: null,
