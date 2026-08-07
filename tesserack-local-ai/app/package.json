@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "node --test tests/*.test.js",
     "benchmark:rewards": "node benchmarks/reward-matrix-benchmark.mjs",
-    "benchmark:parallel": "node benchmarks/parallel-training-benchmark.mjs"
+    "benchmark:parallel": "node benchmarks/parallel-training-benchmark.mjs",
+    "benchmark:map-curriculum": "node benchmarks/redpp-map-curriculum-benchmark.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "3.0.10",

@@ -90,7 +90,15 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
             emu: { render() { if (workerId === 0) rendered++; }, destroy() {} },
             mem: { getGameState: () => state },
             rewards: { getStats: () => ({ totalRewards: {}, completedObjectives: [] }) },
-            async step() { return { actionStr: 'a', reward: 0, breakdown: {}, firedTests: [] }; },
+            async step() {
+                return {
+                    actionStr: 'a',
+                    reward: 0,
+                    breakdown: {},
+                    firedTests: [],
+                    trainInfo: workerId === 3 ? { trainSteps: 1 } : null,
+                };
+            },
             consumeCheckpointCandidate() { const value = candidate; candidate = null; return value; },
             adoptCheckpoint(bytes, adoptedState, options) { adopted.push({ workerId, bytes, adoptedState, options }); },
             setSharedCore(nextCore) { this.core = nextCore; },
@@ -106,5 +114,6 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
     assert.equal(result.checkpointWorker, 2);
     assert.equal(adopted.length, 4);
     assert.equal(rendered, 1);
+    assert.deepEqual(result.trainInfo, { trainSteps: 1 });
     assert.ok(Number.isFinite(result.samplesPerSecond));
 });

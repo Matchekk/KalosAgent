@@ -104,6 +104,7 @@ export class ParallelTrainingCoordinator {
 
     _summarizeRound(results, visibleAgent, visibleResult) {
         const core = visibleAgent.core;
+        const trainInfo = results.find(result => result.trainInfo)?.trainInfo ?? null;
         const elapsedSeconds = Math.max(0.001, (nowMs() - this.startedAt) / 1000);
         const rewardStats = visibleAgent.rewards.getStats();
         const breakdown = { tier1: 0, tier2: 0, tier3: 0, penalties: 0 };
@@ -124,7 +125,10 @@ export class ParallelTrainingCoordinator {
             context: visibleResult.context,
             matrixVersion: visibleResult.matrixVersion,
             state: visibleAgent.mem.getGameState(),
-            trainInfo: visibleResult.trainInfo,
+            // The shared buffer fills on whichever worker contributes the
+            // final sample (normally worker 4), not necessarily the rendered
+            // worker. Forward that update so policy autosave cannot miss it.
+            trainInfo,
             trainSteps: core.trainSteps,
             bufferFill: core.buffer.length,
             bufferSize: core.rolloutSize,

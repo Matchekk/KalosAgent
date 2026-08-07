@@ -4,6 +4,7 @@
 
 import { assetUrl } from '../asset-url.js';
 import { redppGuideToGraph } from './redpp-guide-data.js';
+import { resolveRedppLocation } from './redpp-location-data.js';
 
 // Import the static graph data
 // Note: Vite handles JSON imports
@@ -73,8 +74,9 @@ export function getNodeByName(name) {
  * @returns {{objectives: Array, items: Array, pokemon: Array, connections: Array}}
  */
 export function getLocationDetails(locationName) {
+    const { guideLocation } = resolveRedppLocation(locationName);
     const location = graphData.nodes.find(n =>
-        n.type === 'location' && n.name.toLowerCase() === locationName.toLowerCase()
+        n.type === 'location' && n.name.toLowerCase() === guideLocation.toLowerCase()
     );
 
     if (!location) return null;
@@ -150,7 +152,9 @@ export function buildGuideContext(currentLocation, completedObjectives) {
     if (!details) return '';
 
     const lines = [];
-    lines.push(`[RED++ OAK GUIDE - ${currentLocation}]`);
+    const { exactLocation, guideLocation } = resolveRedppLocation(currentLocation);
+    lines.push(`[RED++ RAM LOCATION - ${exactLocation}]`);
+    lines.push(`[RED++ GUIDE CONTEXT - ${guideLocation}]`);
 
     if (details.location.description) {
         lines.push(details.location.description);

@@ -1,3 +1,5 @@
+import { getRedppLocationProgress } from './redpp-location-data.js';
+
 /**
  * Pure coordination rules for multi-environment Red++ training.
  *
@@ -48,6 +50,7 @@ export function progressRank(state = {}) {
         finiteNonNegative(state.badgeCount),
         state.progressFlags?.battledRivalInOaksLab ? 1 : 0,
         party.length,
+        getRedppLocationProgress(state.location),
         totalLevels,
     ]);
 }
@@ -67,12 +70,13 @@ export function compareProgressStates(left, right) {
 
 /** A display/storage score that preserves the lexicographic rank ordering. */
 export function progressScore(state) {
-    const [champion, badges, rival, partySize, totalLevels] = progressRank(state);
+    const [champion, badges, rival, partySize, locationProgress, totalLevels] = progressRank(state);
     return champion * 1_000_000_000_000
         + badges * 1_000_000_000
         + rival * 100_000_000
         + partySize * 1_000_000
-        + Math.min(totalLevels, 999_999);
+        + Math.min(locationProgress, 999) * 1_000
+        + Math.min(totalLevels, 999);
 }
 
 /**

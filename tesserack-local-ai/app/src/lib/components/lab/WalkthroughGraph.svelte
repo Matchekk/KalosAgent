@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import cytoscape from 'cytoscape';
     import dagre from 'cytoscape-dagre';
+    import { resolveRedppLocation } from '$lib/core/lab/redpp-location-data.js';
 
     export let graphData = { nodes: [], edges: [] };
     export let currentLocation = null;
@@ -12,6 +13,9 @@
     let container;
     let cy = null;
     let resizeObserver = null;
+    $: currentLocationResolution = resolveRedppLocation(currentLocation);
+    $: exactLocation = currentLocationResolution.exactLocation;
+    $: guideLocation = currentLocationResolution.guideLocation;
 
     // Hover state
     let hoverPosition = null;
@@ -192,31 +196,7 @@
      */
     function mapLocationToNode(locationName) {
         if (!locationName) return null;
-
-        const upperName = locationName.toUpperCase();
-
-        // Direct alias match
-        if (locationAliases[upperName]) {
-            return locationAliases[upperName];
-        }
-
-        // Check if the location name contains a known location
-        for (const [alias, target] of Object.entries(locationAliases)) {
-            if (upperName.includes(alias) || alias.includes(upperName)) {
-                return target;
-            }
-        }
-
-        // Check against kantoPositions keys (case-insensitive)
-        for (const key of Object.keys(kantoPositions)) {
-            if (key.toUpperCase() === upperName ||
-                upperName.includes(key.toUpperCase()) ||
-                key.toUpperCase().includes(upperName)) {
-                return key;
-            }
-        }
-
-        return locationName; // Return original if no mapping found
+        return resolveRedppLocation(locationName).guideLocation;
     }
 
     function getNodePosition(nodeName, nodeType) {
@@ -255,7 +235,7 @@
 
             visibleNodes.add(node.id);
 
-            const isCurrentLocation = node.name === currentLocation || node.id === currentLocation;
+            const isCurrentLocation = node.name === guideLocation || node.id === guideLocation;
             const isNextLocation = node.name === nextLocation || node.id === nextLocation;
             const isCompleted = completedObjectives.has(node.name) || completedObjectives.has(node.id);
             const objectives = locationObjectives.get(node.id) || [];
@@ -482,7 +462,7 @@
 
         cy.nodes().forEach(node => {
             const data = node.data();
-            const isCurrentLocation = data.label === currentLocation || data.id === currentLocation;
+            const isCurrentLocation = data.label === guideLocation || data.id === guideLocation;
             const isNextLocation = data.label === nextLocation || data.id === nextLocation;
             const isCompleted = completedObjectives.has(data.label) || completedObjectives.has(data.id);
 
@@ -605,7 +585,13 @@
             (n.name === mappedName || n.name.toLowerCase() === mappedName?.toLowerCase())
         );
 
-        if (!locationNode) return { name: locName, description: null, objectives: [], connections: [] };
+        if (!locationNode) return {
+            name: resolveRedppLocation(locName).exactLocation,
+            guideContext: null,
+            description: null,
+            objectives: [],
+            connections: [],
+        };
 
         // Find objectives at this location
         const objectives = [];
@@ -636,7 +622,8 @@
         }
 
         return {
-            name: locationNode.name,
+            name: resolveRedppLocation(locName).exactLocation,
+            guideContext: locationNode.name,
             description: locationNode.description,
             objectives,
             connections: [...new Map(connections.map(c => [c.name, c])).values()].slice(0, 4)
@@ -659,6 +646,9 @@
     <div class="info-side">
         {#if currentLocationInfo}
             <div class="location-name">{currentLocationInfo.name}</div>
+            {#if currentLocationInfo.guideContext && currentLocationInfo.guideContext !== currentLocationInfo.name}
+                <div class="location-context">Guide context: {currentLocationInfo.guideContext}</div>
+            {/if}
             {#if currentLocationInfo.description}
                 <p class="location-desc">{currentLocationInfo.description}</p>
             {/if}
@@ -729,6 +719,12 @@
         font-size: 14px;
         font-weight: 600;
         color: var(--accent-primary, #74b9ff);
+    }
+
+    .location-context {
+        margin-top: -6px;
+        font-size: 10px;
+        color: var(--text-muted, #888);
     }
 
     .location-desc {

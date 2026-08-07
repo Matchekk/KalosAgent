@@ -72,7 +72,13 @@ export function redppGuideToGraph(guide) {
         }
     }
 
-    return { meta: guide.meta || {}, championRoute: guide.championRoute || [], nodes, edges };
+    return {
+        meta: guide.meta || {},
+        championRoute: guide.championRoute || [],
+        runtimeRoute: guide.runtimeRoute || [],
+        nodes,
+        edges,
+    };
 }
 
 export function redppGuideToBundles(guide) {

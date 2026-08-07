@@ -60,33 +60,42 @@ test('Train rewards only confirmed Red++ wins and battle damage', () => {
     const rewards = new UnitTestRewards();
     const battle = {
         kind: 'wild',
+        battleType: 1,
         opponent: { speciesId: 19, currentHP: 10, maxHP: 20 },
-        active: { currentHP: 20, maxHP: 20 },
+        active: { speciesId: 7, currentHP: 20, maxHP: 20 },
         lastMove: { effectiveness: 'super effective', stab: true },
     };
+    const party = [{ speciesId: 7, level: 8, currentHP: 20, maxHP: 20 }];
     const damage = rewards.evaluate(
-        state({ inBattle: true, battle }),
-        state({ inBattle: true, battle: { ...battle, opponent: { ...battle.opponent, currentHP: 5 } } }),
+        state({ party, inBattle: true, battle }),
+        state({ party, inBattle: true, battle: { ...battle, opponent: { ...battle.opponent, currentHP: 5 } } }),
         'a',
     );
     assert.ok(damage.total > 0);
     assert.ok(damage.firedTests.some(event => event.id === 'redpp_battle_progress'));
 
     const ran = rewards.evaluate(
-        state({ inBattle: true, battle }),
-        state({ battleResult: 2 }),
+        state({ party, inBattle: true, battle }),
+        state({ party, battleResult: 2 }),
         'b',
     );
     assert.ok(ran.total < 0);
     assert.ok(ran.firedTests.some(event => event.id === 'redpp_battle_escaped'));
 
     const won = rewards.evaluate(
-        state({ inBattle: true, battle }),
-        state({ battleResult: 0 }),
+        state({ party, inBattle: true, battle }),
+        state({ party, battleResult: 0 }),
         'a',
     );
     assert.ok(won.firedTests.some(event =>
         event.id === 'redpp_battle_won' && event.reward === REDPP_REWARD_MATRIX.battle.wildWin));
+
+    const startupGlitch = rewards.evaluate(
+        state({ inBattle: true, battle }),
+        state({ battleResult: 0 }),
+        'a',
+    );
+    assert.ok(!startupGlitch.firedTests.some(event => event.id === 'redpp_battle_won'));
 });
 
 test('Train cannot farm reward by walking in a circle or spamming Start', () => {

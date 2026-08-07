@@ -20,6 +20,7 @@ import { feedSystem } from '../../stores/feed.js';
 import { get } from 'svelte/store';
 import { assetUrl } from '../asset-url.js';
 import { redppGuideToGraph } from './redpp-guide-data.js';
+import { resolveRedppLocation } from './redpp-location-data.js';
 
 // Map interior game locations to their parent walkthrough location
 const locationToParent = {
@@ -73,29 +74,7 @@ const locationToParent = {
 };
 
 function mapLocationToParent(locationName) {
-    if (!locationName) return null;
-    const upper = locationName.toUpperCase();
-
-    // Direct match
-    if (locationToParent[upper]) {
-        return locationToParent[upper];
-    }
-
-    // Partial match
-    for (const [key, parent] of Object.entries(locationToParent)) {
-        if (upper.includes(key) || key.includes(upper)) {
-            return parent;
-        }
-    }
-
-    // Extract city/town name
-    const cityMatch = locationName.match(/(PALLET|VIRIDIAN|PEWTER|CERULEAN|VERMILION|CELADON|SAFFRON|LAVENDER|FUCHSIA|CINNABAR)/i);
-    if (cityMatch) {
-        const cityName = cityMatch[1].charAt(0).toUpperCase() + cityMatch[1].slice(1).toLowerCase();
-        return `${cityName} ${locationName.toLowerCase().includes('town') ? 'Town' : 'City'}`;
-    }
-
-    return locationName;
+    return resolveRedppLocation(locationName).guideLocation || null;
 }
 
 /**
@@ -125,7 +104,9 @@ function buildGuideContext(locationName, graph) {
     if (!location) return '';
 
     const lines = [];
-    lines.push(`[RED++ OAK GUIDE - ${location.name}]`);
+    const exactLocation = resolveRedppLocation(locationName).exactLocation;
+    lines.push(`[RED++ RAM LOCATION - ${exactLocation}]`);
+    lines.push(`[RED++ GUIDE CONTEXT - ${location.name}]`);
 
     if (location.description) {
         lines.push(location.description);

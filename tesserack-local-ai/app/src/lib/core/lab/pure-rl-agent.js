@@ -19,7 +19,7 @@ import {
     executeRepeatedAction,
     restoreReinforceSnapshot,
 } from './training-utils.js';
-import { progressScore } from './parallel-training.js';
+import { compareProgressStates, progressScore } from './parallel-training.js';
 
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
@@ -31,6 +31,15 @@ const TYPE_NAMES = [
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
     'DARK', 'FAIRY', 'UNKNOWN',
 ];
+
+function cloneProgressState(state = {}) {
+    return {
+        location: state.location || '',
+        badgeCount: Number(state.badgeCount) || 0,
+        party: (state.party || []).map(mon => ({ level: Number(mon?.level) || 0 })),
+        progressFlags: { ...(state.progressFlags || {}) },
+    };
+}
 
 /**
  * Encode game state into a fixed-size vector for the policy network.
@@ -214,9 +223,12 @@ export class PureRLAgent {
         this.confirmedWins = 0;
         this.resetReason = null;
         this.pendingCheckpointCandidate = null;
+        this.stableLocation = '';
+        this.stableLocationSteps = 0;
 
         // Checkpoint state for resets
         this.checkpointState = null;
+        this.checkpointProgressState = null;
         this.initialState = null;
         if (this.config.persistCheckpoint) this._restorePersistedCheckpoint();
 
@@ -276,13 +288,22 @@ export class PureRLAgent {
      */
     _checkDone(prevState, currState) {
         this.episodeSteps++;
+        if (currState?.location && currState.location === this.stableLocation) {
+            this.stableLocationSteps++;
+        } else {
+            this.stableLocation = currState?.location || '';
+            this.stableLocationSteps = 1;
+        }
         const progressScore = this._progressScore(currState);
-        if (progressScore > this.bestProgressScore) {
+        const progressBaseline = this.checkpointProgressState || prevState;
+        const locationOnlyProgress = this._isLocationOnlyProgress(progressBaseline, currState);
+        const stableEnough = !locationOnlyProgress || this.stableLocationSteps >= 3;
+        if (progressScore > this.bestProgressScore && stableEnough) {
             this.bestProgressScore = progressScore;
             this.lastProgressEpisodeStep = this.episodeSteps;
             // Starter, rival, level and badge milestones become curriculum
             // checkpoints. No action is supplied: the policy earned the state.
-            if (this.checkpointState && this._isDurableProgress(prevState, currState)) {
+            if (this.checkpointState && this._isDurableProgress(progressBaseline, currState)) {
                 this.pendingCheckpointCandidate = {
                     workerId: this.workerId,
                     steps: this.totalSteps + 1,
@@ -332,6 +353,8 @@ export class PureRLAgent {
         this.episodeSteps = 0;
         this.episodeReward = 0;
         this.lastProgressEpisodeStep = 0;
+        this.stableLocation = '';
+        this.stableLocationSteps = 0;
     }
 
     /**
@@ -424,6 +447,8 @@ export class PureRLAgent {
         this.episodeSteps = 0;
         this.episodeReward = 0;
         this.lastProgressEpisodeStep = 0;
+        this.stableLocation = '';
+        this.stableLocationSteps = 0;
         this.rewards.reset();
         // Note: Core (policy weights, buffer) is NOT reset
         // Call resetFull() to also reset learning
@@ -452,6 +477,7 @@ export class PureRLAgent {
      */
     saveCheckpoint(state = this.mem.getGameState()) {
         this.checkpointState = this.emu.saveState();
+        this.checkpointProgressState = cloneProgressState(state);
         if (!this.initialState) this.initialState = this.checkpointState.slice();
         this.bestProgressScore = Math.max(this.bestProgressScore, this._progressScore(state));
         this.checkpointCount++;
@@ -467,17 +493,13 @@ export class PureRLAgent {
     }
 
     _isDurableProgress(prev, curr) {
-        const prevParty = prev?.party || [];
-        const currParty = curr?.party || [];
-        const prevLevels = prevParty.reduce((sum, mon) => sum + (mon.level || 0), 0);
-        const currLevels = currParty.reduce((sum, mon) => sum + (mon.level || 0), 0);
-        return (curr?.badgeCount || 0) > (prev?.badgeCount || 0)
-            || currParty.length > prevParty.length
-            || currLevels > prevLevels
-            || Boolean(curr?.progressFlags?.battledRivalInOaksLab)
-                && !prev?.progressFlags?.battledRivalInOaksLab
-            || ['HALL OF FAME', 'CHAMPIONS ROOM'].includes(curr?.location)
-                && curr?.location !== prev?.location;
+        return compareProgressStates(curr, prev) > 0;
+    }
+
+    _isLocationOnlyProgress(prev, curr) {
+        if (!this._isDurableProgress(prev, curr)) return false;
+        const withoutLocation = state => ({ ...state, location: prev?.location });
+        return compareProgressStates(withoutLocation(curr), withoutLocation(prev)) === 0;
     }
 
     _persistCheckpoint() {
@@ -491,6 +513,7 @@ export class PureRLAgent {
                 version: 2,
                 savedAt: new Date().toISOString(),
                 progressScore: this.bestProgressScore,
+                progressState: this.checkpointProgressState,
                 state: btoa(binary),
             }));
         } catch (error) {
@@ -507,6 +530,7 @@ export class PureRLAgent {
         if (!(stateBytes instanceof Uint8Array)) throw new Error('Checkpoint must be Uint8Array');
         this.checkpointState = stateBytes.slice();
         const score = typeof stateOrScore === 'number' ? stateOrScore : this._progressScore(stateOrScore);
+        if (typeof stateOrScore !== 'number') this.checkpointProgressState = cloneProgressState(stateOrScore);
         this.bestProgressScore = Math.max(this.bestProgressScore, Number(score) || 0);
         if (count) this.checkpointCount++;
         if (persist && this.config.persistCheckpoint) this._persistCheckpoint();
@@ -543,6 +567,9 @@ export class PureRLAgent {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             this.checkpointState = bytes;
             this.bestProgressScore = Number(saved.progressScore) || 0;
+            this.checkpointProgressState = saved.progressState
+                ? cloneProgressState(saved.progressState)
+                : null;
             this.checkpointCount = 1;
         } catch (error) {
             console.warn('[PureRLAgent] Ignoring invalid curriculum checkpoint:', error.message);

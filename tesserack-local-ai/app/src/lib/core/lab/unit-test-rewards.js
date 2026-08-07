@@ -224,6 +224,12 @@ export class UnitTestRewards {
         const prevBattle = prev?.battle;
         const currBattle = curr?.battle;
 
+        // Red++ reuses battle WRAM during boot and state restoration. A lone
+        // non-zero wIsInBattle byte can therefore look like a zero-result win
+        // before a starter exists. Only score battle transitions backed by a
+        // real party and coherent combatant structs.
+        if (!isCredibleBattleState(prev, prevBattle)) return;
+
         if (prev?.inBattle && curr?.inBattle && prevBattle && currBattle) {
             if (prevBattle.opponent?.speciesId === currBattle.opponent?.speciesId) {
                 const enemyDelta = Math.max(0, hpRatio(prevBattle.opponent) - hpRatio(currBattle.opponent));
@@ -423,6 +429,14 @@ export class UnitTestRewards {
             } : null,
         };
     }
+}
+
+function isCredibleBattleState(state, battle) {
+    const party = Array.isArray(state?.party) ? state.party : [];
+    // MemoryReader always supplies battleType. Lightweight deterministic test
+    // adapters predate that field, so keep accepting those synthetic states.
+    if (battle?.battleType == null) return Boolean(battle);
+    return party.length > 0 && (battle.battleType === 1 || battle.battleType === 2);
 }
 
 function normalizeLocation(value) {

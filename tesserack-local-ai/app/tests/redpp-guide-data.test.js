@@ -12,6 +12,7 @@ test('Red++ guide is versioned and explicitly advisory across ROM versions', () 
     assert.equal(guide.meta.targetRomVersion, '3.0.2');
     assert.match(guide.meta.compatibility, /RAM is authoritative/i);
     assert.equal(guide.meta.challengeRulesApplied, false);
+    assert.match(guide.meta.ramMapSource, /map_constants\.asm/);
 });
 
 test('Red++ guide converts to a connected Champion-first graph', () => {
@@ -20,6 +21,8 @@ test('Red++ guide converts to a connected Champion-first graph', () => {
     assert.ok(graph.nodes.some(node => node.type === 'objective' && node.name === 'Become Pokemon Champion'));
     assert.ok(graph.nodes.some(node => node.type === 'pokemon' && node.name.includes('Magnezone')));
     assert.ok(graph.edges.some(edge => edge.type === 'leads_to'));
+    assert.equal(graph.runtimeRoute.at(0).ramMapId, '0x26');
+    assert.equal(graph.runtimeRoute.at(-1).ramMapId, '0x36');
 });
 
 test('guide bundles contain context but cannot inject numeric rewards', () => {

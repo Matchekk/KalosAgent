@@ -4,6 +4,8 @@
     "title": "Mewlax's Professor Oak Challenge Guide for Pokemon Red++",
     "sourceGuideVersion": "4.5.3",
     "targetRomVersion": "3.0.2",
+    "ramMapSource": "https://github.com/JustRegularLuna/rpp-backup/blob/master/constants/map_constants.asm",
+    "wramSource": "https://github.com/JustRegularLuna/rpp-backup/blob/master/wram.asm",
     "strategyMode": "champion-first-with-optional-collection-knowledge",
     "compatibility": "The user-supplied guide targets Red++ 4.5.3 while runtime RAM mapping targets 3.0.2. Route, encounter and evolution facts are advisory; observed v3.0.2 RAM is authoritative.",
     "rewardPolicy": "Guide content supplies context and curriculum only. It never defines numeric reinforcement rewards.",
@@ -14,6 +16,89 @@
     "Headbutt trees, breeding without egg hatching and location-based evolutions are useful optional collection mechanics.",
     "Keep attacking moves and PP coverage while grinding; do not replace all weak attacks with status moves.",
     "The Oak challenge's catch-everything gates are optional because the active objective is becoming Champion quickly."
+  ],
+  "runtimeRoute": [
+    {
+      "order": 0,
+      "ramMapId": "0x26",
+      "name": "Players House 2F",
+      "guideLocation": "Pallet Town",
+      "summary": "The run starts upstairs in the player's house; this is not yet outdoor Pallet Town.",
+      "observable": "RAM map PLAYERS HOUSE 2F remains stable; party count is zero.",
+      "next": "Players House 1F"
+    },
+    {
+      "order": 1,
+      "ramMapId": "0x25",
+      "name": "Players House 1F",
+      "guideLocation": "Pallet Town",
+      "summary": "Reach the ground floor and find the southern exit.",
+      "observable": "RAM map changes to PLAYERS HOUSE 1F for at least three observations.",
+      "next": "Pallet Town"
+    },
+    {
+      "order": 2,
+      "ramMapId": "0x00",
+      "name": "Pallet Town",
+      "guideLocation": "Pallet Town",
+      "summary": "The outdoor town is the first genuine world-map checkpoint.",
+      "observable": "RAM map is PALLET TOWN for at least three observations; the emulator image is outdoors.",
+      "next": "Oak's Lab opening sequence, then Route 1"
+    },
+    {
+      "order": 3,
+      "ramMapId": "0x0C",
+      "name": "Route 1",
+      "guideLocation": "Route 1",
+      "summary": "Travel north between Pallet and Viridian; returns for Oak's parcel are normal and must not erase learned progress.",
+      "observable": "RAM map is ROUTE 1; coordinates change while directional actions are taken.",
+      "next": "Viridian City"
+    },
+    {
+      "order": 4,
+      "ramMapId": "0x01",
+      "name": "Viridian City",
+      "guideLocation": "Viridian City",
+      "summary": "Reach Viridian, handle the parcel loop, then continue north after receiving the Pokedex.",
+      "observable": "RAM map is VIRIDIAN CITY; party and Oak-event RAM decide whether the return trip is complete.",
+      "next": "Route 2"
+    },
+    {
+      "order": 5,
+      "ramMapId": "0x0D",
+      "name": "Route 2",
+      "guideLocation": "Route 2",
+      "summary": "Enter the northbound corridor toward Viridian Forest.",
+      "observable": "RAM map is ROUTE 2; this ranks beyond Viridian only when the rest of the state is equally credible.",
+      "next": "Viridian Forest"
+    },
+    {
+      "order": 6,
+      "ramMapId": "0x33",
+      "name": "Viridian Forest",
+      "guideLocation": "Viridian Forest",
+      "summary": "Traverse the forest while learning dialog, battle and navigation actions from rewards rather than a scripted route.",
+      "observable": "RAM map is VIRIDIAN FOREST and persists; battle RAM may activate independently.",
+      "next": "Pewter City"
+    },
+    {
+      "order": 7,
+      "ramMapId": "0x02",
+      "name": "Pewter City",
+      "guideLocation": "Pewter City",
+      "summary": "Reach the first Gym city; arrival is distinct from entering or defeating the Gym.",
+      "observable": "RAM map is PEWTER CITY; badge count is still checked separately.",
+      "next": "Pewter Gym"
+    },
+    {
+      "order": 8,
+      "ramMapId": "0x36",
+      "name": "Pewter Gym",
+      "guideLocation": "Pewter City",
+      "summary": "Enter Brock's Gym. The Boulder Badge, not map entry alone, proves the first Gym was completed.",
+      "observable": "RAM map is PEWTER GYM; a later badge-count increase confirms victory over Brock.",
+      "next": "Boulder Badge, then Route 3"
+    }
   ],
   "championRoute": [
     { "order": 1, "location": "Pallet Town", "objective": "Choose a starter and finish Oak's opening sequence" },

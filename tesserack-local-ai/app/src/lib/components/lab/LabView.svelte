@@ -39,6 +39,7 @@
     import { llmState, PROVIDERS, setModel, setLLMProgress, setLLMReady, setLLMError } from '$lib/stores/llm';
     import { initBrowserLLM, isReady as isLLMConfigured } from '$lib/core/llm.js';
     import { getLabRunBlockReason } from '$lib/core/lab/lab-readiness.js';
+    import { resolveRedppLocation } from '$lib/core/lab/redpp-location-data.js';
 
     let isRunning = false;
     let labInitialized = false;
@@ -101,10 +102,11 @@
     function buildGuideContext(locationName, graph, completed) {
         if (!graph?.nodes?.length || !locationName) return null;
 
+        const { exactLocation, guideLocation } = resolveRedppLocation(locationName);
+
         const location = graph.nodes.find(n =>
             n.type === 'location' &&
-            (n.name.toLowerCase() === locationName.toLowerCase() ||
-             n.name.toLowerCase().includes(locationName.toLowerCase()))
+            n.name.toLowerCase() === guideLocation.toLowerCase()
         );
 
         if (!location) return null;
@@ -120,7 +122,8 @@
         }
 
         return {
-            location: location.name,
+            location: exactLocation,
+            guideLocation: location.name,
             description: location.description || '',
             objectives: objectives.slice(0, 4)
         };
