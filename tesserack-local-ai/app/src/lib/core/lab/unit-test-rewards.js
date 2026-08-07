@@ -530,6 +530,82 @@ export class UnitTestRewards {
         this.currentBundle = this.bundles?._default || this._getDefaultBundle();
     }
 
+    /**
+     * Preserve anti-farming and exploration memory while WASM emulator
+     * instances are recycled. Emulator state is handled separately by the
+     * curriculum checkpoint; this snapshot contains only reward bookkeeping.
+     */
+    exportLearningState() {
+        return {
+            version: 1,
+            firedOnce: [...this.firedOnce],
+            completedObjectives: [...this.completedObjectives],
+            positionVisits: [...this.positionVisits.entries()],
+            visitedPositions: [...this.visitedPositions],
+            visitedLocations: [...this.visitedLocations],
+            dialogCredits: [...this.dialogCredits.entries()].map(([key, credit]) => [key, { ...credit }]),
+            recentPositions: [...this.recentPositions],
+            menuReopenStreak: this.menuReopenStreak,
+            lastMenuCloseTransition: this.lastMenuCloseTransition,
+            transitionCount: this.transitionCount,
+            lastSaveTransition: this.lastSaveTransition,
+            saveStreak: this.saveStreak,
+            championReached: this.championReached,
+            maxPartySize: this.maxPartySize,
+            bestTeamQuality: this.bestTeamQuality,
+            lastTeamAnalysis: { ...this.lastTeamAnalysis },
+            totalRewards: { ...this.totalRewards },
+            lastContext: this.lastContext,
+            currentLocation: this.currentLocation,
+        };
+    }
+
+    restoreLearningState(snapshot) {
+        if (!snapshot || snapshot.version !== 1) {
+            throw new Error('Unsupported reward learning snapshot');
+        }
+
+        this.firedOnce = new Set(snapshot.firedOnce || []);
+        this.completedObjectives = [...(snapshot.completedObjectives || [])];
+        this.positionVisits = new Map(snapshot.positionVisits || []);
+        this.visitedPositions = new Set(snapshot.visitedPositions || []);
+        this.visitedLocations = new Set(snapshot.visitedLocations || []);
+        this.dialogCredits = new Map((snapshot.dialogCredits || [])
+            .map(([key, credit]) => [key, { ...credit }]));
+        this.recentPositions = [...(snapshot.recentPositions || [])].slice(-32);
+        this.menuReopenStreak = finiteNonNegativeInteger(snapshot.menuReopenStreak);
+        this.lastMenuCloseTransition = finiteOrNegativeInfinity(snapshot.lastMenuCloseTransition);
+        this.transitionCount = finiteNonNegativeInteger(snapshot.transitionCount);
+        this.lastSaveTransition = finiteOrNegativeInfinity(snapshot.lastSaveTransition);
+        this.saveStreak = finiteNonNegativeInteger(snapshot.saveStreak);
+        this.championReached = Boolean(snapshot.championReached);
+        this.maxPartySize = finiteNonNegativeInteger(snapshot.maxPartySize);
+        this.bestTeamQuality = clamp(Number(snapshot.bestTeamQuality) || 0, 0, 1);
+        this.lastTeamAnalysis = snapshot.lastTeamAnalysis
+            ? { ...snapshot.lastTeamAnalysis }
+            : analyzeRedppTeam([]);
+        this.totalRewards = {
+            ...this._emptyBreakdown(true),
+            ...(snapshot.totalRewards || {}),
+        };
+        this.lastContext = Object.values(REWARD_CONTEXT).includes(snapshot.lastContext)
+            ? snapshot.lastContext
+            : REWARD_CONTEXT.OVERWORLD;
+
+        // Transient pressure belongs to the discarded emulator trajectory,
+        // while long-horizon anti-farming state above must survive.
+        this.stuckCounter = 0;
+        this.menuSteps = 0;
+        this.firedTests = [];
+        this.currentLocation = null;
+        this.currentBundle = this.bundles?._default || this._getDefaultBundle();
+        if (snapshot.currentLocation) {
+            if (this.bundles) this.setLocation(snapshot.currentLocation);
+            else this.currentLocation = normalizeLocation(snapshot.currentLocation);
+        }
+        return true;
+    }
+
     getStats() {
         return {
             matrixVersion: REDPP_REWARD_MATRIX_VERSION,
@@ -585,6 +661,15 @@ function isCredibleBattleState(state, battle) {
 
 function normalizeLocation(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
+}
+
+function finiteNonNegativeInteger(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.trunc(number) : 0;
+}
+
+function finiteOrNegativeInfinity(value) {
+    return Number.isFinite(Number(value)) ? Number(value) : -Infinity;
 }
 
 export default UnitTestRewards;

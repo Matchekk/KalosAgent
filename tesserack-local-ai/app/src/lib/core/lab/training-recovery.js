@@ -15,3 +15,20 @@ export function shouldRecycleEnvironments(totalSamples, lifecycleStartSamples, l
         && threshold > 0
         && samples - start >= threshold;
 }
+
+/** Capture per-environment reward memory before replacing WASM instances. */
+export function captureRewardLearningStates(agents = []) {
+    return agents.map(agent => agent?.rewards?.exportLearningState?.() ?? null);
+}
+
+/** Restore reward memory before the replacement trainer starts stepping. */
+export function restoreRewardLearningStates(agents = [], snapshots = []) {
+    let restored = 0;
+    for (let index = 0; index < agents.length; index++) {
+        const snapshot = snapshots[index];
+        if (!snapshot || typeof agents[index]?.rewards?.restoreLearningState !== 'function') continue;
+        agents[index].rewards.restoreLearningState(snapshot);
+        restored++;
+    }
+    return restored;
+}

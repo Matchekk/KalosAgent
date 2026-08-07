@@ -101,6 +101,12 @@ check('overworld inaction is less severe than a two-tile loop', () =>
     Math.abs(REDPP_REWARD_MATRIX.overworld.inaction)
         < Math.abs(REDPP_REWARD_MATRIX.overworld.twoCycle));
 
+const rotatedRewards = new UnitTestRewards();
+rotatedRewards.restoreLearningState(exploration.exportLearningState());
+const postRotationRevisit = rotatedRewards.evaluate(posA, posB, 'right');
+check('WASM rotation cannot make an explored tile novel again', () =>
+    !hasEvent(postRotationRevisit, 'novel_tile') && hasEvent(postRotationRevisit, 'revisited_tile'));
+
 let loopTotal = 0;
 for (let i = 0; i < 20; i++) {
     loopTotal += exploration.evaluate(i % 2 ? posB : posA, i % 2 ? posA : posB, i % 2 ? 'left' : 'right').total;

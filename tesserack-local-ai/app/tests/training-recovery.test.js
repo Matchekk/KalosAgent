@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+    captureRewardLearningStates,
     DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES,
     isFatalEmulatorError,
+    restoreRewardLearningStates,
     shouldRecycleEnvironments,
 } from '../src/lib/core/lab/training-recovery.js';
 
@@ -18,4 +20,21 @@ test('recycles only after the per-lifecycle sample budget', () => {
     assert.equal(shouldRecycleEnvironments(DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES, 0), true);
     assert.equal(shouldRecycleEnvironments(410_000, 250_000), true);
     assert.equal(shouldRecycleEnvironments(10, 20), false);
+});
+
+test('WASM rotation transfers each environment reward memory before training resumes', () => {
+    const sourceAgents = [0, 1, 2, 3].map(workerId => ({
+        rewards: { exportLearningState: () => ({ version: 1, workerId }) },
+    }));
+    const restored = [];
+    const targetAgents = [0, 1, 2, 3].map(workerId => ({
+        rewards: { restoreLearningState: snapshot => restored.push({ workerId, snapshot }) },
+    }));
+
+    const snapshots = captureRewardLearningStates(sourceAgents);
+    assert.equal(restoreRewardLearningStates(targetAgents, snapshots), 4);
+    assert.deepEqual(restored, [0, 1, 2, 3].map(workerId => ({
+        workerId,
+        snapshot: { version: 1, workerId },
+    })));
 });

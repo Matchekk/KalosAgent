@@ -140,6 +140,28 @@ test('ineffective overworld face buttons cannot become a safe local optimum', ()
     assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), false);
 });
 
+test('reward learning memory survives scheduled WASM environment rotation', () => {
+    const beforeRotation = new UnitTestRewards();
+    const a = state({ coordinates: { x: 5, y: 6 } });
+    const b = state({ coordinates: { x: 6, y: 6 } });
+    beforeRotation.evaluate(a, b, 'right');
+
+    const dialogA = state({ coordinates: { x: 6, y: 6 }, dialog: 'HELLO' });
+    const dialogB = state({ coordinates: { x: 6, y: 6 }, dialog: 'WORLD' });
+    const firstDialog = beforeRotation.evaluate(dialogA, dialogB, 'a');
+    const firstCredit = firstDialog.firedTests.find(event => event.id === 'dialog_advanced').reward;
+
+    const afterRotation = new UnitTestRewards();
+    afterRotation.restoreLearningState(beforeRotation.exportLearningState());
+    const revisit = afterRotation.evaluate(a, b, 'right');
+    assert.equal(revisit.firedTests.some(event => event.id === 'novel_tile'), false);
+    assert.ok(revisit.firedTests.some(event => event.id === 'revisited_tile'));
+
+    const continuedDialog = afterRotation.evaluate(dialogB, { ...dialogB, dialog: 'NEXT' }, 'a');
+    const continuedCredit = continuedDialog.firedTests.find(event => event.id === 'dialog_advanced').reward;
+    assert.ok(continuedCredit < firstCredit, 'dialog credit must not reset during WASM rotation');
+});
+
 test('optional menu idling and rapid reopening escalate without locking strategic actions', () => {
     const rewards = new UnitTestRewards();
     const party = [
