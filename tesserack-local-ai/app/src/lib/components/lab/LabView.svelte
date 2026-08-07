@@ -644,6 +644,12 @@
                                 {$pureRLMetrics.memoryDiagnostics.mappedMapMeta.join(' / ')}
                             </span>
                         </div>
+                        <div class="metric-row" title="wFontLoaded / hWY shadow / rWY LCD register / wTextBoxID / hSpriteIndexOrTextID / WRAM border / rendered VRAM border">
+                            <span class="metric-label">Text / hWY / rWY / box / ID / WRAM / VRAM</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.memoryDiagnostics.textState?.join(' / ') || '-'}
+                            </span>
+                        </div>
                     {/if}
                     {#if $pureRLMetrics.teamQuality}
                         <div class="metric-row" title="Bounded Red++ roster, stats, balance, typing and move-coverage score">

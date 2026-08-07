@@ -263,6 +263,96 @@ test('zero-initialized Red++ startup memory is not Pallet Town', () => {
     assert.equal(reader.getLocation(), 'PALLET TOWN');
 });
 
+test('overworld tilemap glyphs cannot masquerade as Red++ dialog', () => {
+    const wram = new Uint8Array(0x8000);
+    const tilemapOffset = ADDRESSES.TILEMAP_START - 0xC000;
+    // These are valid Pokemon text glyphs, but on an overworld screen they are
+    // map/sprite tiles and must never create dialog progress or rewards.
+    wram.set([0x80, 0x81, 0x82, 0x7F, 0xA0, 0xA1, 0xF6], tilemapOffset + 40);
+    const reader = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: () => 0,
+    });
+
+    assert.equal(reader.getDialog(), '');
+});
+
+test('Red++ Start-menu sub-screens cannot masquerade as overworld dialog', () => {
+    const wram = new Uint8Array(0x8000);
+    const start = ADDRESSES.TILEMAP_START - 0xC000;
+    const put = (x, y, value) => { wram[start + (y * 20) + x] = value; };
+    put(0, 12, 0x79);
+    put(19, 12, 0x7B);
+    put(0, 17, 0x7D);
+    put(19, 17, 0x7E);
+    for (let x = 1; x < 19; x++) {
+        put(x, 12, 0x7A);
+        put(x, 17, 0x7A);
+    }
+    for (let y = 13; y < 17; y++) {
+        put(0, y, 0x7C);
+        put(19, y, 0x7C);
+        for (let x = 1; x < 19; x++) put(x, y, 0x7F);
+    }
+    put(1, 14, 0x80);
+    // A full-screen menu can keep the font, window and the exact same border
+    // active. Its hSpriteIndexOrTextID remains zero, unlike overworld text.
+    wram[ADDRESSES.FONT_LOADED - 0xC000] = 0x01;
+    const reader = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: address => {
+            const relative = address - ADDRESSES.WINDOW_TILEMAP_START;
+            const x = relative % 32;
+            const y = Math.floor(relative / 32);
+            if (relative >= 0 && y < 18 && x < 20) return wram[start + (y * 20) + x];
+            return 0;
+        },
+    });
+
+    assert.equal(reader.getDialog(), '');
+});
+
+test('Red++ standard message box exposes only its text interior', () => {
+    const wram = new Uint8Array(0x8000);
+    const start = ADDRESSES.TILEMAP_START - 0xC000;
+    const put = (x, y, value) => { wram[start + (y * 20) + x] = value; };
+
+    put(0, 12, 0x79);
+    put(19, 12, 0x7B);
+    put(0, 17, 0x7D);
+    put(19, 17, 0x7E);
+    for (let x = 1; x < 19; x++) {
+        put(x, 12, 0x7A);
+        put(x, 17, 0x7A);
+    }
+    for (let y = 13; y < 17; y++) {
+        put(0, y, 0x7C);
+        put(19, y, 0x7C);
+        for (let x = 1; x < 19; x++) put(x, y, 0x7F);
+    }
+    // "HELLO!" on the two actual text rows. Noise outside the box is ignored.
+    [0x87, 0x84, 0x8B, 0x8B, 0x8E, 0xE7].forEach((value, index) => put(index + 1, 14, value));
+    put(5, 4, 0x99);
+    wram[ADDRESSES.FONT_LOADED - 0xC000] = 0x01;
+
+    const reader = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: address => {
+            const relative = address - ADDRESSES.WINDOW_TILEMAP_START;
+            const x = relative % 32;
+            const y = Math.floor(relative / 32);
+            if (relative >= 0 && y < 18 && x < 20) return wram[start + (y * 20) + x];
+            if (address === ADDRESSES.SPRITE_OR_TEXT_ID) return 1;
+            return 0;
+        },
+    });
+    assert.equal(reader.getDialog(), 'HELLO!');
+
+    // One broken border tile proves this is no longer a live dialog box.
+    put(10, 12, 0x7F);
+    assert.equal(reader.getDialog(), '');
+});
+
 test('memory reader exposes Red++ battle structs and type effectiveness', () => {
     const wram = new Uint8Array(0x8000);
     const write = (address, ...values) => values.forEach((value, index) => {

@@ -34,9 +34,18 @@ export const ADDRESSES = {
     ITEM_COUNT: 0xD330,
     ITEM_START: 0xD331,
 
-    // Dialog/text buffer
+    // 20x18 screen tilemap. This is not a dedicated text buffer: overworld
+    // rendering updates it continuously, so dialog must be identified by the
+    // actual Red++ message-box border before any glyphs are decoded.
+    TILEMAP_START: 0xC3A0,
+    TILEMAP_END: 0xC508,
     TEXT_BUFFER_START: 0xC3A0,
-    TEXT_BUFFER_END: 0xC507,
+    TEXT_BUFFER_END: 0xC508,
+    FONT_LOADED: 0xCFC4,
+    WINDOW_Y: 0xFFB0,
+    WINDOW_Y_REGISTER: 0xFF4A,
+    WINDOW_TILEMAP_START: 0x9C00,
+    SPRITE_OR_TEXT_ID: 0xFF8C,
 
     // Battle
     BATTLE_TYPE: 0xD05D,
@@ -567,6 +576,10 @@ export class MemoryReader {
 
     getMemoryDiagnostics() {
         const mapped = address => this.emu.readMemory(address);
+        const tilemap = this.readBytes(
+            ADDRESSES.TILEMAP_START,
+            ADDRESSES.TILEMAP_END - ADDRESSES.TILEMAP_START,
+        );
         return {
             mappedName: Array.from({ length: 11 }, (_, i) => mapped(ADDRESSES.PLAYER_NAME + i)),
             mappedMapXY: [mapped(ADDRESSES.MAP_ID), mapped(ADDRESSES.PLAYER_X), mapped(ADDRESSES.PLAYER_Y)],
@@ -586,6 +599,15 @@ export class MemoryReader {
                 this.readByte(ADDRESSES.MAP_WIDTH),
                 this.readByte(ADDRESSES.MAP_DATA_PTR),
                 this.readByte(ADDRESSES.MAP_DATA_PTR + 1),
+            ],
+            textState: [
+                this.readByte(ADDRESSES.FONT_LOADED),
+                this.readByte(ADDRESSES.WINDOW_Y),
+                this.readByte(ADDRESSES.WINDOW_Y_REGISTER),
+                this.readByte(ADDRESSES.TEXT_BOX_ID),
+                this.readByte(ADDRESSES.SPRITE_OR_TEXT_ID),
+                this.hasStandardDialogBox(tilemap) ? 1 : 0,
+                this.hasVisibleStandardDialogBox() ? 1 : 0,
             ],
         };
     }
@@ -848,25 +870,83 @@ export class MemoryReader {
     }
 
     /**
-     * Read dialog text from screen buffer
+     * Detect Red++'s standard bottom message box in the 20x18 tilemap.
+     * TextBoxBorder draws it at (0, 12), with an 18-tile inner width and four
+     * inner rows. Requiring the complete immutable border prevents map tiles,
+     * sprites, and menus from masquerading as dialog.
+     * @param {Uint8Array} tilemap
+     * @returns {boolean}
+     */
+    hasStandardDialogBox(tilemap) {
+        const width = 20;
+        const at = (x, y) => tilemap[(y * width) + x];
+        if (tilemap.length !== width * 18) return false;
+        if (at(0, 12) !== 0x79 || at(19, 12) !== 0x7B) return false;
+        if (at(0, 17) !== 0x7D || at(19, 17) !== 0x7E) return false;
+
+        for (let x = 1; x < 19; x++) {
+            if (at(x, 12) !== 0x7A || at(x, 17) !== 0x7A) return false;
+        }
+        for (let y = 13; y < 17; y++) {
+            if (at(0, y) !== 0x7C || at(19, y) !== 0x7C) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Verify the box in the Game Boy's displayed window tilemap (VRAM map 1),
+     * whose rows have a 32-tile stride. Savestates can legitimately retain a
+     * stale WRAM text buffer and shadow flags after the visible window has
+     * already been restored to the overworld; VRAM is the rendered truth.
+     * @returns {boolean}
+     */
+    hasVisibleStandardDialogBox() {
+        const at = (x, y) => this.emu.readMemory(
+            ADDRESSES.WINDOW_TILEMAP_START + (y * 32) + x,
+        );
+        if (at(0, 12) !== 0x79 || at(19, 12) !== 0x7B) return false;
+        if (at(0, 17) !== 0x7D || at(19, 17) !== 0x7E) return false;
+        for (let x = 1; x < 19; x++) {
+            if (at(x, 12) !== 0x7A || at(x, 17) !== 0x7A) return false;
+        }
+        for (let y = 13; y < 17; y++) {
+            if (at(0, y) !== 0x7C || at(19, y) !== 0x7C) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Read dialog text only from a verified Red++ message box.
      * @returns {string}
      */
     getDialog() {
-        const length = ADDRESSES.TEXT_BUFFER_END - ADDRESSES.TEXT_BUFFER_START;
-        const buffer = this.readBytes(ADDRESSES.TEXT_BUFFER_START, length);
+        const length = ADDRESSES.TILEMAP_END - ADDRESSES.TILEMAP_START;
+        const tilemap = this.readBytes(ADDRESSES.TILEMAP_START, length);
+        // CloseTextDisplay clears bit 0 of wFontLoaded before restoring the
+        // overworld. The old message-box tiles can remain in WRAM while VRAM
+        // already shows the map. Menus also load the font while leaving the
+        // dialog window off-screen at Y=144. DisplayTextIDInit uniquely moves
+        // that window to Y=0, so all three signals are required.
+        const textEngineActive = (this.readByte(ADDRESSES.FONT_LOADED) & 0x01) !== 0;
+        const dialogWindowVisible = this.readByte(ADDRESSES.WINDOW_Y_REGISTER) === 0;
+        // DisplayTextID uses a non-zero sprite/text ID for overworld dialog.
+        // The Start menu deliberately uses zero, and its Trainer/Pokemon/etc.
+        // sub-screens can otherwise reproduce the same border geometry.
+        const overworldTextActive = this.readByte(ADDRESSES.SPRITE_OR_TEXT_ID) !== 0;
+        if (!textEngineActive
+            || !dialogWindowVisible
+            || !overworldTextActive
+            || !this.hasStandardDialogBox(tilemap)
+            || !this.hasVisibleStandardDialogBox()) return '';
 
         const textChars = [];
-        for (const b of buffer) {
-            if ((b >= 0x80 && b <= 0x99) || (b >= 0xA0 && b <= 0xB9) || (b >= 0xF6 && b <= 0xFF)) {
-                textChars.push(b);
-            } else if (b === 0x7F) {
-                textChars.push(b);
-            } else if ([0xE6, 0xE7, 0xE8, 0xF4].includes(b)) {
-                textChars.push(b);
+        for (let y = 13; y < 17; y++) {
+            if (textChars.length) textChars.push(0x7F);
+            for (let x = 1; x < 19; x++) {
+                textChars.push(tilemap[(y * 20) + x]);
             }
         }
-
-        return this.convertText(textChars);
+        return this.convertText(textChars).replace(/\s+/g, ' ').trim();
     }
 
     /**
