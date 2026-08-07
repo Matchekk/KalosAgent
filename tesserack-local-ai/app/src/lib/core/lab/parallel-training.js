@@ -1,4 +1,5 @@
 import { getRedppLocationProgress } from './redpp-location-data.js';
+import { analyzeRedppTeam } from './redpp-team-quality.js';
 
 /**
  * Pure coordination rules for multi-environment Red++ training.
@@ -44,6 +45,7 @@ export function trainingIntervalMs(speed) {
 export function progressRank(state = {}) {
     const party = Array.isArray(state.party) ? state.party : [];
     const totalLevels = party.reduce((sum, pokemon) => sum + finiteNonNegative(pokemon?.level), 0);
+    const teamQuality = Math.round(analyzeRedppTeam(party).score * 1000);
     const location = String(state.location || '').toUpperCase();
     return Object.freeze([
         location === 'HALL OF FAME' || location === 'CHAMPIONS ROOM' ? 1 : 0,
@@ -51,6 +53,7 @@ export function progressRank(state = {}) {
         state.progressFlags?.battledRivalInOaksLab ? 1 : 0,
         party.length,
         getRedppLocationProgress(state.location),
+        teamQuality,
         totalLevels,
     ]);
 }
@@ -70,12 +73,13 @@ export function compareProgressStates(left, right) {
 
 /** A display/storage score that preserves the lexicographic rank ordering. */
 export function progressScore(state) {
-    const [champion, badges, rival, partySize, locationProgress, totalLevels] = progressRank(state);
-    return champion * 1_000_000_000_000
-        + badges * 1_000_000_000
-        + rival * 100_000_000
-        + partySize * 1_000_000
-        + Math.min(locationProgress, 999) * 1_000
+    const [champion, badges, rival, partySize, locationProgress, teamQuality, totalLevels] = progressRank(state);
+    return champion * 1_000_000_000_000_000
+        + badges * 1_000_000_000_000
+        + rival * 100_000_000_000
+        + partySize * 1_000_000_000
+        + Math.min(locationProgress, 999) * 1_000_000
+        + Math.min(teamQuality, 999) * 1_000
         + Math.min(totalLevels, 999);
 }
 

@@ -66,11 +66,13 @@ test('reward telemetry forwards cumulative bundle statistics', () => {
         currentLocation: 'PALLET TOWN',
         bundleInfo: { testCount: 15, penaltyCount: 2 },
         totalRewards,
+        teamQuality: { score: 0.75 },
         completedObjectives: ['got_starter_pokemon'],
     } }), {
         currentLocation: 'PALLET TOWN',
         bundleInfo: { testCount: 15, penaltyCount: 2 },
         totalRewards,
+        teamQuality: { score: 0.75 },
         completedObjectives: ['got_starter_pokemon'],
     });
 });

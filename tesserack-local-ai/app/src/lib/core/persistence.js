@@ -3,8 +3,8 @@
 
 const DB_NAME = 'tesserack-db';
 const DB_VERSION = 1;
-// v2 invalidates policies trained against the incorrect vanilla-Red WRAM map.
-const PURE_RL_POLICY_KEY = 'tesserack-pure-rl-policy-v2';
+// v3 uses the expanded 41-feature state with bounded team-quality signals.
+const PURE_RL_POLICY_KEY = 'tesserack-pure-rl-policy-v3';
 
 // Store names
 const STORES = {

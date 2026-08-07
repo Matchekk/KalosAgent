@@ -6,15 +6,18 @@ Browser-based autonomous training and local-LLM play for Pokemon Red++.
 
 Train mode uses a REINFORCE policy that chooses every required Game Boy action itself, including Start and party/battle menus. There is no scripted early-game controller.
 
-Training runs four independent Red++ emulator environments against one shared on-policy learner. The visible environment and two headless environments resume from the strongest RAM-verified checkpoint; a fourth environment always starts from the original ROM state so the policy cannot forget the opening. Checkpoints are ranked by durable progress (Champion, badges, Oak rival, party, levels) and never by noisy short-term reward. Only one emulator is rendered, and the aggregate 512-sample rollout keeps discounted returns isolated per environment.
+Training runs four independent Red++ emulator environments against one shared on-policy learner. The visible environment and two headless environments resume from the strongest RAM-verified checkpoint; a fourth environment always starts from the original ROM state so the policy cannot forget the opening. Checkpoints are ranked by durable progress (Champion, badges, Oak rival, party, route, team quality, levels) and never by noisy short-term reward. Only one emulator is rendered, and the aggregate 512-sample rollout keeps discounted returns isolated per environment.
 
 Numeric learning signals come from one versioned, context-gated matrix:
 
 - dialog: rewards actual page advancement and closing, with no generic step or stuck cost;
 - overworld: rewards first-time exploration and penalizes blocked movement, revisits and short loops;
 - battle: uses normalized HP fractions, type effectiveness, STAB and exact Red++ battle results;
-- milestones: orders battle wins, party growth, badges and Champion on explicit scales;
+- team building: rewards every first-time roster slot and one full-team milestone, then scores level balance, distinct typings, damaging-move coverage, stacked weaknesses and the exact Red++ v3 base-stat totals;
+- milestones: orders battle wins, team growth, badges and Champion on explicit scales;
 - menus/saving: allows purposeful access but applies escalating penalties to repeated Start and save loops.
+
+Team quality is normalized to 0..1 and contributes six policy inputs. Positive quality shaping uses an episode high watermark, so swapping a strong team out and back in cannot farm reward. The six roster rewards plus the full-team bonus remain smaller than one badge; a single quality transition is capped below a trainer win.
 
 The Train toolbar supports up to 16x pacing and reports aggregate samples per second. Run both deterministic quality benchmarks with:
 

@@ -20,13 +20,14 @@ import {
     restoreReinforceSnapshot,
 } from './training-utils.js';
 import { compareProgressStates, progressScore } from './parallel-training.js';
+import { analyzeRedppTeam } from './redpp-team-quality.js';
 
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
-export const REDPP_STATE_SIZE = 36;
-// v3 invalidates checkpoints ranked from the former, incorrect WRAM addresses.
-const CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v3';
+export const REDPP_STATE_SIZE = 41;
+// v4 includes full-party quality in policy input and checkpoint ranking.
+const CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v4';
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -37,7 +38,14 @@ function cloneProgressState(state = {}) {
     return {
         location: state.location || '',
         badgeCount: Number(state.badgeCount) || 0,
-        party: (state.party || []).map(mon => ({ level: Number(mon?.level) || 0 })),
+        party: (state.party || []).map(mon => ({
+            speciesId: Number(mon?.speciesId) || 0,
+            level: Number(mon?.level) || 0,
+            type1: mon?.type1 || null,
+            type2: mon?.type2 || null,
+            moveIds: (mon?.moveIds || []).map(moveId => Number(moveId) || 0),
+            moves: (mon?.moves || []).map(move => ({ id: Number(move?.id ?? move) || 0 })),
+        })),
         progressFlags: { ...(state.progressFlags || {}) },
     };
 }
@@ -119,6 +127,16 @@ export function encodeRedppStateInto(state, outVec) {
     } else {
         for (let n = 0; n < 19; n++) outVec[i++] = 0;
     }
+
+    // Bounded full-team features let the policy distinguish merely having six
+    // Pokemon from building a strong, balanced and complementary party.
+    const team = analyzeRedppTeam(state.party);
+    outVec[i++] = team.score;
+    outVec[i++] = team.baseStats;
+    outVec[i++] = team.levelBalance;
+    outVec[i++] = team.typeDiversity;
+    outVec[i++] = team.offensiveCoverage;
+    outVec[i++] = team.defensiveResilience;
 
     // Pad remaining with zeros
     while (i < REDPP_STATE_SIZE) outVec[i++] = 0;
@@ -397,6 +415,7 @@ export class PureRLAgent {
                 bundleInfo: result.bundleInfo || rewardStats.bundleInfo,
                 totalRewards: rewardStats.totalRewards,
                 completedObjectives: rewardStats.completedObjectives,
+                teamQuality: rewardStats.teamQuality,
                 // Training metrics
                 trainSteps: this.core.trainSteps,
                 bufferFill: this.core.buffer.length,
@@ -511,7 +530,7 @@ export class PureRLAgent {
                 binary += String.fromCharCode(...this.checkpointState.subarray(i, i + 8192));
             }
             localStorage.setItem(CHECKPOINT_KEY, JSON.stringify({
-                version: 3,
+                version: 4,
                 savedAt: new Date().toISOString(),
                 progressScore: this.bestProgressScore,
                 progressState: this.checkpointProgressState,
@@ -562,7 +581,7 @@ export class PureRLAgent {
         if (typeof localStorage === 'undefined' || typeof atob === 'undefined') return;
         try {
             const saved = JSON.parse(localStorage.getItem(CHECKPOINT_KEY) || 'null');
-            if (saved?.version !== 3 || !saved.state) return;
+            if (saved?.version !== 4 || !saved.state) return;
             const binary = atob(saved.state);
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);

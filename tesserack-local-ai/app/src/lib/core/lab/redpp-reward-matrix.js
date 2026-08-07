@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 2.
+ * Red++ reward matrix, version 3.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v2.0.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.0.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
@@ -46,13 +46,23 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
     },
 
     milestone: {
-        partyMember: 8,
         badge: 15,
         levelUnit: 0.25,
         levelCap: 1,
         oakRival: 5,
         champion: 100,
         whiteout: -10,
+    },
+
+    // Across a complete run, six first-time roster slots (9) plus the full
+    // team bonus (4) remain below one badge (15). Quality is bounded and only
+    // paid when the run exceeds its previous best team score.
+    team: {
+        member: 1.5,
+        fullTeam: 4,
+        qualityScale: 8,
+        qualityTransitionCap: 2.5,
+        qualityEpsilon: 0.002,
     },
 
     menu: {

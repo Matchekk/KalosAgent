@@ -767,11 +767,13 @@ export class MemoryReader {
 
             // Read moves (at offset +8, 4 moves)
             const moves = [];
+            const moveIds = [];
             const movePP = [];
             for (let j = 0; j < 4; j++) {
                 const moveId = this.readByte(addr + 8 + j);
                 if (moveId !== 0) {
                     moves.push(MOVE_NAMES[moveId] || `MOVE ${moveId}`);
+                    moveIds.push(moveId);
                     movePP.push(this.readByte(addr + 0x1D + j));
                 }
             }
@@ -801,6 +803,7 @@ export class MemoryReader {
                 type1: TYPE_NAMES[type1] || 'UNKNOWN',
                 type2: type1 !== type2 ? (TYPE_NAMES[type2] || null) : null,
                 moves,
+                moveIds,
                 movePP
             });
         }

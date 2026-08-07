@@ -15,6 +15,7 @@ import {
     hpRatio,
 } from './redpp-reward-matrix.js';
 import { redppGuideToBundles } from './redpp-guide-data.js';
+import { analyzeRedppTeam } from './redpp-team-quality.js';
 
 const DIRECTIONS = new Set(['up', 'down', 'left', 'right']);
 const CHAMPION_LOCATIONS = new Set(['HALL OF FAME', 'CHAMPIONS ROOM']);
@@ -51,6 +52,9 @@ export class UnitTestRewards {
         this.lastSaveTransition = -Infinity;
         this.saveStreak = 0;
         this.championReached = false;
+        this.maxPartySize = 0;
+        this.bestTeamQuality = 0;
+        this.lastTeamAnalysis = analyzeRedppTeam([]);
 
         this.totalRewards = this._emptyBreakdown(true);
         this.firedTests = [];
@@ -269,8 +273,7 @@ export class UnitTestRewards {
         const badgeDelta = Math.max(0, (curr?.badgeCount || 0) - (prev?.badgeCount || 0));
         if (badgeDelta > 0) add('badge_earned', matrix.badge * badgeDelta, 3, { count: badgeDelta });
 
-        const partyDelta = Math.max(0, (curr?.party?.length || 0) - (prev?.party?.length || 0));
-        if (partyDelta > 0) add('pokemon_caught', matrix.partyMember * partyDelta, 3, { count: partyDelta });
+        this._evaluateTeamProgress(prev, curr, add);
 
         const levelDelta = this._sharedPartyLevelGain(prev?.party, curr?.party);
         if (levelDelta > 0) {
@@ -289,6 +292,48 @@ export class UnitTestRewards {
             add('redpp_champion', matrix.champion, 3);
             this.completedObjectives.push('redpp_champion');
         }
+    }
+
+    _evaluateTeamProgress(prev, curr, add) {
+        const matrix = REDPP_REWARD_MATRIX.team;
+        const previous = analyzeRedppTeam(prev?.party);
+        const current = analyzeRedppTeam(curr?.party);
+
+        // Prime from the transition's real starting state. This prevents a
+        // loaded six-mon save from receiving six synthetic capture rewards.
+        this.maxPartySize = Math.max(this.maxPartySize, previous.size);
+        this.bestTeamQuality = Math.max(this.bestTeamQuality, previous.score);
+
+        const newPeakMembers = Math.max(0, current.size - this.maxPartySize);
+        if (newPeakMembers > 0) {
+            add('pokemon_caught', matrix.member * newPeakMembers, 2, {
+                count: newPeakMembers,
+                partySize: current.size,
+            });
+        }
+        if (this.maxPartySize < 6 && current.size === 6) {
+            add('full_team', matrix.fullTeam, 3, { partySize: 6 });
+            this.completedObjectives.push('full_team');
+        }
+        this.maxPartySize = Math.max(this.maxPartySize, current.size);
+
+        const qualityImprovement = current.score - this.bestTeamQuality;
+        if (qualityImprovement >= matrix.qualityEpsilon) {
+            add('team_quality_improved',
+                Math.min(matrix.qualityTransitionCap, matrix.qualityScale * qualityImprovement),
+                2,
+                {
+                    score: current.score,
+                    improvement: qualityImprovement,
+                    levelBalance: current.levelBalance,
+                    typeDiversity: current.typeDiversity,
+                    offensiveCoverage: current.offensiveCoverage,
+                    defensiveResilience: current.defensiveResilience,
+                    meanBaseStatTotal: current.meanBaseStatTotal,
+                });
+            this.bestTeamQuality = current.score;
+        }
+        this.lastTeamAnalysis = current;
     }
 
     _evaluateSaveBehavior(prev, curr, add) {
@@ -397,6 +442,9 @@ export class UnitTestRewards {
         this.lastSaveTransition = -Infinity;
         this.saveStreak = 0;
         this.championReached = false;
+        this.maxPartySize = 0;
+        this.bestTeamQuality = 0;
+        this.lastTeamAnalysis = analyzeRedppTeam([]);
         this.firedOnce.clear();
         this.completedObjectives = [];
         this.totalRewards = this._emptyBreakdown(true);
@@ -414,6 +462,9 @@ export class UnitTestRewards {
             visitedPositions: this.visitedPositions.size,
             stuckCounter: this.stuckCounter,
             saveStreak: this.saveStreak,
+            maxPartySize: this.maxPartySize,
+            bestTeamQuality: this.bestTeamQuality,
+            teamQuality: this.lastTeamAnalysis,
             completedObjectives: [...this.completedObjectives],
             currentLocation: this.currentLocation,
             bundleInfo: this.currentBundle ? {

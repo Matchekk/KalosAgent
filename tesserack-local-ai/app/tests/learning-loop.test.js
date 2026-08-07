@@ -297,6 +297,23 @@ test('memory reader exposes Red++ battle structs and type effectiveness', () => 
     assert.equal(battle.lastMove.damage, 8);
 });
 
+test('memory reader preserves Red++ party move IDs for coverage scoring', () => {
+    const wram = new Uint8Array(0x8000);
+    const write = (address, ...values) => values.forEach((value, index) => {
+        wram[address - 0xC000 + index] = value;
+    });
+    write(ADDRESSES.PARTY_COUNT, 1);
+    write(PARTY_ADDRESSES.BASE[0], 7, 0, 20, 0, 0, 21, 21, 0, 55, 58, 0, 0);
+    write(PARTY_ADDRESSES.BASE[0] + 0x21, 8, 0, 25);
+    const party = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: () => 0,
+    }).getParty();
+
+    assert.deepEqual(party[0].moveIds, [55, 58]);
+    assert.deepEqual(party[0].moves, ['WATER GUN', 'ICE BEAM']);
+});
+
 test('only Red++ win result counts as a confirmed battle win', () => {
     const battle = {
         kind: 'wild',

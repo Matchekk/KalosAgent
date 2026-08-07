@@ -17,6 +17,7 @@ export function getRewardTelemetry(metrics = {}) {
         bundleInfo: stats.bundleInfo ?? null,
         totalRewards: stats.totalRewards ?? null,
         completedObjectives: stats.completedObjectives ?? null,
+        teamQuality: stats.teamQuality ?? null,
     };
 }
 

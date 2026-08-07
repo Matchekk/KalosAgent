@@ -619,6 +619,29 @@
                             {$pureRLMetrics.checkpointWorker === null ? '-' : $pureRLMetrics.checkpointWorker + 1}
                         </span>
                     </div>
+                    {#if $pureRLMetrics.teamQuality}
+                        <div class="metric-row" title="Bounded Red++ roster, stats, balance, typing and move-coverage score">
+                            <span class="metric-label">Team quality</span>
+                            <span class="metric-value mono">{($pureRLMetrics.teamQuality.score * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Roster / Avg BST</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.teamQuality.size}/6 · {$pureRLMetrics.teamQuality.meanBaseStatTotal.toFixed(0)}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Level balance</span>
+                            <span class="metric-value mono">{($pureRLMetrics.teamQuality.levelBalance * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Type / move coverage</span>
+                            <span class="metric-value mono">
+                                {($pureRLMetrics.teamQuality.typeDiversity * 100).toFixed(0)}% /
+                                {($pureRLMetrics.teamQuality.offensiveCoverage * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                    {/if}
                 </div>
 
                 <div class="metrics-divider"></div>

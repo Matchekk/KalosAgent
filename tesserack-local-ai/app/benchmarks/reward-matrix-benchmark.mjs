@@ -1,4 +1,6 @@
 import { UnitTestRewards } from '../src/lib/core/lab/unit-test-rewards.js';
+import { analyzeRedppTeam } from '../src/lib/core/lab/redpp-team-quality.js';
+import { REDPP_REWARD_MATRIX } from '../src/lib/core/lab/redpp-reward-matrix.js';
 
 function state(overrides = {}) {
     return {
@@ -162,6 +164,26 @@ check('level reward does not grow with raw HP', () => Math.abs(lowLevel.total - 
 
 const sparse = evaluate({}, {}, 'a');
 check('sparse/corrupt state remains finite', () => Number.isFinite(sparse.total));
+
+const balancedTeam = [
+    { speciesId: 9, level: 40, type1: 'WATER', moves: [{ id: 55 }, { id: 58 }] },
+    { speciesId: 59, level: 40, type1: 'FIRE', moves: [{ id: 53 }] },
+    { speciesId: 26, level: 40, type1: 'ELECTRIC', moves: [{ id: 85 }] },
+    { speciesId: 65, level: 40, type1: 'PSYCHIC', moves: [{ id: 94 }] },
+    { speciesId: 68, level: 40, type1: 'FIGHTING', moves: [{ id: 66 }] },
+    { speciesId: 149, level: 40, type1: 'DRAGON', type2: 'FLYING', moves: [{ id: 58 }, { id: 89 }] },
+];
+const repeatedTypes = balancedTeam.map(mon => ({ ...mon, type1: 'WATER', type2: null, moves: [{ id: 55 }] }));
+const unevenLevels = balancedTeam.map((mon, index) => ({ ...mon, level: [10, 20, 30, 40, 50, 60][index] }));
+const balancedQuality = analyzeRedppTeam(balancedTeam);
+check('team quality is normalized', () => balancedQuality.score > 0 && balancedQuality.score <= 1);
+check('diverse typing beats repeated typing', () =>
+    balancedQuality.score > analyzeRedppTeam(repeatedTypes).score);
+check('balanced levels beat uneven levels', () =>
+    balancedQuality.score > analyzeRedppTeam(unevenLevels).score);
+check('six roster rewards plus completion remain below a badge', () =>
+    REDPP_REWARD_MATRIX.team.member * 6 + REDPP_REWARD_MATRIX.team.fullTeam
+        < REDPP_REWARD_MATRIX.milestone.badge);
 
 const passed = checks.filter(item => item.passed).length;
 const score = Number((100 * passed / checks.length).toFixed(3));

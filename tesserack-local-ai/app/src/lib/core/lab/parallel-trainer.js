@@ -146,6 +146,7 @@ export class ParallelTrainingCoordinator {
             bundleInfo: rewardStats.bundleInfo,
             totalRewards: rewardStats.totalRewards,
             completedObjectives: rewardStats.completedObjectives,
+            teamQuality: rewardStats.teamQuality,
             workers: this.agents.map(agent => ({
                 workerId: agent.workerId,
                 episode: agent.episode,

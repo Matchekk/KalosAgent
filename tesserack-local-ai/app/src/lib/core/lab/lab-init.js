@@ -68,6 +68,7 @@ export const pureRLMetrics = writable({
     bundleInfo: null,
     totalRewards: { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 },
     completedObjectives: [],
+    teamQuality: null,
     // Training metrics (REINFORCE)
     trainSteps: 0,
     bufferFill: 0,
@@ -166,6 +167,7 @@ function handlePureRLStep(stepData) {
             bundleInfo: stepData.bundleInfo ?? prev.bundleInfo,
             totalRewards: stepData.totalRewards ?? prev.totalRewards,
             completedObjectives: stepData.completedObjectives ?? prev.completedObjectives,
+            teamQuality: stepData.teamQuality ?? prev.teamQuality,
             // Training metrics
             trainSteps: stepData.trainSteps ?? 0,
             bufferFill: stepData.bufferFill ?? 0,
@@ -647,6 +649,7 @@ export function resetLab() {
         bundleInfo: null,
         totalRewards: { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 },
         completedObjectives: [],
+        teamQuality: null,
         // Training metrics
         trainSteps: 0,
         bufferFill: 0,

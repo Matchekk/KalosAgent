@@ -47,6 +47,9 @@ test('Train exposes Start and encodes Red++ combat state', () => {
     assert.ok(vector[17] > 0, 'opponent species should be encoded');
     assert.equal(vector[30], 1, 'super-effective result should be visible');
     assert.equal(vector[31], 1, 'STAB should be visible');
+    assert.ok(vector[35] > 0, 'team-quality score should be encoded');
+    assert.ok(vector[36] > 0, 'Red++ base-stat quality should be encoded');
+    assert.equal(vector[37], 1, 'a one-Pokemon party is internally level-balanced');
 });
 
 test('all Red++ v3 map IDs are mapped, including added islands and late game', () => {
@@ -175,10 +178,12 @@ test('repeated saves receive an exponentially escalating, capped penalty', () =>
 });
 
 test('reward hierarchy and normalized battle coefficients stay coherent', () => {
-    const { battle, milestone, overworld } = REDPP_REWARD_MATRIX;
+    const { battle, milestone, overworld, team } = REDPP_REWARD_MATRIX;
     assert.ok(Math.abs(overworld.decisionCost) < overworld.novelTile);
     assert.ok(battle.trainerWin > battle.wildWin);
     assert.ok(milestone.badge > battle.trainerWin);
     assert.ok(milestone.champion > milestone.badge);
     assert.ok(battle.enemyHpFraction > 0 && battle.ownHpFraction < 0);
+    assert.ok(team.member * 6 + team.fullTeam < milestone.badge);
+    assert.ok(team.qualityTransitionCap < battle.trainerWin);
 });
