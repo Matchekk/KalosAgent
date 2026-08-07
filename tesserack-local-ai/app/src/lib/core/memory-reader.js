@@ -1,42 +1,43 @@
 // memory-reader.js - Pokemon Red memory reading
 // Ported from Python agent/memory_reader.py
 
-// Memory addresses for Pokemon Red
+// Red++ v3.0.2 WRAM symbols from JustRegularLuna/rpp-backup/wram.asm.
+// Vanilla Red addresses are invalid after Red++'s expanded party/Pokedex data.
 export const ADDRESSES = {
     // Player info
-    PLAYER_NAME: 0xD15D,
-    PLAYER_NAME_END: 0xD168,
-    RIVAL_NAME: 0xD3FD,
-    RIVAL_NAME_END: 0xD408,
+    PLAYER_NAME: 0xD158,
+    PLAYER_NAME_END: 0xD163,
+    RIVAL_NAME: 0xD34A,
+    RIVAL_NAME_END: 0xD355,
 
     // Money (BCD encoded, 3 bytes)
-    MONEY: 0xD3FA,
-    MONEY_MID: 0xD3FB,
-    MONEY_HIGH: 0xD3FC,
+    MONEY: 0xD347,
+    MONEY_MID: 0xD348,
+    MONEY_HIGH: 0xD349,
 
     // Badges
-    BADGES: 0xD409,
+    BADGES: 0xD356,
 
     // Party
-    PARTY_COUNT: 0xD168,
+    PARTY_COUNT: 0xD163,
 
     // Location
-    MAP_ID: 0xD411,
-    PLAYER_X: 0xD415,
-    PLAYER_Y: 0xD414,
+    MAP_ID: 0xD35E,
+    PLAYER_X: 0xD362,
+    PLAYER_Y: 0xD361,
 
     // Items
-    ITEM_COUNT: 0xD330,
-    ITEM_START: 0xD331,
+    ITEM_COUNT: 0xD31D,
+    ITEM_START: 0xD31E,
 
     // Dialog/text buffer
     TEXT_BUFFER_START: 0xC3A0,
     TEXT_BUFFER_END: 0xC507,
 
     // Battle
-    BATTLE_TYPE: 0xD05A,
+    BATTLE_TYPE: 0xD057,
     BATTLE_RESULT: 0xCF0B,
-    DAMAGE_MULTIPLIERS: 0xD05E,
+    DAMAGE_MULTIPLIERS: 0xD05B,
     PLAYER_SELECTED_MOVE: 0xCCDC,
     CURRENT_MENU_ITEM: 0xCC26,
     BATTLE_MENU_SELECTION: 0xCC2D,
@@ -57,16 +58,16 @@ export const ADDRESSES = {
     ACTIVE_MOVES: 0xD01C,
     ACTIVE_LEVEL: 0xD022,
     ACTIVE_MAX_HP: 0xD023,
-    DAMAGE: 0xD0DA,
-    TEXT_BOX_ID: 0xD128,
+    DAMAGE: 0xD0D7,
+    TEXT_BOX_ID: 0xD125,
     CURRENT_BOX_NUM: 0xD5A0,
-    EVENT_FLAGS: 0xD7CD,
+    EVENT_FLAGS: 0xD747,
 };
 
 // Pokemon party data - each Pokemon has specific base addresses
 export const PARTY_ADDRESSES = {
-    BASE: [0xD170, 0xD19C, 0xD1C8, 0xD1F4, 0xD220, 0xD24C],
-    NICKNAMES: [0xD2BA, 0xD2C5, 0xD2D0, 0xD2DB, 0xD2E6, 0xD2F1],
+    BASE: [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247],
+    NICKNAMES: [0xD2B5, 0xD2C0, 0xD2CB, 0xD2D6, 0xD2E1, 0xD2EC],
 };
 
 // Complete Red++ v3.0.2 map order from constants/map_constants.asm.

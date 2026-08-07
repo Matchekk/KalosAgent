@@ -25,7 +25,8 @@ import { compareProgressStates, progressScore } from './parallel-training.js';
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
 export const REDPP_STATE_SIZE = 36;
-const CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v2';
+// v3 invalidates checkpoints ranked from the former, incorrect WRAM addresses.
+const CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v3';
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -510,7 +511,7 @@ export class PureRLAgent {
                 binary += String.fromCharCode(...this.checkpointState.subarray(i, i + 8192));
             }
             localStorage.setItem(CHECKPOINT_KEY, JSON.stringify({
-                version: 2,
+                version: 3,
                 savedAt: new Date().toISOString(),
                 progressScore: this.bestProgressScore,
                 progressState: this.checkpointProgressState,
@@ -561,7 +562,7 @@ export class PureRLAgent {
         if (typeof localStorage === 'undefined' || typeof atob === 'undefined') return;
         try {
             const saved = JSON.parse(localStorage.getItem(CHECKPOINT_KEY) || 'null');
-            if (saved?.version !== 2 || !saved.state) return;
+            if (saved?.version !== 3 || !saved.state) return;
             const binary = atob(saved.state);
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);

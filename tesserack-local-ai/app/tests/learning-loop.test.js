@@ -13,7 +13,7 @@ const { DataCollector } = await import('../src/lib/core/data-collector.js');
 const { RLAgent } = await import('../src/lib/core/rl-agent.js');
 const { RewardCalculator } = await import('../src/lib/core/reward-calculator.js');
 const { AutoCheckpointDiscovery } = await import('../src/lib/core/adaptive-rewards.js');
-const { MemoryReader, ADDRESSES } = await import('../src/lib/core/memory-reader.js');
+const { MemoryReader, ADDRESSES, PARTY_ADDRESSES } = await import('../src/lib/core/memory-reader.js');
 
 function gameState(overrides = {}) {
     return {
@@ -204,6 +204,38 @@ test('auto-discovery ignores one-frame RAM glitches', () => {
 });
 
 test('memory reader uses Red++ v3.0.2 WRAM bank 1 symbols', () => {
+    assert.deepEqual({
+        player: ADDRESSES.PLAYER_NAME,
+        party: ADDRESSES.PARTY_COUNT,
+        money: ADDRESSES.MONEY,
+        badges: ADDRESSES.BADGES,
+        map: ADDRESSES.MAP_ID,
+        y: ADDRESSES.PLAYER_Y,
+        x: ADDRESSES.PLAYER_X,
+        items: ADDRESSES.ITEM_COUNT,
+        battle: ADDRESSES.BATTLE_TYPE,
+        effectiveness: ADDRESSES.DAMAGE_MULTIPLIERS,
+        damage: ADDRESSES.DAMAGE,
+        textBox: ADDRESSES.TEXT_BOX_ID,
+        events: ADDRESSES.EVENT_FLAGS,
+    }, {
+        player: 0xD158,
+        party: 0xD163,
+        money: 0xD347,
+        badges: 0xD356,
+        map: 0xD35E,
+        y: 0xD361,
+        x: 0xD362,
+        items: 0xD31D,
+        battle: 0xD057,
+        effectiveness: 0xD05B,
+        damage: 0xD0D7,
+        textBox: 0xD125,
+        events: 0xD747,
+    });
+    assert.deepEqual(PARTY_ADDRESSES.BASE, [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]);
+    assert.deepEqual(PARTY_ADDRESSES.NICKNAMES, [0xD2B5, 0xD2C0, 0xD2CB, 0xD2D6, 0xD2E1, 0xD2EC]);
+
     const wram = new Uint8Array(0x8000);
     wram[ADDRESSES.PLAYER_X - 0xC000] = 7;
     wram[ADDRESSES.PLAYER_Y - 0xC000] = 11;
