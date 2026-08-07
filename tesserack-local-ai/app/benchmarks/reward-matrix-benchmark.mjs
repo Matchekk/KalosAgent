@@ -93,6 +93,14 @@ const revisit = exploration.evaluate(posA, posB, 'right');
 check('new tile is positive', () => novel.total > 0);
 check('revisited tile is non-positive', () => revisit.total <= 0);
 
+const noOp = evaluate(posA, posA, 'b');
+check('ineffective overworld face buttons are explicitly penalized', () =>
+    hasEvent(noOp, 'overworld_inaction')
+        && noOp.total < REDPP_REWARD_MATRIX.overworld.decisionCost);
+check('overworld inaction is less severe than a two-tile loop', () =>
+    Math.abs(REDPP_REWARD_MATRIX.overworld.inaction)
+        < Math.abs(REDPP_REWARD_MATRIX.overworld.twoCycle));
+
 let loopTotal = 0;
 for (let i = 0; i < 20; i++) {
     loopTotal += exploration.evaluate(i % 2 ? posB : posA, i % 2 ? posA : posB, i % 2 ? 'left' : 'right').total;

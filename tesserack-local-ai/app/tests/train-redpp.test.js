@@ -125,6 +125,21 @@ test('Train cannot farm reward by walking in a circle', () => {
 
 });
 
+test('ineffective overworld face buttons cannot become a safe local optimum', () => {
+    const rewards = new UnitTestRewards();
+    const unchanged = state();
+    const noOp = rewards.evaluate(unchanged, unchanged, 'b');
+
+    assert.ok(noOp.firedTests.some(event =>
+        event.id === 'overworld_inaction' && event.reward === REDPP_REWARD_MATRIX.overworld.inaction));
+    assert.ok(noOp.total < REDPP_REWARD_MATRIX.overworld.decisionCost);
+    assert.ok(Math.abs(REDPP_REWARD_MATRIX.overworld.inaction)
+        < Math.abs(REDPP_REWARD_MATRIX.overworld.twoCycle));
+
+    const start = rewards.evaluate(unchanged, unchanged, 'start');
+    assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), false);
+});
+
 test('optional menu idling and rapid reopening escalate without locking strategic actions', () => {
     const rewards = new UnitTestRewards();
     const party = [
@@ -226,6 +241,8 @@ test('repeated saves receive an exponentially escalating, capped penalty', () =>
 test('reward hierarchy and normalized battle coefficients stay coherent', () => {
     const { battle, dialog, milestone, overworld, team } = REDPP_REWARD_MATRIX;
     assert.ok(Math.abs(overworld.decisionCost) < overworld.novelTile);
+    assert.ok(Math.abs(overworld.decisionCost) < Math.abs(overworld.inaction));
+    assert.ok(Math.abs(overworld.inaction) < Math.abs(overworld.twoCycle));
     assert.ok(dialog.positionCap < milestone.levelUnit);
     assert.ok(overworld.novelTile < overworld.newLocation);
     assert.ok(overworld.newLocation < milestone.levelUnit);

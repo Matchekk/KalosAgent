@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.2.
+ * Red++ reward matrix, version 3.3.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.2.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.3.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
@@ -23,6 +23,9 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
 
     overworld: {
         decisionCost: -0.002,
+        // A/B that neither moves nor changes any interaction state must not be
+        // a safer local optimum than attempting useful navigation.
+        inaction: -0.02,
         novelTile: 0.04,
         revisitBase: -0.015,
         revisitCap: -0.08,

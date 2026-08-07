@@ -221,6 +221,14 @@ export class UnitTestRewards {
                 const stuck = Math.max(matrix.stuckCap, matrix.stuckSlope * (this.stuckCounter - matrix.stuckStart + 1));
                 add('stuck', stuck, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, count: this.stuckCounter });
             }
+        } else if ((action === 'a' || action === 'b') && !locationChanged && !dialogChanged) {
+            // Without this signal, a no-op face button pays only decisionCost
+            // and can dominate exploration once revisits become expensive.
+            add('overworld_inaction', matrix.inaction, 'penalty', {
+                context: REWARD_CONTEXT.OVERWORLD,
+                action,
+            });
+            this.stuckCounter = 0;
         } else if (action !== 'start') {
             this.stuckCounter = 0;
         }

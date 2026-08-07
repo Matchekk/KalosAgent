@@ -64,6 +64,7 @@ export function copyReinforceState(sourceCore, targetCore) {
     targetCore.trainSteps = sourceCore.trainSteps;
     targetCore.lastAvgRawReturn = sourceCore.lastAvgRawReturn;
     targetCore.lastEntropy = sourceCore.lastEntropy;
+    targetCore.lastEntropyCoefficient = sourceCore.lastEntropyCoefficient;
 }
 
 const POLICY_TENSORS = ['w1', 'b1', 'w2', 'b2'];

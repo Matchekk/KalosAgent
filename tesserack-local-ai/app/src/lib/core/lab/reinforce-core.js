@@ -15,6 +15,30 @@
 import { RolloutBuffer } from './rollout-buffer.js';
 import { SimplePolicy } from './simple-policy.js';
 
+/**
+ * Increase exploration pressure only when categorical entropy falls below a
+ * configured fraction of its theoretical maximum. A target ratio of zero
+ * keeps the historical fixed-coefficient behaviour for generic consumers.
+ */
+export function adaptiveEntropyCoefficient({
+    entropy,
+    numActions,
+    baseCoefficient = 0.01,
+    maxCoefficient = baseCoefficient,
+    targetRatio = 0,
+}) {
+    const actions = Math.max(2, Math.trunc(Number(numActions) || 0));
+    const base = Math.max(0, Number(baseCoefficient) || 0);
+    const maximum = Math.max(base, Number(maxCoefficient) || base);
+    const ratio = Math.max(0, Math.min(1, Number(targetRatio) || 0));
+    if (ratio === 0 || maximum === base) return base;
+
+    const targetEntropy = ratio * Math.log(actions);
+    const observedEntropy = Math.max(0, Number(entropy) || 0);
+    const deficit = Math.max(0, Math.min(1, (targetEntropy - observedEntropy) / targetEntropy));
+    return base + (maximum - base) * deficit;
+}
+
 export class ReinforceCore {
     /**
      * @param {Object} config
@@ -36,6 +60,8 @@ export class ReinforceCore {
         this.gamma = config.gamma ?? 0.99;
         this.normalizeReturns = config.normalizeReturns ?? true;
         this.entropyCoefficient = config.entropyCoefficient ?? 0.01;
+        this.entropyTargetRatio = config.entropyTargetRatio ?? 0;
+        this.maxEntropyCoefficient = config.maxEntropyCoefficient ?? this.entropyCoefficient;
         this.rng = config.rng ?? Math.random;
 
         // Policy network
@@ -55,6 +81,7 @@ export class ReinforceCore {
         this.trainSteps = 0;
         this.lastAvgRawReturn = 0;
         this.lastEntropy = 0;
+        this.lastEntropyCoefficient = this.entropyCoefficient;
     }
 
     /**
@@ -171,7 +198,17 @@ export class ReinforceCore {
         // 3. Zero gradient accumulator
         this.policy.zeroAccumulator(this.gradAcc);
 
-        // 4. Accumulate gradients + compute entropy
+        // 4. Accumulate gradients + compute entropy. The previous rollout's
+        // entropy provides a stable one-update-lag controller rather than
+        // changing the objective part-way through this rollout.
+        const effectiveEntropyCoefficient = adaptiveEntropyCoefficient({
+            entropy: this.lastEntropy,
+            numActions: this.numActions,
+            baseCoefficient: this.entropyCoefficient,
+            maxCoefficient: this.maxEntropyCoefficient,
+            targetRatio: this.entropyTargetRatio,
+        });
+        this.lastEntropyCoefficient = effectiveEntropyCoefficient;
         let entropySum = 0;
         for (let t = 0; t < n; t++) {
             // Get state from flat buffer
@@ -193,7 +230,7 @@ export class ReinforceCore {
 
             // Accumulate gradients
             this.policy.computeGradientsInto(
-                this.gradAcc, stateVec, actionIdx, advantage, cache, this.entropyCoefficient,
+                this.gradAcc, stateVec, actionIdx, advantage, cache, effectiveEntropyCoefficient,
             );
         }
 
