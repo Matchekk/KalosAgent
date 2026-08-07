@@ -1,46 +1,47 @@
 // memory-reader.js - Pokemon Red memory reading
 // Ported from Python agent/memory_reader.py
 
-// Red++ v3.0.2 WRAM symbols from JustRegularLuna/rpp-backup/wram.asm.
-// Vanilla Red addresses are invalid after Red++'s expanded party/Pokedex data.
+// Red++ v3.0.2 WRAM symbols generated from JustRegularLuna/rpp-backup/wram.asm
+// with RGBDS 0.5.2. Inline address comments in that file predate later fields
+// and are no longer exact, so these values must follow the linked .sym output.
 export const ADDRESSES = {
     // Player info
-    PLAYER_NAME: 0xD158,
-    PLAYER_NAME_END: 0xD163,
-    RIVAL_NAME: 0xD34A,
-    RIVAL_NAME_END: 0xD355,
+    PLAYER_NAME: 0xD15D,
+    PLAYER_NAME_END: 0xD168,
+    RIVAL_NAME: 0xD3FD,
+    RIVAL_NAME_END: 0xD408,
 
     // Money (BCD encoded, 3 bytes)
-    MONEY: 0xD347,
-    MONEY_MID: 0xD348,
-    MONEY_HIGH: 0xD349,
+    MONEY: 0xD3FA,
+    MONEY_MID: 0xD3FB,
+    MONEY_HIGH: 0xD3FC,
 
     // Badges
-    BADGES: 0xD356,
+    BADGES: 0xD409,
 
     // Party
-    PARTY_COUNT: 0xD163,
+    PARTY_COUNT: 0xD168,
 
     // Location
-    MAP_ID: 0xD35E,
-    MAP_HEIGHT: 0xD368,
-    MAP_WIDTH: 0xD369,
-    MAP_DATA_PTR: 0xD36A,
-    PLAYER_X: 0xD362,
-    PLAYER_Y: 0xD361,
+    MAP_ID: 0xD411,
+    MAP_HEIGHT: 0xD41B,
+    MAP_WIDTH: 0xD41C,
+    MAP_DATA_PTR: 0xD41D,
+    PLAYER_X: 0xD415,
+    PLAYER_Y: 0xD414,
 
     // Items
-    ITEM_COUNT: 0xD31D,
-    ITEM_START: 0xD31E,
+    ITEM_COUNT: 0xD330,
+    ITEM_START: 0xD331,
 
     // Dialog/text buffer
     TEXT_BUFFER_START: 0xC3A0,
     TEXT_BUFFER_END: 0xC507,
 
     // Battle
-    BATTLE_TYPE: 0xD057,
+    BATTLE_TYPE: 0xD05D,
     BATTLE_RESULT: 0xCF0B,
-    DAMAGE_MULTIPLIERS: 0xD05B,
+    DAMAGE_MULTIPLIERS: 0xD05E,
     PLAYER_SELECTED_MOVE: 0xCCDC,
     CURRENT_MENU_ITEM: 0xCC26,
     BATTLE_MENU_SELECTION: 0xCC2D,
@@ -61,16 +62,16 @@ export const ADDRESSES = {
     ACTIVE_MOVES: 0xD01C,
     ACTIVE_LEVEL: 0xD022,
     ACTIVE_MAX_HP: 0xD023,
-    DAMAGE: 0xD0D7,
-    TEXT_BOX_ID: 0xD125,
-    CURRENT_BOX_NUM: 0xD5A0,
-    EVENT_FLAGS: 0xD747,
+    DAMAGE: 0xD0DA,
+    TEXT_BOX_ID: 0xD128,
+    CURRENT_BOX_NUM: 0xD67B,
+    EVENT_FLAGS: 0xD7CD,
 };
 
 // Pokemon party data - each Pokemon has specific base addresses
 export const PARTY_ADDRESSES = {
-    BASE: [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247],
-    NICKNAMES: [0xD2B5, 0xD2C0, 0xD2CB, 0xD2D6, 0xD2E1, 0xD2EC],
+    BASE: [0xD170, 0xD19C, 0xD1C8, 0xD1F4, 0xD220, 0xD24C],
+    NICKNAMES: [0xD2BA, 0xD2C5, 0xD2D0, 0xD2DB, 0xD2E6, 0xD2F1],
 };
 
 // Complete Red++ v3.0.2 map order from constants/map_constants.asm.
@@ -566,18 +567,26 @@ export class MemoryReader {
 
     getMemoryDiagnostics() {
         const mapped = address => this.emu.readMemory(address);
-        const wram = this.emu.getWRAM?.();
-        const bankBytes = [];
-        if (wram) {
-            for (let bank = 1; bank <= 7; bank++) {
-                const base = bank * 0x1000 + (ADDRESSES.PLAYER_NAME & 0x0fff);
-                bankBytes.push(Array.from(wram.slice(base, base + 11)));
-            }
-        }
         return {
             mappedName: Array.from({ length: 11 }, (_, i) => mapped(ADDRESSES.PLAYER_NAME + i)),
             mappedMapXY: [mapped(ADDRESSES.MAP_ID), mapped(ADDRESSES.PLAYER_X), mapped(ADDRESSES.PLAYER_Y)],
-            bankNameBytes: bankBytes,
+            mappedMapMeta: [
+                mapped(ADDRESSES.MAP_HEIGHT),
+                mapped(ADDRESSES.MAP_WIDTH),
+                mapped(ADDRESSES.MAP_DATA_PTR),
+                mapped(ADDRESSES.MAP_DATA_PTR + 1),
+            ],
+            directMapXY: [
+                this.readByte(ADDRESSES.MAP_ID),
+                this.readByte(ADDRESSES.PLAYER_X),
+                this.readByte(ADDRESSES.PLAYER_Y),
+            ],
+            directMapMeta: [
+                this.readByte(ADDRESSES.MAP_HEIGHT),
+                this.readByte(ADDRESSES.MAP_WIDTH),
+                this.readByte(ADDRESSES.MAP_DATA_PTR),
+                this.readByte(ADDRESSES.MAP_DATA_PTR + 1),
+            ],
         };
     }
 

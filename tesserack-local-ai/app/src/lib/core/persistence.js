@@ -2,7 +2,7 @@
 // Uses IndexedDB for large data, localStorage for small metadata
 
 const DB_NAME = 'tesserack-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 // v3 uses the expanded 41-feature state with bounded team-quality signals.
 const PURE_RL_POLICY_KEY = 'tesserack-pure-rl-policy-v3';
 
@@ -13,6 +13,7 @@ const STORES = {
     CHECKPOINTS: 'checkpoints',
     REWARD_HISTORY: 'rewardHistory',
     LLM_TESTS: 'llmTests',
+    TRAINING_STATE: 'trainingState',
 };
 
 let db = null;
@@ -63,6 +64,13 @@ export async function initDB() {
             // LLM-generated tests store
             if (!database.objectStoreNames.contains(STORES.LLM_TESTS)) {
                 database.createObjectStore(STORES.LLM_TESTS, { keyPath: 'id' });
+            }
+
+            // Large policy tensors and emulator checkpoints exceed the small
+            // synchronous localStorage quota. IndexedDB stores their structured
+            // clones without base64/JSON inflation.
+            if (!database.objectStoreNames.contains(STORES.TRAINING_STATE)) {
+                database.createObjectStore(STORES.TRAINING_STATE, { keyPath: 'id' });
             }
         };
     });
@@ -442,21 +450,42 @@ export function setLabSaveStates(states) {
     }
 }
 
+async function deleteItem(storeName, key) {
+    const store = await getStore(storeName, 'readwrite');
+    return new Promise((resolve, reject) => {
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
 /** Get the most recently autosaved Pure RL policy. */
-export function getPureRLPolicy() {
+export async function getPureRLPolicy() {
     try {
+        const saved = await getItem(STORES.TRAINING_STATE, PURE_RL_POLICY_KEY);
+        if (saved?.value) return saved.value;
+
+        // One-time migration for smaller policies saved by older builds.
         const stored = localStorage.getItem(PURE_RL_POLICY_KEY);
-        return stored ? JSON.parse(stored) : null;
+        if (!stored) return null;
+        const snapshot = JSON.parse(stored);
+        if (await setPureRLPolicy(snapshot)) localStorage.removeItem(PURE_RL_POLICY_KEY);
+        return snapshot;
     } catch (e) {
         console.warn('[Persistence] Ignoring unreadable Pure RL policy:', e);
         return null;
     }
 }
 
-/** Autosave a JSON-safe Pure RL policy snapshot. */
-export function setPureRLPolicy(snapshot) {
+/** Autosave a structured-clone-safe Pure RL policy snapshot. */
+export async function setPureRLPolicy(snapshot) {
     try {
-        localStorage.setItem(PURE_RL_POLICY_KEY, JSON.stringify(snapshot));
+        await putItem(STORES.TRAINING_STATE, {
+            id: PURE_RL_POLICY_KEY,
+            savedAt: new Date().toISOString(),
+            value: snapshot,
+        });
+        localStorage.removeItem(PURE_RL_POLICY_KEY);
         return true;
     } catch (e) {
         console.error('[Persistence] Failed to save Pure RL policy:', e);
@@ -464,8 +493,50 @@ export function setPureRLPolicy(snapshot) {
     }
 }
 
-export function clearPureRLPolicy() {
+export async function clearPureRLPolicy() {
+    await deleteItem(STORES.TRAINING_STATE, PURE_RL_POLICY_KEY);
     localStorage.removeItem(PURE_RL_POLICY_KEY);
+}
+
+const PURE_RL_CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v4';
+
+export async function getPureRLCheckpoint() {
+    try {
+        const stored = await getItem(STORES.TRAINING_STATE, PURE_RL_CHECKPOINT_KEY);
+        if (stored?.value) return stored.value;
+
+        const legacy = JSON.parse(localStorage.getItem(PURE_RL_CHECKPOINT_KEY) || 'null');
+        if (!legacy?.state || typeof atob === 'undefined') return null;
+        const binary = atob(legacy.state);
+        const state = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) state[i] = binary.charCodeAt(i);
+        const migrated = { ...legacy, state };
+        if (await setPureRLCheckpoint(migrated)) localStorage.removeItem(PURE_RL_CHECKPOINT_KEY);
+        return migrated;
+    } catch (error) {
+        console.warn('[Persistence] Ignoring unreadable Pure RL checkpoint:', error);
+        return null;
+    }
+}
+
+export async function setPureRLCheckpoint(checkpoint) {
+    try {
+        await putItem(STORES.TRAINING_STATE, {
+            id: PURE_RL_CHECKPOINT_KEY,
+            savedAt: checkpoint?.savedAt || new Date().toISOString(),
+            value: checkpoint,
+        });
+        localStorage.removeItem(PURE_RL_CHECKPOINT_KEY);
+        return true;
+    } catch (error) {
+        console.error('[Persistence] Failed to save Pure RL checkpoint:', error);
+        return false;
+    }
+}
+
+export async function clearPureRLCheckpoint() {
+    await deleteItem(STORES.TRAINING_STATE, PURE_RL_CHECKPOINT_KEY);
+    localStorage.removeItem(PURE_RL_CHECKPOINT_KEY);
 }
 
 // ============ FULL EXPORT/IMPORT ============
@@ -484,7 +555,7 @@ export async function exportAllData() {
 
     // Include Lab save states and the learned browser policy
     const labSaveStates = getLabSaveStates();
-    const pureRLPolicy = getPureRLPolicy();
+    const pureRLPolicy = await getPureRLPolicy();
 
     return {
         version: 3,
@@ -545,7 +616,7 @@ export async function importAllData(data) {
     }
 
     if (data.pureRLPolicy) {
-        setPureRLPolicy(data.pureRLPolicy);
+        await setPureRLPolicy(data.pureRLPolicy);
     }
 
     return true;
@@ -564,7 +635,7 @@ export async function clearAllData() {
     ]);
     localStorage.removeItem(META_KEY);
     localStorage.removeItem(LAB_STATES_KEY);
-    clearPureRLPolicy();
+    await Promise.all([clearPureRLPolicy(), clearPureRLCheckpoint()]);
     return true;
 }
 

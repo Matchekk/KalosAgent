@@ -21,13 +21,17 @@ import {
 } from './training-utils.js';
 import { compareProgressStates, progressScore } from './parallel-training.js';
 import { analyzeRedppTeam } from './redpp-team-quality.js';
+import {
+    clearPureRLCheckpoint,
+    getPureRLCheckpoint,
+    setPureRLCheckpoint,
+} from '../persistence.js';
 
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
 export const REDPP_STATE_SIZE = 41;
 // v4 includes full-party quality in policy input and checkpoint ranking.
-const CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v4';
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -249,7 +253,6 @@ export class PureRLAgent {
         this.checkpointState = null;
         this.checkpointProgressState = null;
         this.initialState = null;
-        if (this.config.persistCheckpoint) this._restorePersistedCheckpoint();
 
         // Callbacks
         this.onStep = null;
@@ -501,7 +504,7 @@ export class PureRLAgent {
         if (!this.initialState) this.initialState = this.checkpointState.slice();
         this.bestProgressScore = Math.max(this.bestProgressScore, this._progressScore(state));
         this.checkpointCount++;
-        if (this.config.persistCheckpoint) this._persistCheckpoint();
+        if (this.config.persistCheckpoint) void this._persistCheckpoint();
     }
 
     ensureCheckpoint() {
@@ -522,23 +525,16 @@ export class PureRLAgent {
         return compareProgressStates(withoutLocation(curr), withoutLocation(prev)) === 0;
     }
 
-    _persistCheckpoint() {
-        if (typeof localStorage === 'undefined' || typeof btoa === 'undefined' || !this.checkpointState) return;
-        try {
-            let binary = '';
-            for (let i = 0; i < this.checkpointState.length; i += 8192) {
-                binary += String.fromCharCode(...this.checkpointState.subarray(i, i + 8192));
-            }
-            localStorage.setItem(CHECKPOINT_KEY, JSON.stringify({
+    async _persistCheckpoint() {
+        if (typeof indexedDB === 'undefined' || !this.checkpointState) return;
+        const saved = await setPureRLCheckpoint({
                 version: 4,
                 savedAt: new Date().toISOString(),
                 progressScore: this.bestProgressScore,
                 progressState: this.checkpointProgressState,
-                state: btoa(binary),
-            }));
-        } catch (error) {
-            console.warn('[PureRLAgent] Could not persist curriculum checkpoint:', error.message);
-        }
+                state: this.checkpointState.slice(),
+            });
+        if (!saved) console.warn('[PureRLAgent] Could not persist curriculum checkpoint.');
     }
 
     setInitialState(stateBytes) {
@@ -553,7 +549,7 @@ export class PureRLAgent {
         if (typeof stateOrScore !== 'number') this.checkpointProgressState = cloneProgressState(stateOrScore);
         this.bestProgressScore = Math.max(this.bestProgressScore, Number(score) || 0);
         if (count) this.checkpointCount++;
-        if (persist && this.config.persistCheckpoint) this._persistCheckpoint();
+        if (persist && this.config.persistCheckpoint) void this._persistCheckpoint();
     }
 
     loadCheckpointIntoEnvironment() {
@@ -577,14 +573,14 @@ export class PureRLAgent {
         this.runner = new RLRunner(this.core, this.env);
     }
 
-    _restorePersistedCheckpoint() {
-        if (typeof localStorage === 'undefined' || typeof atob === 'undefined') return;
+    async restorePersistedCheckpoint() {
+        if (typeof indexedDB === 'undefined') return;
         try {
-            const saved = JSON.parse(localStorage.getItem(CHECKPOINT_KEY) || 'null');
+            const saved = await getPureRLCheckpoint();
             if (saved?.version !== 4 || !saved.state) return;
-            const binary = atob(saved.state);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const bytes = saved.state instanceof Uint8Array
+                ? saved.state
+                : new Uint8Array(saved.state);
             this.checkpointState = bytes;
             this.bestProgressScore = Number(saved.progressScore) || 0;
             this.checkpointProgressState = saved.progressState
@@ -593,7 +589,7 @@ export class PureRLAgent {
             this.checkpointCount = 1;
         } catch (error) {
             console.warn('[PureRLAgent] Ignoring invalid curriculum checkpoint:', error.message);
-            localStorage.removeItem(CHECKPOINT_KEY);
+            await clearPureRLCheckpoint();
         }
     }
 

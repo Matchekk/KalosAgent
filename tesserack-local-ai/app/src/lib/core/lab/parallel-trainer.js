@@ -115,6 +115,7 @@ export class ParallelTrainingCoordinator {
             if (Array.isArray(result.firedTests)) firedTests.push(...result.firedTests);
         }
 
+        const visibleState = visibleAgent.mem.getGameState();
         return {
             step: this.totalSamples,
             action: visibleResult.actionStr,
@@ -124,7 +125,8 @@ export class ParallelTrainingCoordinator {
             firedTests,
             context: visibleResult.context,
             matrixVersion: visibleResult.matrixVersion,
-            state: visibleAgent.mem.getGameState(),
+            state: visibleState,
+            memoryDiagnostics: visibleState.memoryDiagnostics ?? null,
             // The shared buffer fills on whichever worker contributes the
             // final sample (normally worker 4), not necessarily the rendered
             // worker. Forward that update so policy autosave cannot miss it.

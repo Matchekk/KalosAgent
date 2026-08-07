@@ -219,22 +219,22 @@ test('memory reader uses Red++ v3.0.2 WRAM bank 1 symbols', () => {
         textBox: ADDRESSES.TEXT_BOX_ID,
         events: ADDRESSES.EVENT_FLAGS,
     }, {
-        player: 0xD158,
-        party: 0xD163,
-        money: 0xD347,
-        badges: 0xD356,
-        map: 0xD35E,
-        y: 0xD361,
-        x: 0xD362,
-        items: 0xD31D,
-        battle: 0xD057,
-        effectiveness: 0xD05B,
-        damage: 0xD0D7,
-        textBox: 0xD125,
-        events: 0xD747,
+        player: 0xD15D,
+        party: 0xD168,
+        money: 0xD3FA,
+        badges: 0xD409,
+        map: 0xD411,
+        y: 0xD414,
+        x: 0xD415,
+        items: 0xD330,
+        battle: 0xD05D,
+        effectiveness: 0xD05E,
+        damage: 0xD0DA,
+        textBox: 0xD128,
+        events: 0xD7CD,
     });
-    assert.deepEqual(PARTY_ADDRESSES.BASE, [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]);
-    assert.deepEqual(PARTY_ADDRESSES.NICKNAMES, [0xD2B5, 0xD2C0, 0xD2CB, 0xD2D6, 0xD2E1, 0xD2EC]);
+    assert.deepEqual(PARTY_ADDRESSES.BASE, [0xD170, 0xD19C, 0xD1C8, 0xD1F4, 0xD220, 0xD24C]);
+    assert.deepEqual(PARTY_ADDRESSES.NICKNAMES, [0xD2BA, 0xD2C5, 0xD2D0, 0xD2DB, 0xD2E6, 0xD2F1]);
 
     const wram = new Uint8Array(0x8000);
     wram[ADDRESSES.PLAYER_X - 0xC000] = 7;

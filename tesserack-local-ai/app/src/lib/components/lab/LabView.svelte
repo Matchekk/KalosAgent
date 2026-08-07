@@ -619,6 +619,32 @@
                             {$pureRLMetrics.checkpointWorker === null ? '-' : $pureRLMetrics.checkpointWorker + 1}
                         </span>
                     </div>
+                    {#if $pureRLMetrics.memoryDiagnostics}
+                        <div class="metric-row" title="Direct bank-1 wCurMap, wXCoord and wYCoord bytes">
+                            <span class="metric-label">WRAM map / x / y</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.memoryDiagnostics.directMapXY.join(' / ')}
+                            </span>
+                        </div>
+                        <div class="metric-row" title="Direct bank-1 map height, width and data-pointer bytes">
+                            <span class="metric-label">WRAM h / w / ptr</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.memoryDiagnostics.directMapMeta.join(' / ')}
+                            </span>
+                        </div>
+                        <div class="metric-row" title="Currently mapped wCurMap, wXCoord and wYCoord bytes">
+                            <span class="metric-label">Mapped map / x / y</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.memoryDiagnostics.mappedMapXY.join(' / ')}
+                            </span>
+                        </div>
+                        <div class="metric-row" title="Currently mapped map height, width and data-pointer bytes">
+                            <span class="metric-label">Mapped h / w / ptr</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.memoryDiagnostics.mappedMapMeta.join(' / ')}
+                            </span>
+                        </div>
+                    {/if}
                     {#if $pureRLMetrics.teamQuality}
                         <div class="metric-row" title="Bounded Red++ roster, stats, balance, typing and move-coverage score">
                             <span class="metric-label">Team quality</span>

@@ -47,6 +47,7 @@ let isInitialized = false;
 let labSpeed = 1; // Playback speed multiplier
 let initializationGeneration = 0;
 let lastPersistedTrainStep = -1;
+let policyPersistInFlight = false;
 const PARALLEL_ENVIRONMENT_COUNT = 4;
 
 // Current mode: 'llm' or 'purerl'
@@ -84,6 +85,7 @@ export const pureRLMetrics = writable({
     samplesPerSecond: 0,
     checkpointWorker: null,
     workers: [],
+    memoryDiagnostics: null,
     // Chart history (rolling window of last 50 rollouts)
     history: {
         returns: [],    // { step, value }[]
@@ -93,10 +95,16 @@ export const pureRLMetrics = writable({
     maxHistoryLength: 50,
 });
 
-function persistPureRLPolicy() {
-    if (!labPureRLAgent || labPureRLAgent.core.trainSteps === lastPersistedTrainStep) return;
-    if (setPureRLPolicy(labPureRLAgent.exportPolicy())) {
-        lastPersistedTrainStep = labPureRLAgent.core.trainSteps;
+async function persistPureRLPolicy() {
+    if (!labPureRLAgent || policyPersistInFlight
+        || labPureRLAgent.core.trainSteps === lastPersistedTrainStep) return;
+    const trainStep = labPureRLAgent.core.trainSteps;
+    const snapshot = labPureRLAgent.exportPolicy();
+    policyPersistInFlight = true;
+    try {
+        if (await setPureRLPolicy(snapshot)) lastPersistedTrainStep = trainStep;
+    } finally {
+        policyPersistInFlight = false;
     }
 }
 
@@ -183,6 +191,7 @@ function handlePureRLStep(stepData) {
             samplesPerSecond: stepData.samplesPerSecond ?? prev.samplesPerSecond,
             checkpointWorker: stepData.checkpointWorker ?? prev.checkpointWorker,
             workers: stepData.workers ?? prev.workers,
+            memoryDiagnostics: stepData.memoryDiagnostics ?? prev.memoryDiagnostics,
             // Preserve history
             history: prev.history,
             maxHistoryLength: prev.maxHistoryLength,
@@ -318,11 +327,12 @@ export async function initializeLab(romBuffer, canvas) {
             gamma: currentRLConfig.gamma,
             normalizeReturns: true,
         });
+        await labPureRLAgent.restorePersistedCheckpoint();
         // Preserve the true ROM start even when a later curriculum checkpoint
         // was restored from storage. One parallel worker always rehearses it.
         labPureRLAgent.setInitialState(labEmulator.saveState());
 
-        const savedPolicy = getPureRLPolicy();
+        const savedPolicy = await getPureRLPolicy();
         if (savedPolicy) {
             try {
                 labPureRLAgent.loadPolicy(savedPolicy);
@@ -337,7 +347,7 @@ export async function initializeLab(romBuffer, canvas) {
                 feedSystem(`Restored trained policy (${labPureRLAgent.core.trainSteps} updates).`);
             } catch (err) {
                 console.warn('[Lab] Saved Pure RL policy is incompatible:', err.message);
-                clearPureRLPolicy();
+                await clearPureRLPolicy();
                 feedSystem('Old Train policy was incompatible with Red++ state mapping and was reset.');
             }
         }
@@ -549,7 +559,7 @@ async function runPureRLLoop() {
 
     try {
         const result = await parallelTrainer.stepRound();
-        if (result.trainInfo) persistPureRLPolicy();
+        if (result.trainInfo) void persistPureRLPolicy();
         handlePureRLStep({
             ...result,
             firedTests: result.firedTests ?? [],
@@ -589,7 +599,7 @@ export async function stepLabAgent() {
             labEmulator?.stop();
             const trainer = await ensureParallelTrainer();
             const result = await trainer.stepRound();
-            if (result.trainInfo) persistPureRLPolicy();
+            if (result.trainInfo) void persistPureRLPolicy();
             handlePureRLStep({
                 ...result,
                 firedTests: result.firedTests ?? [],
