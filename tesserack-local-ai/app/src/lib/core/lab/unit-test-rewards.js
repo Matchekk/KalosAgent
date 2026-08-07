@@ -45,6 +45,7 @@ export class UnitTestRewards {
         this.positionVisits = new Map();
         this.visitedPositions = new Set();
         this.visitedLocations = new Set();
+        this.dialogCredits = new Map();
         this.recentPositions = [];
         this.stuckCounter = 0;
         this.consecutiveStartActions = 0;
@@ -155,10 +156,20 @@ export class UnitTestRewards {
         this._resetSpatialPenaltyState();
         const progress = dialogProgress(prev, curr);
         if (action === 'a' && (progress.changed || progress.closed)) {
-            add('dialog_advanced', progress.closed
-                ? REDPP_REWARD_MATRIX.dialog.closed
-                : REDPP_REWARD_MATRIX.dialog.advanced, 1,
-            { context: REWARD_CONTEXT.DIALOG });
+            const matrix = REDPP_REWARD_MATRIX.dialog;
+            const key = this._positionKey(curr) || this._positionKey(prev) || 'unknown';
+            const credit = this.dialogCredits.get(key) || { count: 0, total: 0 };
+            const base = progress.closed ? matrix.closed : matrix.advanced;
+            const remaining = Math.max(0, matrix.positionCap - credit.total);
+            const reward = Math.min(remaining, base * (matrix.diminishingFactor ** credit.count));
+            credit.count++;
+            credit.total += reward;
+            this.dialogCredits.set(key, credit);
+            add('dialog_advanced', reward, 1, {
+                context: REWARD_CONTEXT.DIALOG,
+                dialogCredit: credit.total,
+                dialogCreditCap: matrix.positionCap,
+            });
         } else if ((DIRECTIONS.has(action) || action === 'start') && !progress.changed && !progress.closed) {
             add('dialog_inaction', REDPP_REWARD_MATRIX.dialog.inaction, 'penalty',
                 { context: REWARD_CONTEXT.DIALOG });
@@ -435,6 +446,7 @@ export class UnitTestRewards {
         this.positionVisits.clear();
         this.visitedPositions.clear();
         this.visitedLocations.clear();
+        this.dialogCredits.clear();
         this.recentPositions = [];
         this.stuckCounter = 0;
         this.consecutiveStartActions = 0;
@@ -460,6 +472,7 @@ export class UnitTestRewards {
             totalRewards: { ...this.totalRewards },
             visitedLocations: this.visitedLocations.size,
             visitedPositions: this.visitedPositions.size,
+            dialogCreditPositions: this.dialogCredits.size,
             stuckCounter: this.stuckCounter,
             saveStreak: this.saveStreak,
             maxPartySize: this.maxPartySize,

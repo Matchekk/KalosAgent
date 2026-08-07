@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.
+ * Red++ reward matrix, version 3.1.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,16 +7,18 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.0.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.1.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
-    denseRewardCap: 5,
+    denseRewardCap: 2,
 
     dialog: {
-        advanced: 0.08,
-        closed: 0.12,
+        advanced: 0.04,
+        closed: 0.06,
         inaction: -0.03,
+        diminishingFactor: 0.8,
+        positionCap: 0.2,
     },
 
     overworld: {
@@ -29,39 +31,39 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
         stuckStart: 12,
         stuckSlope: -0.01,
         stuckCap: -0.25,
-        newLocation: 1,
+        newLocation: 0.5,
     },
 
     battle: {
-        enemyHpFraction: 2,
-        ownHpFraction: -1.5,
-        superEffective: 0.15,
-        stab: 0.05,
-        resisted: -0.03,
-        immune: -0.08,
-        wildWin: 2,
-        trainerWin: 5,
-        loss: -3,
-        escapeOrDraw: -0.25,
+        enemyHpFraction: 1.5,
+        ownHpFraction: -1.25,
+        superEffective: 0.1,
+        stab: 0.03,
+        resisted: -0.04,
+        immune: -0.1,
+        wildWin: 2.5,
+        trainerWin: 6,
+        loss: -4,
+        escapeOrDraw: -0.4,
     },
 
     milestone: {
-        badge: 15,
-        levelUnit: 0.25,
-        levelCap: 1,
-        oakRival: 5,
-        champion: 100,
-        whiteout: -10,
+        badge: 20,
+        levelUnit: 0.75,
+        levelCap: 1.5,
+        oakRival: 4,
+        champion: 150,
+        whiteout: -12,
     },
 
-    // Across a complete run, six first-time roster slots (9) plus the full
-    // team bonus (4) remain below one badge (15). Quality is bounded and only
-    // paid when the run exceeds its previous best team score.
+    // Across a complete run, six first-time roster slots (9), the full-team
+    // bonus (4), and every possible quality improvement (6) remain below one
+    // badge (20). Quality is paid only above the run's previous best score.
     team: {
         member: 1.5,
         fullTeam: 4,
-        qualityScale: 8,
-        qualityTransitionCap: 2.5,
+        qualityScale: 6,
+        qualityTransitionCap: 2,
         qualityEpsilon: 0.002,
     },
 
@@ -70,8 +72,8 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
         spamBase: -0.15,
         spamCap: -2.4,
         saveCooldown: 750,
-        repeatSaveBase: -1,
-        repeatSaveCap: -8,
+        repeatSaveBase: -1.5,
+        repeatSaveCap: -10,
     },
 });
 

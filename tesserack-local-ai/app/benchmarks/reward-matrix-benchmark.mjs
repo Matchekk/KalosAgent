@@ -61,14 +61,17 @@ check('dialog has no generic step cost', () => !hasEvent(dialogAdvance, 'step_co
 
 const dialogSequenceRewards = new UnitTestRewards();
 let dialogLate;
+let dialogSequenceTotal = 0;
 for (let i = 0; i < 45; i++) {
     dialogLate = dialogSequenceRewards.evaluate(
         state({ dialog: `PAGE ${i}` }),
         state({ dialog: `PAGE ${i + 1}` }),
         'a',
     );
+    dialogSequenceTotal += dialogLate.total;
 }
 check('long dialog never triggers stuck', () => !hasEvent(dialogLate, 'stuck'));
+check('every correct A in a long dialog remains positive', () => dialogLate.total > 0);
 
 const dialogClose = evaluate(state({ dialog: 'GOOD BYE' }), state({ dialog: '' }), 'a');
 check('closing dialog is rewarded', () => dialogClose.total > 0 && hasEvent(dialogClose, 'dialog_advanced'));
@@ -161,6 +164,7 @@ const highLevel = evaluate(
 );
 check('level shaping is bounded', () => lowLevel.total <= 1 && highLevel.total <= 1);
 check('level reward does not grow with raw HP', () => Math.abs(lowLevel.total - highLevel.total) < 1e-9);
+check('an entire long dialog is worth less than one level', () => dialogSequenceTotal < lowLevel.total);
 
 const sparse = evaluate({}, {}, 'a');
 check('sparse/corrupt state remains finite', () => Number.isFinite(sparse.total));
@@ -184,6 +188,32 @@ check('balanced levels beat uneven levels', () =>
 check('six roster rewards plus completion remain below a badge', () =>
     REDPP_REWARD_MATRIX.team.member * 6 + REDPP_REWARD_MATRIX.team.fullTeam
         < REDPP_REWARD_MATRIX.milestone.badge);
+check('all bounded team acquisition and quality shaping remain below a badge', () =>
+    REDPP_REWARD_MATRIX.team.member * 6
+        + REDPP_REWARD_MATRIX.team.fullTeam
+        + REDPP_REWARD_MATRIX.team.qualityScale
+        < REDPP_REWARD_MATRIX.milestone.badge);
+check('reward tiers form a strict semantic hierarchy', () => {
+    const { dialog, overworld, milestone, team, battle } = REDPP_REWARD_MATRIX;
+    return dialog.positionCap < milestone.levelUnit
+        && overworld.novelTile < overworld.newLocation
+        && overworld.newLocation < milestone.levelUnit
+        && milestone.levelUnit < team.member
+        && team.member < battle.wildWin
+        && battle.wildWin < battle.trainerWin
+        && battle.trainerWin < milestone.badge
+        && milestone.badge < milestone.champion;
+});
+check('one dense battle transition cannot outweigh a win', () =>
+    REDPP_REWARD_MATRIX.denseRewardCap < REDPP_REWARD_MATRIX.battle.wildWin);
+check('special Oak win plus trainer win remains below a badge', () =>
+    REDPP_REWARD_MATRIX.milestone.oakRival + REDPP_REWARD_MATRIX.battle.trainerWin
+        < REDPP_REWARD_MATRIX.milestone.badge);
+check('penalty severity follows gameplay consequence', () =>
+    Math.abs(REDPP_REWARD_MATRIX.battle.escapeOrDraw)
+        < Math.abs(REDPP_REWARD_MATRIX.battle.loss)
+        && Math.abs(REDPP_REWARD_MATRIX.battle.loss)
+        < Math.abs(REDPP_REWARD_MATRIX.milestone.whiteout));
 
 const passed = checks.filter(item => item.passed).length;
 const score = Number((100 * passed / checks.length).toFixed(3));

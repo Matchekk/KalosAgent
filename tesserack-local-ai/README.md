@@ -10,14 +10,16 @@ Training runs four independent Red++ emulator environments against one shared on
 
 Numeric learning signals come from one versioned, context-gated matrix:
 
-- dialog: rewards actual page advancement and closing, with no generic step or stuck cost;
+- dialog: rewards actual page advancement and closing, with no generic step or stuck cost; credit diminishes geometrically and is capped at 0.2 per world position, so even an arbitrarily long conversation stays below one level-up;
 - overworld: rewards first-time exploration and penalizes blocked movement, revisits and short loops;
 - battle: uses normalized HP fractions, type effectiveness, STAB and exact Red++ battle results;
 - team building: rewards every first-time roster slot and one full-team milestone, then scores level balance, distinct typings, damaging-move coverage, stacked weaknesses and the exact Red++ v3 base-stat totals;
 - milestones: orders battle wins, team growth, badges and Champion on explicit scales;
 - menus/saving: allows purposeful access but applies escalating penalties to repeated Start and save loops.
 
-Team quality is normalized to 0..1 and contributes six policy inputs. Positive quality shaping uses an episode high watermark, so swapping a strong team out and back in cannot farm reward. The six roster rewards plus the full-team bonus remain smaller than one badge; a single quality transition is capped below a trainer win.
+Team quality is normalized to 0..1 and contributes six policy inputs. Positive quality shaping uses an episode high watermark, so swapping a strong team out and back in cannot farm reward. All six roster rewards, the full-team bonus, and the maximum possible quality shaping together remain smaller than one badge; a single quality transition is capped below a wild-battle win.
+
+The semantic scale is strict: tile (0.04) < new map (0.5) < level (0.75) < new team member (1.5) < wild win (2.5) < trainer win (6) < badge (20) < Champion (150). A full HP-bar battle transition is normalized and capped below a win; losses, whiteouts, menu spam, and repeated saves use increasing negative severity according to their gameplay consequence.
 
 The Train toolbar supports up to 16x pacing and reports aggregate samples per second. Run both deterministic quality benchmarks with:
 

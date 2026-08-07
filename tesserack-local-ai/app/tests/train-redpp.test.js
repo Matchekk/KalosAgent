@@ -157,7 +157,9 @@ test('mandatory dialog never accrues movement, step, or stuck penalties', () => 
 
     const closed = rewards.evaluate(state({ dialog: 'THE END' }), state({ dialog: '' }), 'a');
     assert.ok(closed.firedTests.some(event =>
-        event.id === 'dialog_advanced' && event.reward === REDPP_REWARD_MATRIX.dialog.closed));
+        event.id === 'dialog_advanced'
+            && event.reward > 0
+            && event.reward <= REDPP_REWARD_MATRIX.dialog.closed));
 });
 
 test('repeated saves receive an exponentially escalating, capped penalty', () => {
@@ -172,18 +174,26 @@ test('repeated saves receive an exponentially escalating, capped penalty', () =>
     const second = save();
     const third = save();
     assert.equal(first.firedTests.some(event => event.id === 'repeat_save'), false);
-    assert.ok(second.firedTests.some(event => event.id === 'repeat_save' && event.reward === -1));
-    assert.ok(third.firedTests.some(event => event.id === 'repeat_save' && event.reward === -2));
+    assert.ok(second.firedTests.some(event =>
+        event.id === 'repeat_save' && event.reward === REDPP_REWARD_MATRIX.menu.repeatSaveBase));
+    assert.ok(third.firedTests.some(event =>
+        event.id === 'repeat_save' && event.reward === REDPP_REWARD_MATRIX.menu.repeatSaveBase * 2));
     assert.ok(third.total < second.total);
 });
 
 test('reward hierarchy and normalized battle coefficients stay coherent', () => {
-    const { battle, milestone, overworld, team } = REDPP_REWARD_MATRIX;
+    const { battle, dialog, milestone, overworld, team } = REDPP_REWARD_MATRIX;
     assert.ok(Math.abs(overworld.decisionCost) < overworld.novelTile);
+    assert.ok(dialog.positionCap < milestone.levelUnit);
+    assert.ok(overworld.novelTile < overworld.newLocation);
+    assert.ok(overworld.newLocation < milestone.levelUnit);
+    assert.ok(milestone.levelUnit < team.member);
+    assert.ok(team.member < battle.wildWin);
     assert.ok(battle.trainerWin > battle.wildWin);
     assert.ok(milestone.badge > battle.trainerWin);
     assert.ok(milestone.champion > milestone.badge);
     assert.ok(battle.enemyHpFraction > 0 && battle.ownHpFraction < 0);
-    assert.ok(team.member * 6 + team.fullTeam < milestone.badge);
-    assert.ok(team.qualityTransitionCap < battle.trainerWin);
+    assert.ok(team.member * 6 + team.fullTeam + team.qualityScale < milestone.badge);
+    assert.ok(team.qualityTransitionCap < battle.wildWin);
+    assert.ok(REDPP_REWARD_MATRIX.denseRewardCap < battle.wildWin);
 });
