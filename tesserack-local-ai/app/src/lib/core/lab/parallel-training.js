@@ -14,6 +14,8 @@ export const PARALLEL_TRAINING_DEFAULTS = Object.freeze({
     visibleWorker: 0,
     startWorker: 3,
     minimumIntervalMs: 8,
+    backgroundTimerClampMs: 1000,
+    maximumRoundsPerTick: 80,
 });
 
 export function createParallelTrainingPlan({
@@ -40,6 +42,17 @@ export function createParallelTrainingPlan({
 export function trainingIntervalMs(speed) {
     const multiplier = Number.isFinite(Number(speed)) && Number(speed) > 0 ? Number(speed) : 1;
     return Math.max(PARALLEL_TRAINING_DEFAULTS.minimumIntervalMs, 200 / multiplier);
+}
+
+/**
+ * Background tabs clamp timers to roughly one callback per second. Batch the
+ * rounds that would otherwise have received their own timer so unattended
+ * training keeps the selected scheduler rate without changing policy credit.
+ */
+export function trainingRoundsPerTick(speed, { hidden = false } = {}) {
+    if (!hidden) return 1;
+    const rounds = Math.ceil(PARALLEL_TRAINING_DEFAULTS.backgroundTimerClampMs / trainingIntervalMs(speed));
+    return Math.max(1, Math.min(PARALLEL_TRAINING_DEFAULTS.maximumRoundsPerTick, rounds));
 }
 
 export function progressRank(state = {}) {

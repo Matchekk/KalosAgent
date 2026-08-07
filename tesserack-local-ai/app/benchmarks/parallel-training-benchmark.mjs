@@ -54,6 +54,13 @@ check('16x has a true twofold scheduler rate over 8x', () => {
     return at8 === 25 && at16 === 12.5;
 });
 
+check('background batching compensates the one-second timer clamp', () => {
+    const rounds = parallelModule?.trainingRoundsPerTick;
+    return rounds?.(8, { hidden: true }) === 40
+        && rounds?.(16, { hidden: true }) === 80
+        && rounds?.(16, { hidden: false }) === 1;
+}, 'Expected hidden 8x/16x batches of 40/80 rounds and one visible round.');
+
 check('Champion outranks every non-Champion state', () => {
     const compare = parallelModule?.compareProgressStates;
     return compare?.(

@@ -13,7 +13,7 @@ import { MemoryReader } from '../memory-reader.js';
 import { GuideAgent } from './guide-agent.js';
 import { PureRLAgent } from './pure-rl-agent.js';
 import { ParallelTrainingCoordinator } from './parallel-trainer.js';
-import { createParallelTrainingPlan, trainingIntervalMs } from './parallel-training.js';
+import { createParallelTrainingPlan, trainingIntervalMs, trainingRoundsPerTick } from './parallel-training.js';
 import { CombinedRewardSystem } from '../adaptive-rewards.js';
 import { feedSystem } from '$lib/stores/feed';
 import {
@@ -582,18 +582,25 @@ async function runPureRLLoop() {
     if (!labPureRLAgent || !parallelTrainer?.running) return;
 
     try {
-        const result = await parallelTrainer.stepRound();
-        if (result.trainInfo) void persistPureRLPolicy();
-        handlePureRLStep({
-            ...result,
-            firedTests: result.firedTests ?? [],
+        const trainer = parallelTrainer;
+        const rounds = trainingRoundsPerTick(labSpeed, {
+            hidden: globalThis.document?.hidden === true,
         });
-        parallelSampleCount = Math.max(parallelSampleCount, result.step ?? 0);
+        for (let round = 0; round < rounds; round++) {
+            if (parallelTrainer !== trainer || !trainer.running) return;
+            const result = await trainer.stepRound();
+            if (result.trainInfo) void persistPureRLPolicy();
+            handlePureRLStep({
+                ...result,
+                firedTests: result.firedTests ?? [],
+            });
+            parallelSampleCount = Math.max(parallelSampleCount, result.step ?? 0);
 
-        if (shouldRecycleEnvironments(parallelSampleCount, parallelLifecycleStartSamples)) {
-            parallelTrainer?.stop();
-            void recoverParallelTraining('scheduled WASM memory rotation');
-            return;
+            if (shouldRecycleEnvironments(parallelSampleCount, parallelLifecycleStartSamples)) {
+                trainer.stop();
+                void recoverParallelTraining('scheduled WASM memory rotation');
+                return;
+            }
         }
     } catch (err) {
         console.error('[Lab] Pure RL step error:', err);

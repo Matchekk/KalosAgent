@@ -9,6 +9,7 @@ import {
     createParallelTrainingPlan,
     progressScore,
     trainingIntervalMs,
+    trainingRoundsPerTick,
 } from '../src/lib/core/lab/parallel-training.js';
 import { ParallelTrainingCoordinator } from '../src/lib/core/lab/parallel-trainer.js';
 
@@ -33,6 +34,9 @@ test('parallel plan makes one 512-sample update from four 128-step streams', () 
     assert.deepEqual(plan.workers.map(worker => worker.resetFromInitial), [false, false, false, true]);
     assert.equal(trainingIntervalMs(8), 25);
     assert.equal(trainingIntervalMs(16), 12.5);
+    assert.equal(trainingRoundsPerTick(16), 1);
+    assert.equal(trainingRoundsPerTick(8, { hidden: true }), 40);
+    assert.equal(trainingRoundsPerTick(16, { hidden: true }), 80);
 });
 
 test('durable Red++ progress is strictly lexicographic', () => {
