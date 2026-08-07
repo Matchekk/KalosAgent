@@ -121,10 +121,10 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
         };
     });
 
-    const coordinator = new ParallelTrainingCoordinator({ agents });
+    const coordinator = new ParallelTrainingCoordinator({ agents, initialTotalSamples: 248_396 });
     const result = await coordinator.stepRound();
     assert.equal(result.environmentCount, 4);
-    assert.equal(result.step, 4);
+    assert.equal(result.step, 248_400);
     assert.equal(result.checkpointWorker, 2);
     assert.equal(adopted.length, 4);
     assert.equal(rendered, 1);

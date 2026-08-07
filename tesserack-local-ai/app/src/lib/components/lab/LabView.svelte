@@ -29,6 +29,7 @@
         stepLabAgent,
         setLabMode,
         labMode,
+        labRunStatus,
         pureRLMetrics,
         updateRLConfig,
         cleanupLab
@@ -43,6 +44,7 @@
 
     let isRunning = false;
     let labInitialized = false;
+    $: isRunning = $labRunStatus.running || $labRunStatus.recovering;
     let hyperparamsOpen = false;
     let howItWorksExpanded = false;
 

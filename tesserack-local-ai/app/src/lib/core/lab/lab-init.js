@@ -30,6 +30,10 @@ import {
 import { gameState, updateGameState } from '$lib/stores/game';
 import { assetUrl } from '$lib/core/asset-url.js';
 import { formatPositiveRewardEvents } from './training-utils.js';
+import {
+    isFatalEmulatorError,
+    shouldRecycleEnvironments,
+} from './training-recovery.js';
 import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
 
 // Lab mode instances
@@ -48,10 +52,16 @@ let labSpeed = 1; // Playback speed multiplier
 let initializationGeneration = 0;
 let lastPersistedTrainStep = -1;
 let policyPersistInFlight = false;
+let parallelSampleCount = 0;
+let parallelLifecycleStartSamples = 0;
+let parallelRecoveryPromise = null;
+let lastParallelRecoveryAt = 0;
 const PARALLEL_ENVIRONMENT_COUNT = 4;
+const RECOVERY_RETRY_COOLDOWN_MS = 60_000;
 
 // Current mode: 'llm' or 'purerl'
 export const labMode = writable('llm');
+export const labRunStatus = writable({ running: false, recovering: false, error: null });
 let currentMode = 'llm';
 
 // Pure RL metrics store
@@ -442,10 +452,12 @@ async function ensureParallelTrainer() {
             parallelTrainer = new ParallelTrainingCoordinator({
                 agents,
                 visibleWorker: parallelPlan.visibleWorker,
+                initialTotalSamples: parallelSampleCount,
                 onCheckpoint(candidate) {
                     feedSystem(`Global checkpoint: environment ${candidate.workerId + 1} advanced durable Red++ progress.`);
                 },
             });
+            parallelLifecycleStartSamples = parallelTrainer.totalSamples;
             feedSystem(`Parallel Train ready: ${agents.length} environments share one policy; environment ${parallelPlan.startWorker + 1} rehearses from ROM start.`);
             return parallelTrainer;
         } catch (error) {
@@ -461,6 +473,7 @@ async function ensureParallelTrainer() {
 
 function destroyParallelTrainer() {
     if (!parallelTrainer) return;
+    parallelSampleCount = Math.max(parallelSampleCount, parallelTrainer.totalSamples);
     parallelTrainer.destroy();
     parallelTrainer = null;
 }
@@ -504,23 +517,31 @@ export function getLabMode() {
  * Start the lab agent
  */
 export async function startLabAgent() {
-    if (currentMode === 'purerl') {
-        if (!labPureRLAgent) {
-            console.error('[Lab] Pure RL agent not initialized');
-            return false;
+    try {
+        if (currentMode === 'purerl') {
+            if (!labPureRLAgent) {
+                console.error('[Lab] Pure RL agent not initialized');
+                return false;
+            }
+            const trainer = await ensureParallelTrainer();
+            trainer.start();
+            runPureRLLoop();
+        } else {
+            if (!labAgent) {
+                console.error('[Lab] Agent not initialized');
+                return false;
+            }
+            labAgent.running = true;
+            runLabLoop();
         }
-        const trainer = await ensureParallelTrainer();
-        trainer.start();
-        runPureRLLoop();
-    } else {
-        if (!labAgent) {
-            console.error('[Lab] Agent not initialized');
-            return false;
-        }
-        labAgent.running = true;
-        runLabLoop();
+        labRunStatus.set({ running: true, recovering: false, error: null });
+        return true;
+    } catch (error) {
+        console.error('[Lab] Agent start failed:', error);
+        labRunStatus.set({ running: false, recovering: false, error: error.message });
+        feedSystem(`Cannot start Train: ${error.message}`);
+        return false;
     }
-    return true;
 }
 
 /**
@@ -532,6 +553,7 @@ export function stopLabAgent() {
     }
     parallelTrainer?.stop();
     labPureRLAgent?.stop();
+    labRunStatus.set({ running: false, recovering: false, error: null });
 }
 
 /**
@@ -566,10 +588,27 @@ async function runPureRLLoop() {
             ...result,
             firedTests: result.firedTests ?? [],
         });
+        parallelSampleCount = Math.max(parallelSampleCount, result.step ?? 0);
+
+        if (shouldRecycleEnvironments(parallelSampleCount, parallelLifecycleStartSamples)) {
+            parallelTrainer?.stop();
+            void recoverParallelTraining('scheduled WASM memory rotation');
+            return;
+        }
     } catch (err) {
         console.error('[Lab] Pure RL step error:', err);
-        feedSystem(`Parallel Train paused: ${err.message}`);
         parallelTrainer?.stop();
+        if (isFatalEmulatorError(err)) {
+            const now = Date.now();
+            if (now - lastParallelRecoveryAt >= RECOVERY_RETRY_COOLDOWN_MS) {
+                void recoverParallelTraining('WASM memory exhaustion');
+                return;
+            }
+            feedSystem(`Parallel Train paused after repeated WASM recovery failure: ${err.message}`);
+        } else {
+            feedSystem(`Parallel Train paused: ${err.message}`);
+        }
+        labRunStatus.set({ running: false, recovering: false, error: err.message });
     }
 
     // Continue loop with speed adjustment
@@ -577,6 +616,68 @@ async function runPureRLLoop() {
         const interval = trainingIntervalMs(labSpeed);
         setTimeout(runPureRLLoop, interval);
     }
+}
+
+async function recoverParallelTraining(reason) {
+    if (parallelRecoveryPromise) return parallelRecoveryPromise;
+    if (!labRomBuffer || !labCanvas) {
+        const message = 'ROM or Lab canvas is unavailable for automatic recovery';
+        labRunStatus.set({ running: false, recovering: false, error: message });
+        feedSystem(`Parallel Train paused: ${message}.`);
+        return false;
+    }
+
+    lastParallelRecoveryAt = Date.now();
+    const romBuffer = labRomBuffer.slice(0);
+    const canvas = labCanvas;
+    const speed = labSpeed;
+    const retainedSamples = Math.max(parallelSampleCount, parallelTrainer?.totalSamples ?? 0);
+    labRunStatus.set({ running: false, recovering: true, error: null });
+    feedSystem(`Parallel Train recovering from ${reason}; learned policy and checkpoint are retained.`);
+
+    parallelRecoveryPromise = (async () => {
+        await persistPureRLPolicy();
+        destroyParallelTrainer();
+        try {
+            labEmulator?.destroy();
+        } catch (error) {
+            // An aborted WASM module cannot always execute its destructors.
+            // Dropping all JS references lets the browser reclaim the module.
+            console.warn('[Lab] Aborted visible emulator cleanup failed:', error);
+        }
+
+        labEmulator = null;
+        labReader = null;
+        labAgent = null;
+        labPureRLAgent = null;
+        labRewardSystem = null;
+        parallelInitPromise = null;
+        parallelPlan = null;
+        isInitialized = false;
+        parallelSampleCount = retainedSamples;
+
+        await initializeLab(romBuffer, canvas);
+        setLabSpeed(speed);
+        currentMode = 'purerl';
+        labMode.set('purerl');
+        labEmulator?.stop();
+
+        const trainer = await ensureParallelTrainer();
+        trainer.start();
+        labRunStatus.set({ running: true, recovering: false, error: null });
+        feedSystem(`Parallel Train resumed automatically at sample ${trainer.totalSamples.toLocaleString()}.`);
+        setTimeout(runPureRLLoop, trainingIntervalMs(labSpeed));
+        return true;
+    })().catch(error => {
+        console.error('[Lab] Parallel Train recovery failed:', error);
+        labRunStatus.set({ running: false, recovering: false, error: error.message });
+        feedSystem(`Parallel Train recovery failed: ${error.message}`);
+        return false;
+    }).finally(() => {
+        parallelRecoveryPromise = null;
+    });
+
+    return parallelRecoveryPromise;
 }
 
 /**
@@ -750,7 +851,11 @@ export function cleanupLab() {
     labRomBuffer = null;
     parallelPlan = null;
     parallelInitPromise = null;
+    parallelSampleCount = 0;
+    parallelLifecycleStartSamples = 0;
+    lastParallelRecoveryAt = 0;
     isInitialized = false;
     currentMode = 'llm';
     labMode.set('llm');
+    labRunStatus.set({ running: false, recovering: false, error: null });
 }

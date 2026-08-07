@@ -6,7 +6,7 @@ import { chooseCheckpointCandidate, progressScore } from './parallel-training.js
  * transition per environment before the policy can update.
  */
 export class ParallelTrainingCoordinator {
-    constructor({ agents, visibleWorker = 0, onCheckpoint = null } = {}) {
+    constructor({ agents, visibleWorker = 0, onCheckpoint = null, initialTotalSamples = 0 } = {}) {
         if (!Array.isArray(agents) || agents.length === 0) {
             throw new Error('Parallel training requires at least one environment');
         }
@@ -19,7 +19,8 @@ export class ParallelTrainingCoordinator {
         this.visibleWorker = Math.max(0, Math.min(agents.length - 1, visibleWorker));
         this.onCheckpoint = onCheckpoint;
         this.running = false;
-        this.totalSamples = 0;
+        this.totalSamples = Math.max(0, Math.trunc(Number(initialTotalSamples) || 0));
+        this.samplesAtStart = this.totalSamples;
         this.startedAt = nowMs();
         this.checkpointCount = Math.max(1, agents[0].checkpointCount || 0);
 
@@ -35,6 +36,7 @@ export class ParallelTrainingCoordinator {
     start() {
         this.running = true;
         this.startedAt = nowMs();
+        this.samplesAtStart = this.totalSamples;
         for (const agent of this.agents) agent.running = true;
     }
 
@@ -97,7 +99,13 @@ export class ParallelTrainingCoordinator {
     destroy() {
         this.stop();
         for (let index = 0; index < this.agents.length; index++) {
-            if (index !== this.visibleWorker) this.agents[index].emu.destroy();
+            if (index !== this.visibleWorker) {
+                try {
+                    this.agents[index].emu.destroy();
+                } catch (error) {
+                    console.warn(`[ParallelTrain] Worker ${index + 1} cleanup failed:`, error);
+                }
+            }
         }
         this.agents = [];
     }
@@ -106,6 +114,7 @@ export class ParallelTrainingCoordinator {
         const core = visibleAgent.core;
         const trainInfo = results.find(result => result.trainInfo)?.trainInfo ?? null;
         const elapsedSeconds = Math.max(0.001, (nowMs() - this.startedAt) / 1000);
+        const lifecycleSamples = Math.max(0, this.totalSamples - this.samplesAtStart);
         const rewardStats = visibleAgent.rewards.getStats();
         const breakdown = { tier1: 0, tier2: 0, tier3: 0, penalties: 0 };
         const firedTests = [];
@@ -149,7 +158,7 @@ export class ParallelTrainingCoordinator {
             checkpointCount: this.checkpointCount,
             confirmedWins: this.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0),
             environmentCount: this.agents.length,
-            samplesPerSecond: this.totalSamples / elapsedSeconds,
+            samplesPerSecond: lifecycleSamples / elapsedSeconds,
             checkpointWorker: this.globalCheckpoint?.workerId ?? null,
             currentLocation: rewardStats.currentLocation,
             bundleInfo: rewardStats.bundleInfo,
