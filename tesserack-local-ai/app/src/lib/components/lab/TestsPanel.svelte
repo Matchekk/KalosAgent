@@ -75,6 +75,11 @@
                 <div class="fired-tests">
                     {#each firedTests.slice(0, 5) as test}
                         <div class="fired-test {getTierClass(test.tier)}">
+                            {#if Number.isInteger(test.workerId)}
+                                <span class="test-worker" title={test.visibleWorker ? 'Visible environment' : 'Hidden environment'}>
+                                    E{test.workerId + 1}{test.visibleWorker ? '*' : ''}
+                                </span>
+                            {/if}
                             <span class="test-tier">{getTierLabel(test.tier)}</span>
                             <span class="test-id">{test.id}</span>
                             <span class="test-reward">{formatReward(test.reward)}</span>
@@ -276,6 +281,14 @@
         border-radius: 3px;
         background: var(--text-muted);
         color: var(--bg-panel);
+    }
+
+    .test-worker {
+        min-width: 24px;
+        font-family: monospace;
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text-muted);
     }
 
     .fired-test.tier1 .test-tier { background: #6b7280; }

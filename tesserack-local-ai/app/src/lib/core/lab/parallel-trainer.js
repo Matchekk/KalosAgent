@@ -110,9 +110,16 @@ export class ParallelTrainingCoordinator {
         const breakdown = { tier1: 0, tier2: 0, tier3: 0, penalties: 0 };
         const firedTests = [];
 
-        for (const result of results) {
+        for (let workerId = 0; workerId < results.length; workerId++) {
+            const result = results[workerId];
             for (const key of Object.keys(breakdown)) breakdown[key] += Number(result.breakdown?.[key]) || 0;
-            if (Array.isArray(result.firedTests)) firedTests.push(...result.firedTests);
+            if (Array.isArray(result.firedTests)) {
+                firedTests.push(...result.firedTests.map(event => ({
+                    ...(typeof event === 'string' ? { id: event, reward: 0, tier: 1 } : event),
+                    workerId,
+                    visibleWorker: workerId === this.visibleWorker,
+                })));
+            }
         }
 
         const visibleState = visibleAgent.mem.getGameState();

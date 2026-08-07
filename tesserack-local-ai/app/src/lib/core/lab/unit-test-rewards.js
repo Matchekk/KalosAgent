@@ -48,7 +48,9 @@ export class UnitTestRewards {
         this.dialogCredits = new Map();
         this.recentPositions = [];
         this.stuckCounter = 0;
-        this.consecutiveStartActions = 0;
+        this.menuSteps = 0;
+        this.menuReopenStreak = 0;
+        this.lastMenuCloseTransition = -Infinity;
         this.transitionCount = 0;
         this.lastSaveTransition = -Infinity;
         this.saveStreak = 0;
@@ -113,6 +115,8 @@ export class UnitTestRewards {
         } else if (context === REWARD_CONTEXT.BATTLE) {
             this._evaluateBattle(prevState, currState, add);
             this._resetSpatialPenaltyState();
+        } else if (context === REWARD_CONTEXT.MENU) {
+            this._evaluateMenu(prevState, currState, action, add);
         } else {
             this._evaluateOverworld(prevState, currState, action, add);
         }
@@ -221,16 +225,68 @@ export class UnitTestRewards {
             this.stuckCounter = 0;
         }
 
-        if (action === 'start' && !locationChanged && !dialogChanged) {
-            this.consecutiveStartActions++;
-            const excess = this.consecutiveStartActions - REDPP_REWARD_MATRIX.menu.freeStartActions;
+    }
+
+    _evaluateMenu(prev, curr, action, add) {
+        this._resetSpatialPenaltyState();
+        const matrix = REDPP_REWARD_MATRIX.menu;
+        const prevOpen = Boolean(prev?.menu?.open);
+        const currOpen = Boolean(curr?.menu?.open);
+        const eligible = Math.max(prev?.party?.length || 0, curr?.party?.length || 0) > 0;
+
+        // Title/name-selection screens are required progression, not optional
+        // menu browsing. A real party is the robust boundary for Start menus.
+        if (!eligible) {
+            this.menuSteps = 0;
+            return;
+        }
+
+        if (action) add('menu_decision_cost', matrix.decisionCost, 'penalty', {
+            context: REWARD_CONTEXT.MENU,
+        });
+
+        const strategicChange = strategicMenuFingerprint(prev) !== strategicMenuFingerprint(curr);
+        if (!prevOpen && currOpen) {
+            this.menuSteps = 1;
+            const sinceClose = this.transitionCount - this.lastMenuCloseTransition;
+            this.menuReopenStreak = sinceClose <= matrix.reopenWindow
+                ? this.menuReopenStreak + 1
+                : 1;
+            const excess = this.menuReopenStreak - matrix.freeReopens;
             if (excess > 0) {
-                const spam = Math.max(REDPP_REWARD_MATRIX.menu.spamCap,
-                    REDPP_REWARD_MATRIX.menu.spamBase * (2 ** (excess - 1)));
-                add('menu_spam', spam, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, streak: this.consecutiveStartActions });
+                const penalty = Math.max(matrix.reopenCap, matrix.reopenBase * (2 ** (excess - 1)));
+                add('menu_reopened', penalty, 'penalty', {
+                    context: REWARD_CONTEXT.MENU,
+                    streak: this.menuReopenStreak,
+                    sinceClose,
+                });
             }
-        } else {
-            this.consecutiveStartActions = 0;
+        } else if (prevOpen && currOpen) {
+            this.menuSteps = strategicChange ? 0 : this.menuSteps + 1;
+        } else if (prevOpen && !currOpen) {
+            this.menuSteps = 0;
+            this.lastMenuCloseTransition = this.transitionCount;
+            return;
+        }
+
+        // Party reordering, item use, move changes and healing are legitimate
+        // strategic menu work. They waive and reset idle pressure, but provide no
+        // extra farmable reward here; durable systems score real improvements.
+        if (strategicChange) {
+            this.menuSteps = 0;
+            this.menuReopenStreak = Math.max(1, this.menuReopenStreak - 1);
+            return;
+        }
+
+        const excessSteps = this.menuSteps - matrix.graceSteps;
+        if (currOpen && excessSteps > 0) {
+            const penalty = Math.max(matrix.idleCap,
+                matrix.idleBase + matrix.idleSlope * (excessSteps - 1));
+            add('menu_idle', penalty, 'penalty', {
+                context: REWARD_CONTEXT.MENU,
+                steps: this.menuSteps,
+                graceSteps: matrix.graceSteps,
+            });
         }
     }
 
@@ -404,7 +460,6 @@ export class UnitTestRewards {
 
     _resetSpatialPenaltyState() {
         this.stuckCounter = 0;
-        this.consecutiveStartActions = 0;
     }
 
     _allFainted(state) {
@@ -449,7 +504,9 @@ export class UnitTestRewards {
         this.dialogCredits.clear();
         this.recentPositions = [];
         this.stuckCounter = 0;
-        this.consecutiveStartActions = 0;
+        this.menuSteps = 0;
+        this.menuReopenStreak = 0;
+        this.lastMenuCloseTransition = -Infinity;
         this.transitionCount = 0;
         this.lastSaveTransition = -Infinity;
         this.saveStreak = 0;
@@ -474,6 +531,8 @@ export class UnitTestRewards {
             visitedPositions: this.visitedPositions.size,
             dialogCreditPositions: this.dialogCredits.size,
             stuckCounter: this.stuckCounter,
+            menuSteps: this.menuSteps,
+            menuReopenStreak: this.menuReopenStreak,
             saveStreak: this.saveStreak,
             maxPartySize: this.maxPartySize,
             bestTeamQuality: this.bestTeamQuality,
@@ -493,6 +552,19 @@ export class UnitTestRewards {
             } : null,
         };
     }
+}
+
+function strategicMenuFingerprint(state = {}) {
+    const party = (state.party || []).map(mon => [
+        Number(mon?.speciesId) || 0,
+        Number(mon?.currentHP) || 0,
+        Number(mon?.maxHP) || 0,
+        String(mon?.status || ''),
+        ...(mon?.moveIds || mon?.moves || []).map(move => Number(move?.id ?? move) || String(move || '')),
+        ...(mon?.movePP || []).map(pp => Number(pp) || 0),
+    ]);
+    const items = (state.items || []).map(item => [String(item?.name || ''), Number(item?.quantity) || 0]);
+    return JSON.stringify([party, items, Number(state.money) || 0]);
 }
 
 function isCredibleBattleState(state, battle) {

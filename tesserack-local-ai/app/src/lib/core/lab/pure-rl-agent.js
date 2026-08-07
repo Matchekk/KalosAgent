@@ -30,8 +30,8 @@ import {
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
-export const REDPP_STATE_SIZE = 41;
-// v4 includes full-party quality in policy input and checkpoint ranking.
+export const REDPP_STATE_SIZE = 46;
+// v5 appends observable menu context while preserving all v4 feature indices.
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -141,6 +141,16 @@ export function encodeRedppStateInto(state, outVec) {
     outVec[i++] = team.typeDiversity;
     outVec[i++] = team.offensiveCoverage;
     outVec[i++] = team.defensiveResilience;
+
+    // Optional menus must be distinguishable from the overworld. Appending
+    // these inputs keeps old 41-feature snapshots exactly migratable.
+    const menu = state.menu;
+    outVec[i++] = menu?.open ? 1 : 0;
+    outVec[i++] = menu?.open ? Math.min(1, (menu.currentItem || 0) / 15) : 0;
+    outVec[i++] = menu?.open ? Math.min(1, (menu.listScrollOffset || 0) / 15) : 0;
+    const menuAngle = menu?.open ? ((menu.screenHash >>> 0) / 0xffffffff) * Math.PI * 2 : 0;
+    outVec[i++] = menu?.open ? Math.sin(menuAngle) : 0;
+    outVec[i++] = menu?.open ? Math.cos(menuAngle) : 0;
 
     // Pad remaining with zeros
     while (i < REDPP_STATE_SIZE) outVec[i++] = 0;

@@ -14,6 +14,8 @@ function state(overrides = {}) {
         battle: null,
         progressFlags: { battledRivalInOaksLab: false },
         dialog: '',
+        menu: { open: false, currentItem: 0, listScrollOffset: 0, screenHash: 0 },
+        items: [],
         ...overrides,
     };
 }
@@ -98,13 +100,32 @@ for (let i = 0; i < 20; i++) {
 check('two-tile loop is cumulatively negative', () => loopTotal < 0);
 
 const menuRewards = new UnitTestRewards();
-const firstStart = menuRewards.evaluate(posA, posA, 'start');
-const secondStart = menuRewards.evaluate(posA, posA, 'start');
-const thirdStart = menuRewards.evaluate(posA, posA, 'start');
-const fourthStart = menuRewards.evaluate(posA, posA, 'start');
-check('menu spam waits for repeated Start', () => !hasEvent(firstStart, 'menu_spam') && !hasEvent(secondStart, 'menu_spam'));
-check('repeated Start is penalized', () => hasEvent(thirdStart, 'menu_spam') && thirdStart.total < firstStart.total);
-check('menu spam penalty escalates', () => fourthStart.total < thirdStart.total);
+const menuParty = [{ speciesId: 1, level: 8, currentHP: 24, maxHP: 24, moveIds: [33] }];
+const menuClosed = state({ party: menuParty });
+const menuOpen = state({
+    party: menuParty,
+    menu: { open: true, currentItem: 2, listScrollOffset: 0, screenHash: 99 },
+});
+menuRewards.evaluate(menuClosed, menuOpen, 'start');
+let menuIdle;
+for (let i = 0; i < REDPP_REWARD_MATRIX.menu.graceSteps; i++) {
+    menuIdle = menuRewards.evaluate(menuOpen, menuOpen, 'a');
+}
+const menuLaterIdle = menuRewards.evaluate(menuOpen, menuOpen, 'down');
+check('optional menu has a grace period before idle pressure', () => hasEvent(menuIdle, 'menu_idle'));
+check('menu idle pressure escalates but stays bounded', () =>
+    menuLaterIdle.total < menuIdle.total
+        && menuLaterIdle.total >= REDPP_REWARD_MATRIX.menu.idleCap + REDPP_REWARD_MATRIX.menu.decisionCost);
+check('menu directions never look like blocked overworld movement', () => !hasEvent(menuLaterIdle, 'blocked_movement'));
+menuRewards.evaluate(menuOpen, menuClosed, 'b');
+const rapidReopen = menuRewards.evaluate(menuClosed, menuOpen, 'start');
+check('rapid menu reopening is explicitly penalized', () => hasEvent(rapidReopen, 'menu_reopened'));
+const strategicMenu = state({
+    party: [{ ...menuParty[0], currentHP: 20 }],
+    menu: { open: true, currentItem: 2, listScrollOffset: 0, screenHash: 100 },
+});
+const strategicUse = menuRewards.evaluate(menuOpen, strategicMenu, 'a');
+check('real item or party changes waive idle pressure', () => !hasEvent(strategicUse, 'menu_idle'));
 
 const smallDamage = evaluate(
     battleState({ enemyHP: 20, enemyMaxHP: 20 }),

@@ -107,7 +107,9 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
                     actionStr: 'a',
                     reward: 0,
                     breakdown: {},
-                    firedTests: [],
+                    firedTests: workerId === 1
+                        ? [{ id: 'dialog_advanced', reward: 0.04, tier: 1 }]
+                        : [],
                     trainInfo: workerId === 3 ? { trainSteps: 1 } : null,
                 };
             },
@@ -127,5 +129,8 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
     assert.equal(adopted.length, 4);
     assert.equal(rendered, 1);
     assert.deepEqual(result.trainInfo, { trainSteps: 1 });
+    assert.deepEqual(result.firedTests, [{
+        id: 'dialog_advanced', reward: 0.04, tier: 1, workerId: 1, visibleWorker: false,
+    }]);
     assert.ok(Number.isFinite(result.samplesPerSecond));
 });

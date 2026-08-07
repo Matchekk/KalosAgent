@@ -29,7 +29,7 @@ import {
 } from '$lib/stores/lab';
 import { gameState, updateGameState } from '$lib/stores/game';
 import { assetUrl } from '$lib/core/asset-url.js';
-import { getPositiveRewardEventIds } from './training-utils.js';
+import { formatPositiveRewardEvents } from './training-utils.js';
 import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
 
 // Lab mode instances
@@ -241,9 +241,11 @@ function handlePureRLStep(stepData) {
 
     // Log milestone rewards to feed
     if (stepData.firedTests.length > 0) {
-        const tests = getPositiveRewardEventIds(stepData.firedTests);
+        const tests = formatPositiveRewardEvents(stepData.firedTests);
         if (tests.length > 0) {
-            feedSystem(`RL: ${tests.join(', ')} (+${stepData.reward.toFixed(2)})`);
+            const roundReward = Number(stepData.reward) || 0;
+            const sign = roundReward >= 0 ? '+' : '';
+            feedSystem(`RL: ${tests.join('; ')} (round ${sign}${roundReward.toFixed(2)})`);
         }
     }
 }

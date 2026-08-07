@@ -53,6 +53,9 @@ export const ADDRESSES = {
     DAMAGE_MULTIPLIERS: 0xD05E,
     PLAYER_SELECTED_MOVE: 0xCCDC,
     CURRENT_MENU_ITEM: 0xCC26,
+    MENU_WATCHED_KEYS: 0xCC29,
+    MENU_ITEM_TO_SWAP: 0xCC35,
+    LIST_SCROLL_OFFSET: 0xCC36,
     BATTLE_MENU_SELECTION: 0xCC2D,
     PLAYER_MOVE_LIST_INDEX: 0xCC2E,
     PLAYER_MOVE_ID: 0xCFD2,
@@ -563,6 +566,15 @@ export function getStatusName(statusByte) {
     return 'OK';
 }
 
+function hashBytes(bytes) {
+    let hash = 0x811c9dc5;
+    for (const byte of bytes) {
+        hash ^= byte;
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return hash >>> 0;
+}
+
 /**
  * Memory reader for Pokemon Red game state
  */
@@ -950,6 +962,28 @@ export class MemoryReader {
     }
 
     /**
+     * Identify Red++ full-screen and Start-menu UI without confusing it with
+     * verified dialog or battle. This is deliberately observational: actions
+     * remain fully available so the policy can learn useful party/item menus.
+     */
+    getMenuState(dialog = '', inBattle = this.isInBattle()) {
+        const textEngineActive = (this.readByte(ADDRESSES.FONT_LOADED) & 0x01) !== 0;
+        const windowVisible = this.readByte(ADDRESSES.WINDOW_Y_REGISTER) === 0;
+        const open = !inBattle && !dialog && textEngineActive && windowVisible;
+        const tilemap = open
+            ? this.readBytes(ADDRESSES.TILEMAP_START, ADDRESSES.TILEMAP_END - ADDRESSES.TILEMAP_START)
+            : null;
+
+        return {
+            open,
+            currentItem: open ? this.readByte(ADDRESSES.CURRENT_MENU_ITEM) : 0,
+            listScrollOffset: open ? this.readByte(ADDRESSES.LIST_SCROLL_OFFSET) : 0,
+            itemToSwap: open ? this.readByte(ADDRESSES.MENU_ITEM_TO_SWAP) : 0,
+            screenHash: tilemap ? hashBytes(tilemap) : 0,
+        };
+    }
+
+    /**
      * Check if in battle
      * @returns {boolean}
      */
@@ -1046,22 +1080,26 @@ export class MemoryReader {
      * @returns {Object}
      */
     getGameState() {
+        const badges = this.getBadges();
+        const inBattle = this.isInBattle();
+        const dialog = this.getDialog();
         const state = {
             playerName: this.getPlayerName(),
             rivalName: this.getRivalName(),
             location: this.getLocation(),
             coordinates: this.getCoordinates(),
             money: this.getMoney(),
-            badges: this.getBadges(),
-            badgeCount: this.getBadges().length,
+            badges,
+            badgeCount: badges.length,
             party: this.getParty(),
             partyCount: this.getPartyCount(),
             items: this.getItems(),
-            inBattle: this.isInBattle(),
+            inBattle,
             battleResult: this.readByte(ADDRESSES.BATTLE_RESULT),
             battle: this.getBattle(),
             progressFlags: this.getProgressFlags(),
-            dialog: this.getDialog()
+            dialog,
+            menu: this.getMenuState(dialog, inBattle),
         };
         if (import.meta.env?.DEV) state.memoryDiagnostics = this.getMemoryDiagnostics();
         return state;

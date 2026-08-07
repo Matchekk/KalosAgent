@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.1.
+ * Red++ reward matrix, version 3.2.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.1.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.2.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
@@ -68,9 +68,15 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
     },
 
     menu: {
-        freeStartActions: 2,
-        spamBase: -0.15,
-        spamCap: -2.4,
+        decisionCost: -0.004,
+        graceSteps: 6,
+        idleBase: -0.03,
+        idleSlope: -0.012,
+        idleCap: -0.3,
+        reopenWindow: 120,
+        freeReopens: 1,
+        reopenBase: -0.2,
+        reopenCap: -1.6,
         saveCooldown: 750,
         repeatSaveBase: -1.5,
         repeatSaveCap: -10,
@@ -80,12 +86,14 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
 export const REWARD_CONTEXT = Object.freeze({
     DIALOG: 'dialog',
     BATTLE: 'battle',
+    MENU: 'menu',
     OVERWORLD: 'overworld',
 });
 
 export function classifyRewardContext(prevState, currState) {
     if (prevState?.inBattle || currState?.inBattle) return REWARD_CONTEXT.BATTLE;
     if (dialogText(prevState) || dialogText(currState)) return REWARD_CONTEXT.DIALOG;
+    if (prevState?.menu?.open || currState?.menu?.open) return REWARD_CONTEXT.MENU;
     return REWARD_CONTEXT.OVERWORLD;
 }
 

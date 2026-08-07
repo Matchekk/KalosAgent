@@ -9,6 +9,21 @@ export function getPositiveRewardEventIds(events = []) {
         .filter(Boolean);
 }
 
+/** Label positive reward events by environment so hidden workers are explicit. */
+export function formatPositiveRewardEvents(events = []) {
+    return events
+        .filter(event => {
+            if (typeof event === 'string') return !event.toLowerCase().includes('penalty');
+            return event && event.tier !== 'penalty' && Number(event.reward ?? 0) > 0;
+        })
+        .map(event => {
+            if (typeof event === 'string') return event;
+            const prefix = Number.isSafeInteger(event.workerId) ? `E${event.workerId + 1}: ` : '';
+            return event.id ? `${prefix}${event.id}` : '';
+        })
+        .filter(Boolean);
+}
+
 /** Extract cumulative reward-bundle telemetry from an agent metrics snapshot. */
 export function getRewardTelemetry(metrics = {}) {
     const stats = metrics.rewardStats || {};
@@ -77,21 +92,27 @@ export function restoreReinforceSnapshot(core, snapshot) {
         throw new Error('Unsupported policy snapshot');
     }
 
-    const expectedArchitecture = {
-        stateSize: core.stateSize,
-        hiddenSize: core.policy.hiddenSize,
-        numActions: core.numActions,
-    };
-    for (const [key, expected] of Object.entries(expectedArchitecture)) {
-        if (snapshot.architecture?.[key] !== expected) {
-            throw new Error(`Incompatible policy architecture: ${key}`);
-        }
+    const sourceStateSize = snapshot.architecture?.stateSize;
+    if (!Number.isSafeInteger(sourceStateSize) || sourceStateSize <= 0 || sourceStateSize > core.stateSize) {
+        throw new Error('Incompatible policy architecture: stateSize');
+    }
+    if (snapshot.architecture?.hiddenSize !== core.policy.hiddenSize) {
+        throw new Error('Incompatible policy architecture: hiddenSize');
+    }
+    if (snapshot.architecture?.numActions !== core.numActions) {
+        throw new Error('Incompatible policy architecture: numActions');
     }
 
     const validated = {};
+    const expectedLengths = {
+        w1: sourceStateSize * core.policy.hiddenSize,
+        b1: core.policy.hiddenSize,
+        w2: core.policy.hiddenSize * core.numActions,
+        b2: core.numActions,
+    };
     for (const key of POLICY_TENSORS) {
         const values = snapshot.weights?.[key];
-        if (!Array.isArray(values) || values.length !== core.policy[key].length) {
+        if (!Array.isArray(values) || values.length !== expectedLengths[key]) {
             throw new Error(`Incompatible policy tensor: ${key}`);
         }
         if (!values.every(Number.isFinite)) {
@@ -100,7 +121,11 @@ export function restoreReinforceSnapshot(core, snapshot) {
         validated[key] = values;
     }
 
-    for (const key of POLICY_TENSORS) core.policy[key].set(validated[key]);
+    // State features are only appended. Copy the old input rows verbatim and
+    // initialize new rows to zero, preserving old behavior until they learn.
+    core.policy.w1.fill(0);
+    core.policy.w1.set(validated.w1);
+    for (const key of ['b1', 'w2', 'b2']) core.policy[key].set(validated[key]);
     core.trainSteps = Number.isSafeInteger(snapshot.trainSteps) && snapshot.trainSteps >= 0
         ? snapshot.trainSteps : 0;
     core.lastAvgRawReturn = Number.isFinite(snapshot.lastAvgRawReturn)

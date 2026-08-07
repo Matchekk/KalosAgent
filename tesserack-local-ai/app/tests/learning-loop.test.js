@@ -275,6 +275,7 @@ test('overworld tilemap glyphs cannot masquerade as Red++ dialog', () => {
     });
 
     assert.equal(reader.getDialog(), '');
+    assert.equal(reader.getMenuState('', false).open, false);
 });
 
 test('Red++ Start-menu sub-screens cannot masquerade as overworld dialog', () => {
@@ -310,6 +311,9 @@ test('Red++ Start-menu sub-screens cannot masquerade as overworld dialog', () =>
     });
 
     assert.equal(reader.getDialog(), '');
+    const menu = reader.getMenuState('', false);
+    assert.equal(menu.open, true);
+    assert.equal(Number.isSafeInteger(menu.screenHash), true);
 });
 
 test('Red++ standard message box exposes only its text interior', () => {
@@ -347,6 +351,7 @@ test('Red++ standard message box exposes only its text interior', () => {
         },
     });
     assert.equal(reader.getDialog(), 'HELLO!');
+    assert.equal(reader.getMenuState(reader.getDialog(), false).open, false);
 
     // One broken border tile proves this is no longer a live dialog box.
     put(10, 12, 0x7F);

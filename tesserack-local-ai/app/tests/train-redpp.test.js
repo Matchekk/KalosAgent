@@ -23,6 +23,8 @@ function state(overrides = {}) {
         battle: null,
         progressFlags: { battledRivalInOaksLab: false },
         dialog: '',
+        menu: { open: false, currentItem: 0, listScrollOffset: 0, screenHash: 0 },
+        items: [],
         ...overrides,
     };
 }
@@ -50,6 +52,17 @@ test('Train exposes Start and encodes Red++ combat state', () => {
     assert.ok(vector[35] > 0, 'team-quality score should be encoded');
     assert.ok(vector[36] > 0, 'Red++ base-stat quality should be encoded');
     assert.equal(vector[37], 1, 'a one-Pokemon party is internally level-balanced');
+
+    const overworld = new Float32Array(REDPP_STATE_SIZE);
+    const report = new Float32Array(REDPP_STATE_SIZE);
+    encodeRedppStateInto(state(), overworld);
+    encodeRedppStateInto(state({ menu: {
+        open: true, currentItem: 4, listScrollOffset: 1, screenHash: 0xabcdef01,
+    } }), report);
+    assert.equal(overworld[41], 0);
+    assert.equal(report[41], 1, 'menu-open state must be visible to the policy');
+    assert.ok(report[42] > 0, 'menu selection must be visible to the policy');
+    assert.notDeepEqual([...report.slice(41)], [...overworld.slice(41)]);
 });
 
 test('all Red++ v3 map IDs are mapped, including added islands and late game', () => {
@@ -101,7 +114,7 @@ test('Train rewards only confirmed Red++ wins and battle damage', () => {
     assert.ok(!startupGlitch.firedTests.some(event => event.id === 'redpp_battle_won'));
 });
 
-test('Train cannot farm reward by walking in a circle or spamming Start', () => {
+test('Train cannot farm reward by walking in a circle', () => {
     const rewards = new UnitTestRewards();
     const a = state({ coordinates: { x: 5, y: 6 } });
     const b = state({ coordinates: { x: 6, y: 6 } });
@@ -110,10 +123,39 @@ test('Train cannot farm reward by walking in a circle or spamming Start', () => 
     const revisit = rewards.evaluate(a, b, 'right');
     assert.ok(revisit.total < 0, `revisit reward must be negative, got ${revisit.total}`);
 
-    rewards.evaluate(a, a, 'start');
-    rewards.evaluate(a, a, 'start');
-    const spam = rewards.evaluate(a, a, 'start');
-    assert.ok(spam.firedTests.some(event => event.id === 'menu_spam'));
+});
+
+test('optional menu idling and rapid reopening escalate without locking strategic actions', () => {
+    const rewards = new UnitTestRewards();
+    const party = [
+        { speciesId: 1, level: 8, currentHP: 24, maxHP: 24, status: 'OK', moveIds: [33] },
+        { speciesId: 7, level: 8, currentHP: 22, maxHP: 22, status: 'OK', moveIds: [33] },
+    ];
+    const closed = state({ party });
+    const report = state({ party, menu: { open: true, currentItem: 2, listScrollOffset: 0, screenHash: 99 } });
+
+    rewards.evaluate(closed, report, 'start');
+    let idle;
+    for (let step = 0; step < REDPP_REWARD_MATRIX.menu.graceSteps; step++) {
+        idle = rewards.evaluate(report, report, 'a');
+    }
+    assert.ok(idle.firedTests.some(event => event.id === 'menu_idle'));
+    const laterIdle = rewards.evaluate(report, report, 'down');
+    assert.ok(laterIdle.firedTests.find(event => event.id === 'menu_idle').reward
+        < idle.firedTests.find(event => event.id === 'menu_idle').reward);
+    assert.equal(laterIdle.firedTests.some(event => event.id === 'blocked_movement'), false);
+
+    const exited = rewards.evaluate(report, closed, 'b');
+    assert.equal(exited.firedTests.some(event => event.id === 'menu_idle'), false);
+    const reopened = rewards.evaluate(closed, report, 'start');
+    assert.ok(reopened.firedTests.some(event => event.id === 'menu_reopened'));
+
+    const reordered = state({
+        party: [party[1], party[0]],
+        menu: { open: true, currentItem: 2, listScrollOffset: 0, screenHash: 100 },
+    });
+    const useful = rewards.evaluate(report, reordered, 'a');
+    assert.equal(useful.firedTests.some(event => event.id === 'menu_idle'), false);
 });
 
 test('Train checkpoints earned durable progress without choosing an action', () => {

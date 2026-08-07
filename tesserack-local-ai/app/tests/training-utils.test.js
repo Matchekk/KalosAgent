@@ -5,6 +5,7 @@ import {
     copyReinforceState,
     createReinforceSnapshot,
     executeRepeatedAction,
+    formatPositiveRewardEvents,
     getPositiveRewardEventIds,
     getRewardTelemetry,
     restoreReinforceSnapshot,
@@ -17,6 +18,13 @@ test('reward feed accepts production objects and synthetic string events', () =>
         'bandit_reward',
         'synthetic_penalty',
     ]), ['moved', 'bandit_reward']);
+});
+
+test('parallel reward feed identifies the environment that earned a reward', () => {
+    assert.deepEqual(formatPositiveRewardEvents([
+        { id: 'dialog_advanced', reward: 0.04, tier: 1, workerId: 2 },
+        { id: 'menu_idle', reward: -0.03, tier: 'penalty', workerId: 0 },
+    ]), ['E3: dialog_advanced']);
 });
 
 test('rollout resize preserves lowercase policy tensors and learning metrics', () => {
@@ -103,4 +111,32 @@ test('policy snapshots round-trip after strict validation', () => {
     invalid.weights.w1[0] = Number.NaN;
     assert.throws(() => restoreReinforceSnapshot(target, invalid), /Invalid policy tensor/);
     assert.deepEqual([...target.policy.w1], [1, 2]);
+});
+
+test('policy snapshot migration preserves old input rows and zeros appended features', () => {
+    const source = {
+        stateSize: 2,
+        numActions: 2,
+        policy: {
+            hiddenSize: 1,
+            w1: new Float32Array([1, 2]), b1: new Float32Array([3]),
+            w2: new Float32Array([4, 5]), b2: new Float32Array([6, 7]),
+        },
+        trainSteps: 11,
+        lastAvgRawReturn: 2,
+        lastEntropy: 0.4,
+    };
+    const target = {
+        stateSize: 4,
+        numActions: 2,
+        policy: {
+            hiddenSize: 1,
+            w1: new Float32Array([9, 9, 9, 9]), b1: new Float32Array(1),
+            w2: new Float32Array(2), b2: new Float32Array(2),
+        },
+    };
+
+    assert.equal(restoreReinforceSnapshot(target, createReinforceSnapshot(source)), true);
+    assert.deepEqual([...target.policy.w1], [1, 2, 0, 0]);
+    assert.equal(target.trainSteps, 11);
 });
