@@ -48,6 +48,18 @@ test('durable Red++ progress is strictly lexicographic', () => {
     assert.ok(progressScore(champion) > progressScore(allBadges));
 });
 
+test('leaving Oaks Lab for Pallet is durable curriculum progress', () => {
+    const oakRival = {
+        location: 'OAKS LAB',
+        progressFlags: { battledRivalInOaksLab: true },
+        party: [{ speciesId: 1, level: 6 }],
+    };
+    const palletAfterRival = { ...oakRival, location: 'PALLET TOWN' };
+
+    assert.ok(compareProgressStates(palletAfterRival, oakRival) > 0);
+    assert.ok(progressScore(palletAfterRival) > progressScore(oakRival));
+});
+
 test('checkpoint choice ignores reward and breaks equal-progress ties by speed', () => {
     const current = { workerId: 0, steps: 500, reward: 999, state: { party: [] } };
     const starterSlow = { workerId: 1, steps: 400, reward: -5, state: { party: [{ level: 5 }] } };
