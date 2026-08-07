@@ -247,6 +247,22 @@ test('memory reader uses Red++ v3.0.2 WRAM bank 1 symbols', () => {
     assert.deepEqual(reader.getCoordinates(), { x: 7, y: 11 });
 });
 
+test('zero-initialized Red++ startup memory is not Pallet Town', () => {
+    const wram = new Uint8Array(0x8000);
+    const reader = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: () => 0,
+    });
+
+    assert.equal(reader.getLocation(), 'NO ACTIVE MAP');
+
+    wram[ADDRESSES.MAP_HEIGHT - 0xC000] = 9;
+    wram[ADDRESSES.MAP_WIDTH - 0xC000] = 10;
+    wram[ADDRESSES.MAP_DATA_PTR - 0xC000] = 0xC2;
+    wram[ADDRESSES.MAP_DATA_PTR - 0xC000 + 1] = 0x80;
+    assert.equal(reader.getLocation(), 'PALLET TOWN');
+});
+
 test('memory reader exposes Red++ battle structs and type effectiveness', () => {
     const wram = new Uint8Array(0x8000);
     const write = (address, ...values) => values.forEach((value, index) => {

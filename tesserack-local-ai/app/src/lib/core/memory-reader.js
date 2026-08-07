@@ -23,6 +23,9 @@ export const ADDRESSES = {
 
     // Location
     MAP_ID: 0xD35E,
+    MAP_HEIGHT: 0xD368,
+    MAP_WIDTH: 0xD369,
+    MAP_DATA_PTR: 0xD36A,
     PLAYER_X: 0xD362,
     PLAYER_Y: 0xD361,
 
@@ -681,6 +684,16 @@ export class MemoryReader {
      * @returns {string}
      */
     getLocation() {
+        // wCurMap is zero-initialized, which is also PALLET_TOWN. Before the
+        // overworld loader has populated its dimensions and data pointer (for
+        // example on Red++'s warning/title screens), treating that zero as a
+        // real map creates a fake Pallet checkpoint.
+        const mapHeight = this.readByte(ADDRESSES.MAP_HEIGHT);
+        const mapWidth = this.readByte(ADDRESSES.MAP_WIDTH);
+        const mapDataPointer = this.readWordBE(ADDRESSES.MAP_DATA_PTR);
+        if (mapHeight === 0 || mapWidth === 0 || mapDataPointer === 0) {
+            return 'NO ACTIVE MAP';
+        }
         const mapId = this.readByte(ADDRESSES.MAP_ID);
         return MAP_NAMES[mapId] || `UNKNOWN (${mapId})`;
     }
