@@ -26,6 +26,7 @@ export function adaptiveEntropyCoefficient({
     baseCoefficient = 0.01,
     maxCoefficient = baseCoefficient,
     targetRatio = 0,
+    responseGain = 0,
 }) {
     const actions = Math.max(2, Math.trunc(Number(numActions) || 0));
     const base = Math.max(0, Number(baseCoefficient) || 0);
@@ -36,7 +37,14 @@ export function adaptiveEntropyCoefficient({
     const targetEntropy = ratio * Math.log(actions);
     const observedEntropy = Math.max(0, Number(entropy) || 0);
     const deficit = Math.max(0, Math.min(1, (targetEntropy - observedEntropy) / targetEntropy));
-    return base + (maximum - base) * deficit;
+    const gain = Math.max(0, Number(responseGain) || 0);
+    // A normalized exponential response is monotonic, smooth at the target,
+    // bounded at `maximum`, and reacts earlier than a linear controller when
+    // action support begins to collapse. gain=0 preserves legacy behaviour.
+    const pressure = gain > 0
+        ? (1 - Math.exp(-gain * deficit)) / (1 - Math.exp(-gain))
+        : deficit;
+    return base + (maximum - base) * pressure;
 }
 
 export class ReinforceCore {
@@ -62,6 +70,7 @@ export class ReinforceCore {
         this.entropyCoefficient = config.entropyCoefficient ?? 0.01;
         this.entropyTargetRatio = config.entropyTargetRatio ?? 0;
         this.maxEntropyCoefficient = config.maxEntropyCoefficient ?? this.entropyCoefficient;
+        this.entropyResponseGain = config.entropyResponseGain ?? 0;
         this.rng = config.rng ?? Math.random;
 
         // Policy network
@@ -207,6 +216,7 @@ export class ReinforceCore {
             baseCoefficient: this.entropyCoefficient,
             maxCoefficient: this.maxEntropyCoefficient,
             targetRatio: this.entropyTargetRatio,
+            responseGain: this.entropyResponseGain,
         });
         this.lastEntropyCoefficient = effectiveEntropyCoefficient;
         let entropySum = 0;

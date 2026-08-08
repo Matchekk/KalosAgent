@@ -26,6 +26,25 @@ test('adaptive entropy pressure is bounded and activates only below target', () 
     }), 0.01, 'generic REINFORCE consumers remain fixed-coefficient by default');
 });
 
+test('Red++ entropy controller responds early to a directional-policy collapse', () => {
+    const config = {
+        numActions: 7,
+        baseCoefficient: 0.01,
+        maxCoefficient: 0.15,
+        targetRatio: 0.75,
+        responseGain: 4,
+    };
+    const targetEntropy = config.targetRatio * Math.log(config.numActions);
+    const atTarget = adaptiveEntropyCoefficient({ ...config, entropy: targetEntropy });
+    const observedHardstuck = adaptiveEntropyCoefficient({ ...config, entropy: 1.322 });
+    const fullyCollapsed = adaptiveEntropyCoefficient({ ...config, entropy: 0 });
+
+    assert.ok(Math.abs(atTarget - config.baseCoefficient) < 1e-12);
+    assert.ok(observedHardstuck > 0.05 && observedHardstuck < 0.07,
+        `hardstuck coefficient was ${observedHardstuck}`);
+    assert.ok(Math.abs(fullyCollapsed - config.maxCoefficient) < 1e-12);
+});
+
 test('REINFORCE analytical gradient matches Float32 finite differences', () => {
     const result = runGradientCheck();
     assert.equal(result.success, true, `max relative error: ${result.maxRelError}`);

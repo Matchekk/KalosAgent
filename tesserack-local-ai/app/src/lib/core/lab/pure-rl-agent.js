@@ -217,6 +217,7 @@ export class PureRLAgent {
             entropyCoefficient: agentConfig.entropyCoefficient ?? 0.01,
             entropyTargetRatio: agentConfig.entropyTargetRatio ?? 0.75,
             maxEntropyCoefficient: agentConfig.maxEntropyCoefficient ?? 0.15,
+            entropyResponseGain: agentConfig.entropyResponseGain ?? 4,
             ...agentConfig
         };
 
@@ -237,6 +238,7 @@ export class PureRLAgent {
             entropyCoefficient: this.config.entropyCoefficient,
             entropyTargetRatio: this.config.entropyTargetRatio,
             maxEntropyCoefficient: this.config.maxEntropyCoefficient,
+            entropyResponseGain: this.config.entropyResponseGain,
         });
 
         // Create runner (canonical loop)
@@ -507,6 +509,7 @@ export class PureRLAgent {
             entropyCoefficient: this.config.entropyCoefficient,
             entropyTargetRatio: this.config.entropyTargetRatio,
             maxEntropyCoefficient: this.config.maxEntropyCoefficient,
+            entropyResponseGain: this.config.entropyResponseGain,
         });
         this.runner = new RLRunner(this.core, this.env);
     }
@@ -703,6 +706,7 @@ export class PureRLAgent {
                 entropyCoefficient: this.config.entropyCoefficient,
                 entropyTargetRatio: this.config.entropyTargetRatio,
                 maxEntropyCoefficient: this.config.maxEntropyCoefficient,
+                entropyResponseGain: this.config.entropyResponseGain,
             });
 
             copyReinforceState(oldCore, this.core);
