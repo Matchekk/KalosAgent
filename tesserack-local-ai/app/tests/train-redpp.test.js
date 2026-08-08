@@ -140,6 +140,29 @@ test('ineffective overworld face buttons cannot become a safe local optimum', ()
     assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), false);
 });
 
+test('alternating face-button no-ops and blocked movement cannot evade stuck pressure', () => {
+    const rewards = new UnitTestRewards();
+    const unchanged = state({ coordinates: { x: 8, y: 17 } });
+    let result;
+
+    for (let step = 0; step < REDPP_REWARD_MATRIX.overworld.stuckStart; step++) {
+        result = rewards.evaluate(unchanged, unchanged, step % 2 === 0 ? 'b' : 'down');
+    }
+
+    const stuck = result.firedTests.find(event => event.id === 'stuck');
+    assert.ok(stuck, 'mixed stationary actions must reach the stuck threshold');
+    assert.equal(stuck.count, REDPP_REWARD_MATRIX.overworld.stuckStart);
+    assert.equal(rewards.getStats().stuckCounter, REDPP_REWARD_MATRIX.overworld.stuckStart);
+
+    const moved = rewards.evaluate(
+        unchanged,
+        state({ coordinates: { x: 8, y: 16 } }),
+        'up',
+    );
+    assert.equal(moved.firedTests.some(event => event.id === 'stuck'), false);
+    assert.equal(rewards.getStats().stuckCounter, 0);
+});
+
 test('reward learning memory survives scheduled WASM environment rotation', () => {
     const beforeRotation = new UnitTestRewards();
     const a = state({ coordinates: { x: 5, y: 6 } });

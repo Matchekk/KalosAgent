@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.3.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.3.1';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,

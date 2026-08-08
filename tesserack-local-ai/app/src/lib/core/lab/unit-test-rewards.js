@@ -215,12 +215,8 @@ export class UnitTestRewards {
             this._rememberPosition(currKey);
             this.stuckCounter = 0;
         } else if (DIRECTIONS.has(action) && !locationChanged && !dialogChanged) {
-            this.stuckCounter++;
             add('blocked_movement', matrix.blockedMovement, 'penalty', { context: REWARD_CONTEXT.OVERWORLD });
-            if (this.stuckCounter >= matrix.stuckStart) {
-                const stuck = Math.max(matrix.stuckCap, matrix.stuckSlope * (this.stuckCounter - matrix.stuckStart + 1));
-                add('stuck', stuck, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, count: this.stuckCounter });
-            }
+            this._advanceStationaryPressure(add, matrix);
         } else if ((action === 'a' || action === 'b') && !locationChanged && !dialogChanged) {
             // Without this signal, a no-op face button pays only decisionCost
             // and can dominate exploration once revisits become expensive.
@@ -228,7 +224,11 @@ export class UnitTestRewards {
                 context: REWARD_CONTEXT.OVERWORLD,
                 action,
             });
-            this.stuckCounter = 0;
+            // Face-button no-ops are part of the same stationary trajectory as
+            // blocked directions. Resetting here let a policy alternate B with
+            // a wall press forever without ever reaching the escalating stuck
+            // penalty.
+            this._advanceStationaryPressure(add, matrix);
         } else if (action !== 'start') {
             this.stuckCounter = 0;
         }
@@ -468,6 +468,20 @@ export class UnitTestRewards {
 
     _resetSpatialPenaltyState() {
         this.stuckCounter = 0;
+    }
+
+    _advanceStationaryPressure(add, matrix) {
+        this.stuckCounter++;
+        if (this.stuckCounter < matrix.stuckStart) return;
+
+        const stuck = Math.max(
+            matrix.stuckCap,
+            matrix.stuckSlope * (this.stuckCounter - matrix.stuckStart + 1),
+        );
+        add('stuck', stuck, 'penalty', {
+            context: REWARD_CONTEXT.OVERWORLD,
+            count: this.stuckCounter,
+        });
     }
 
     _allFainted(state) {
