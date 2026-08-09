@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 globalThis.requestAnimationFrame = callback => callback();
 
 const { runGradientCheck, runSixActionBanditTest } = await import('../src/lib/core/lab/bandit-test.js');
-const { adaptiveEntropyCoefficient } = await import('../src/lib/core/lab/reinforce-core.js');
+const { adaptiveEntropyCoefficient, adaptiveCoverageCoefficient } = await import('../src/lib/core/lab/reinforce-core.js');
+const { SimplePolicy } = await import('../src/lib/core/lab/simple-policy.js');
 
 test('adaptive entropy pressure is bounded and activates only below target', () => {
     const config = {
@@ -43,6 +44,41 @@ test('Red++ entropy controller responds early to a directional-policy collapse',
     assert.ok(observedHardstuck > 0.05 && observedHardstuck < 0.07,
         `hardstuck coefficient was ${observedHardstuck}`);
     assert.ok(Math.abs(fullyCollapsed - config.maxCoefficient) < 1e-12);
+});
+
+test('Red++ action coverage reacts to a starved action without affecting healthy policies', () => {
+    const config = { coefficient: 0.05, minimumProbability: 0.05 };
+    assert.equal(adaptiveCoverageCoefficient({
+        ...config,
+        probabilities: [0.14, 0.15, 0.13, 0.16, 0.14, 0.13, 0.15],
+    }), 0);
+
+    const observed = adaptiveCoverageCoefficient({
+        ...config,
+        probabilities: [0.32, 0.25, 0.18, 0.12, 0.08, 0.04, 0.01],
+    });
+    assert.ok(Math.abs(observed - 0.04) < 1e-12, `coverage coefficient was ${observed}`);
+    assert.equal(adaptiveCoverageCoefficient({
+        ...config,
+        probabilities: [0.4, 0.3, 0.2, 0.09, 0.01, 0, 0],
+    }), 0.05);
+});
+
+test('reverse-KL coverage gives an almost-dead action a non-vanishing logit gradient', () => {
+    const policy = new SimplePolicy(1, 1, 3, () => 0.5);
+    const accumulator = policy.createAccumulator();
+    const state = new Float32Array([0]);
+    const cache = {
+        hiddenPreRelu: new Float32Array([0]),
+        hidden: new Float32Array([0]),
+        probs: new Float32Array([0.8, 0.199999, 0.000001]),
+    };
+    policy.computeGradientsInto(accumulator, state, 0, 0, cache, 0, 0.05);
+
+    assert.ok(accumulator.gb2[2] > 0.016, `starved-action gradient was ${accumulator.gb2[2]}`);
+    assert.ok(accumulator.gb2[0] < 0, 'dominant action must give probability back');
+    const gradientSum = accumulator.gb2[0] + accumulator.gb2[1] + accumulator.gb2[2];
+    assert.ok(Math.abs(gradientSum) < 1e-7, `coverage gradient sum was ${gradientSum}`);
 });
 
 test('REINFORCE analytical gradient matches Float32 finite differences', () => {

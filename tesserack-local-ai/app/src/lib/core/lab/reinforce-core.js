@@ -47,6 +47,28 @@ export function adaptiveEntropyCoefficient({
     return base + (maximum - base) * pressure;
 }
 
+/**
+ * Activate a bounded reverse-KL coverage term only while at least one action
+ * falls below the configured probability floor. The response reaches the
+ * configured coefficient smoothly as the least likely action approaches zero.
+ */
+export function adaptiveCoverageCoefficient({
+    probabilities,
+    coefficient = 0,
+    minimumProbability = 0,
+}) {
+    const maximum = Math.max(0, Number(coefficient) || 0);
+    const floor = Math.max(0, Math.min(1, Number(minimumProbability) || 0));
+    if (maximum === 0 || floor === 0 || !probabilities?.length) return 0;
+
+    let minimum = 1;
+    for (let i = 0; i < probabilities.length; i++) {
+        minimum = Math.min(minimum, Math.max(0, Number(probabilities[i]) || 0));
+    }
+    const deficit = Math.max(0, Math.min(1, (floor - minimum) / floor));
+    return maximum * deficit;
+}
+
 export class ReinforceCore {
     /**
      * @param {Object} config
@@ -71,6 +93,8 @@ export class ReinforceCore {
         this.entropyTargetRatio = config.entropyTargetRatio ?? 0;
         this.maxEntropyCoefficient = config.maxEntropyCoefficient ?? this.entropyCoefficient;
         this.entropyResponseGain = config.entropyResponseGain ?? 0;
+        this.actionCoverageCoefficient = config.actionCoverageCoefficient ?? 0;
+        this.minimumActionProbability = config.minimumActionProbability ?? 0;
         this.rng = config.rng ?? Math.random;
 
         // Policy network
@@ -239,8 +263,19 @@ export class ReinforceCore {
             }
 
             // Accumulate gradients
+            const effectiveCoverageCoefficient = adaptiveCoverageCoefficient({
+                probabilities: cache.probs,
+                coefficient: this.actionCoverageCoefficient,
+                minimumProbability: this.minimumActionProbability,
+            });
             this.policy.computeGradientsInto(
-                this.gradAcc, stateVec, actionIdx, advantage, cache, effectiveEntropyCoefficient,
+                this.gradAcc,
+                stateVec,
+                actionIdx,
+                advantage,
+                cache,
+                effectiveEntropyCoefficient,
+                effectiveCoverageCoefficient,
             );
         }
 

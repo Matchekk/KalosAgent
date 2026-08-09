@@ -218,6 +218,8 @@ export class PureRLAgent {
             entropyTargetRatio: agentConfig.entropyTargetRatio ?? 0.75,
             maxEntropyCoefficient: agentConfig.maxEntropyCoefficient ?? 0.15,
             entropyResponseGain: agentConfig.entropyResponseGain ?? 4,
+            actionCoverageCoefficient: agentConfig.actionCoverageCoefficient ?? 0.05,
+            minimumActionProbability: agentConfig.minimumActionProbability ?? 0.05,
             ...agentConfig
         };
 
@@ -239,6 +241,8 @@ export class PureRLAgent {
             entropyTargetRatio: this.config.entropyTargetRatio,
             maxEntropyCoefficient: this.config.maxEntropyCoefficient,
             entropyResponseGain: this.config.entropyResponseGain,
+            actionCoverageCoefficient: this.config.actionCoverageCoefficient,
+            minimumActionProbability: this.config.minimumActionProbability,
         });
 
         // Create runner (canonical loop)
@@ -510,6 +514,8 @@ export class PureRLAgent {
             entropyTargetRatio: this.config.entropyTargetRatio,
             maxEntropyCoefficient: this.config.maxEntropyCoefficient,
             entropyResponseGain: this.config.entropyResponseGain,
+            actionCoverageCoefficient: this.config.actionCoverageCoefficient,
+            minimumActionProbability: this.config.minimumActionProbability,
         });
         this.runner = new RLRunner(this.core, this.env);
     }
@@ -707,6 +713,8 @@ export class PureRLAgent {
                 entropyTargetRatio: this.config.entropyTargetRatio,
                 maxEntropyCoefficient: this.config.maxEntropyCoefficient,
                 entropyResponseGain: this.config.entropyResponseGain,
+                actionCoverageCoefficient: this.config.actionCoverageCoefficient,
+                minimumActionProbability: this.config.minimumActionProbability,
             });
 
             copyReinforceState(oldCore, this.core);

@@ -114,7 +114,15 @@ export class SimplePolicy {
      * @param {number} advantage - Advantage value (normalized return)
      * @param {Object} cache - Forward pass cache { hiddenPreRelu, hidden, probs }
      */
-    computeGradientsInto(acc, stateVec, actionIdx, advantage, cache, entropyCoefficient = 0) {
+    computeGradientsInto(
+        acc,
+        stateVec,
+        actionIdx,
+        advantage,
+        cache,
+        entropyCoefficient = 0,
+        coverageCoefficient = 0,
+    ) {
         const { hiddenPreRelu, hidden, probs } = cache;
         const dLogits = this._dLogits;
         const dHidden = this._dHidden;
@@ -133,7 +141,13 @@ export class SimplePolicy {
             const entropySignal = entropyCoefficient > 0
                 ? -entropyCoefficient * probs[j] * (Math.log(probs[j] + 1e-8) + entropy)
                 : 0;
-            dLogits[j] = policySignal + entropySignal;
+            // Maximise mean(log pi(a)) under a uniform reference distribution.
+            // This is -KL(U || pi), whose logit gradient is U - pi. Unlike
+            // Shannon entropy, it does not vanish for an almost-dead action.
+            const coverageSignal = coverageCoefficient > 0
+                ? coverageCoefficient * ((1 / this.outputSize) - probs[j])
+                : 0;
+            dLogits[j] = policySignal + entropySignal + coverageSignal;
         }
 
         // Gradient for W2: dL/dW2[i,j] = hidden[i] * dLogits[j] * advantage
