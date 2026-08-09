@@ -3,9 +3,11 @@ import test from 'node:test';
 
 import {
     captureRewardLearningStates,
+    captureTrainingProgress,
     DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES,
     isFatalEmulatorError,
     restoreRewardLearningStates,
+    restoreTrainingProgress,
     shouldRecycleEnvironments,
 } from '../src/lib/core/lab/training-recovery.js';
 
@@ -37,4 +39,38 @@ test('WASM rotation transfers each environment reward memory before training res
         workerId,
         snapshot: { version: 1, workerId },
     })));
+});
+
+test('WASM rotation preserves monotonic checkpoints and confirmed wins', () => {
+    const before = {
+        checkpointCount: 5,
+        visibleWorker: 0,
+        agents: [
+            { checkpointCount: 5, confirmedWins: 2 },
+            { checkpointCount: 1, confirmedWins: 3 },
+            { checkpointCount: 1, confirmedWins: 0 },
+            { checkpointCount: 1, confirmedWins: 1 },
+        ],
+    };
+    const snapshot = captureTrainingProgress(before);
+    assert.deepEqual(snapshot, { version: 1, checkpointCount: 5, confirmedWins: 6 });
+
+    const after = {
+        checkpointCount: 1,
+        visibleWorker: 0,
+        agents: [
+            { checkpointCount: 1, confirmedWins: 0 },
+            { checkpointCount: 1, confirmedWins: 0 },
+            { checkpointCount: 1, confirmedWins: 0 },
+            { checkpointCount: 1, confirmedWins: 0 },
+        ],
+    };
+    assert.equal(restoreTrainingProgress(after, snapshot), true);
+    assert.equal(after.checkpointCount, 5);
+    assert.equal(after.agents[0].checkpointCount, 5);
+    assert.equal(after.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0), 6);
+
+    restoreTrainingProgress(after, snapshot);
+    assert.equal(after.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0), 6,
+        'retrying recovery must not duplicate wins');
 });

@@ -32,3 +32,47 @@ export function restoreRewardLearningStates(agents = [], snapshots = []) {
     }
     return restored;
 }
+
+/** Preserve monotonic run telemetry while scheduled WASM instances rotate. */
+export function captureTrainingProgress(coordinator) {
+    const agents = Array.isArray(coordinator?.agents) ? coordinator.agents : [];
+    return {
+        version: 1,
+        checkpointCount: Math.max(1, finiteCounter(coordinator?.checkpointCount)),
+        confirmedWins: agents.reduce((sum, agent) => sum + finiteCounter(agent?.confirmedWins), 0),
+    };
+}
+
+/**
+ * Restore counters onto a freshly-created coordinator without duplicating
+ * them when recovery is retried. The visible agent owns the retained aggregate
+ * so the coordinator's existing sum-based telemetry remains unchanged.
+ */
+export function restoreTrainingProgress(coordinator, snapshot) {
+    if (!coordinator || snapshot?.version !== 1) return false;
+    const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
+    const visibleWorker = Math.max(0, Math.min(agents.length - 1,
+        finiteCounter(coordinator.visibleWorker)));
+    const checkpointCount = Math.max(1, finiteCounter(snapshot.checkpointCount));
+    const confirmedWins = finiteCounter(snapshot.confirmedWins);
+
+    coordinator.checkpointCount = Math.max(
+        finiteCounter(coordinator.checkpointCount),
+        checkpointCount,
+    );
+    if (agents.length > 0) {
+        const currentWins = agents.reduce((sum, agent) => sum + finiteCounter(agent?.confirmedWins), 0);
+        agents[visibleWorker].confirmedWins = finiteCounter(agents[visibleWorker].confirmedWins)
+            + Math.max(0, confirmedWins - currentWins);
+        agents[visibleWorker].checkpointCount = Math.max(
+            finiteCounter(agents[visibleWorker].checkpointCount),
+            coordinator.checkpointCount,
+        );
+    }
+    return true;
+}
+
+function finiteCounter(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.trunc(number) : 0;
+}

@@ -32,8 +32,10 @@ import { assetUrl } from '$lib/core/asset-url.js';
 import { formatPositiveRewardEvents } from './training-utils.js';
 import {
     captureRewardLearningStates,
+    captureTrainingProgress,
     isFatalEmulatorError,
     restoreRewardLearningStates,
+    restoreTrainingProgress,
     shouldRecycleEnvironments,
 } from './training-recovery.js';
 import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
@@ -642,6 +644,7 @@ async function recoverParallelTraining(reason) {
     const speed = labSpeed;
     const retainedSamples = Math.max(parallelSampleCount, parallelTrainer?.totalSamples ?? 0);
     const retainedRewardStates = captureRewardLearningStates(parallelTrainer?.agents || []);
+    const retainedProgress = captureTrainingProgress(parallelTrainer);
     labRunStatus.set({ running: false, recovering: true, error: null });
     feedSystem(`Parallel Train recovering from ${reason}; policy, checkpoint and reward memory are retained.`);
 
@@ -674,6 +677,7 @@ async function recoverParallelTraining(reason) {
 
         const trainer = await ensureParallelTrainer();
         restoreRewardLearningStates(trainer.agents, retainedRewardStates);
+        restoreTrainingProgress(trainer, retainedProgress);
         trainer.start();
         labRunStatus.set({ running: true, recovering: false, error: null });
         feedSystem(`Parallel Train resumed automatically at sample ${trainer.totalSamples.toLocaleString()}.`);
