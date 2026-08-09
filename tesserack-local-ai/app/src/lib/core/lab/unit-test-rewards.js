@@ -519,6 +519,23 @@ export class UnitTestRewards {
         return value;
     }
 
+    /**
+     * Reset trajectory-local shaping when the emulator starts a new episode.
+     *
+     * Durable anti-farming state (dialog/save credits, milestones, team bests
+     * and cumulative telemetry) intentionally survives. Position visit counts
+     * do not: carrying them across a checkpoint reload eventually labels every
+     * reachable tile as a capped revisit and removes the exploration signal
+     * from all later episodes.
+     */
+    resetEpisodeState() {
+        this.positionVisits.clear();
+        this.recentPositions = [];
+        this.stuckCounter = 0;
+        this.menuSteps = 0;
+        this.firedTests = [];
+    }
+
     reset() {
         this.positionVisits.clear();
         this.visitedPositions.clear();

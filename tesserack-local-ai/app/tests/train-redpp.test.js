@@ -185,6 +185,53 @@ test('reward learning memory survives scheduled WASM environment rotation', () =
     assert.ok(continuedCredit < firstCredit, 'dialog credit must not reset during WASM rotation');
 });
 
+test('episode reset renews exploration without erasing durable anti-farming memory', () => {
+    const rewards = new UnitTestRewards();
+    const a = state({ coordinates: { x: 5, y: 6 } });
+    const b = state({ coordinates: { x: 6, y: 6 } });
+    const firstVisit = rewards.evaluate(a, b, 'right');
+    assert.ok(firstVisit.firedTests.some(event => event.id === 'novel_tile'));
+
+    const dialogA = state({ coordinates: { x: 6, y: 6 }, dialog: 'HELLO' });
+    const dialogB = state({ coordinates: { x: 6, y: 6 }, dialog: 'WORLD' });
+    const firstDialog = rewards.evaluate(dialogA, dialogB, 'a');
+    const firstCredit = firstDialog.firedTests.find(event => event.id === 'dialog_advanced').reward;
+    const totalBeforeReset = rewards.getStats().totalRewards.total;
+
+    rewards.resetEpisodeState();
+    const renewedVisit = rewards.evaluate(a, b, 'right');
+    assert.ok(renewedVisit.firedTests.some(event => event.id === 'novel_tile'),
+        'checkpoint reload must start a fresh episodic exploration map');
+    assert.ok(rewards.getStats().totalRewards.total > totalBeforeReset,
+        'cumulative training telemetry must survive episode reset');
+
+    const continuedDialog = rewards.evaluate(dialogB, { ...dialogB, dialog: 'NEXT' }, 'a');
+    const continuedCredit = continuedDialog.firedTests.find(event => event.id === 'dialog_advanced').reward;
+    assert.ok(continuedCredit < firstCredit, 'durable dialog anti-farming credit must survive episode reset');
+});
+
+test('PureRLAgent clears trajectory-local rewards whenever an episode reloads', async () => {
+    const saved = new Uint8Array([1, 2, 3, 4]);
+    const emulator = {
+        saveState: () => saved.slice(),
+        loadState: () => {},
+        runFrame: () => {},
+        pressButton: () => {},
+    };
+    const agent = new PureRLAgent(emulator, { getGameState: () => state() });
+    agent.ensureCheckpoint();
+    agent.rewards.evaluate(
+        state({ coordinates: { x: 5, y: 6 } }),
+        state({ coordinates: { x: 6, y: 6 } }),
+        'right',
+    );
+    assert.equal(agent.rewards.positionVisits.size > 0, true);
+
+    await agent._resetEnv();
+    assert.equal(agent.rewards.positionVisits.size, 0);
+    assert.equal(agent.rewards.recentPositions.length, 0);
+});
+
 test('optional menu idling and rapid reopening escalate without locking strategic actions', () => {
     const rewards = new UnitTestRewards();
     const party = [

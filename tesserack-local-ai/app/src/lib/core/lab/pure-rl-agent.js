@@ -384,6 +384,7 @@ export class PureRLAgent {
         const rehearseFromStart = this.config.resetFromInitial
             || (rehearseEvery > 0 && this.episode % rehearseEvery === 0);
         const state = rehearseFromStart ? this.initialState : this.checkpointState;
+        this.rewards.resetEpisodeState();
         if (state) {
             this.emu.loadState(state);
             // Settle frames after state load
