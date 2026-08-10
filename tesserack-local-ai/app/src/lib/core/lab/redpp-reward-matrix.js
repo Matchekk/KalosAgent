@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.6.
+ * Red++ reward matrix, version 3.7.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.6.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.7.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,

@@ -66,6 +66,14 @@ const starvedActionPressure = adaptiveCoverageCoefficient({
     minimumProbability: agent.config.minimumActionProbability,
 });
 
+const preStarterMenuRewards = new UnitTestRewards();
+const preStarterClosed = state('PLAYERS HOUSE 2F');
+const preStarterOpen = {
+    ...preStarterClosed,
+    menu: { open: true, currentItem: 0, listScrollOffset: 0, screenHash: 77 },
+};
+const preStarterMenuOpened = preStarterMenuRewards.evaluate(preStarterClosed, preStarterOpen, 'start');
+
 const checks = [
     ['episode-baseline-is-not-retroactively-rewarded', !event(baseline, 'episode_progress') && !event(resetBaseline, 'episode_progress')],
     ['new-ram-milestone-earns-episodic-progress', (event(firstProgress, 'episode_progress')?.reward || 0) >= 0.4],
@@ -74,6 +82,8 @@ const checks = [
     ['checkpoint-start-is-baselined-before-forward-progress', !event(checkpointBaseline, 'episode_progress') && (event(checkpointAdvance, 'episode_progress')?.reward || 0) >= 0.4],
     ['known-route-state-retains-bounded-episodic-novelty', familiarEpisodeBonus >= 0.0025 && familiarEpisodeBonus <= 0.01],
     ['collapsed-policy-gets-targeted-recovery-pressure', hardstuckEntropyPressure >= 0.025 && starvedActionPressure > 0],
+    ['pre-starter-start-menu-is-not-a-zero-cost-trap', preStarterMenuOpened.total < 0
+        && Boolean(event(preStarterMenuOpened, 'menu_decision_cost'))],
 ];
 
 for (const [name, pass] of checks) console.log(`${pass ? 'PASS' : 'FAIL'} ${name}`);

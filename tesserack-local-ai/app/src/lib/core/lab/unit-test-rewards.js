@@ -264,7 +264,8 @@ export class UnitTestRewards {
         } else if (DIRECTIONS.has(action) && !locationChanged && !dialogChanged) {
             add('blocked_movement', matrix.blockedMovement, 'penalty', { context: REWARD_CONTEXT.OVERWORLD });
             this._advanceStationaryPressure(add, matrix);
-        } else if ((action === 'a' || action === 'b') && !locationChanged && !dialogChanged) {
+        } else if ((action === 'a' || action === 'b' || action === 'start')
+            && !locationChanged && !dialogChanged) {
             // Without this signal, a no-op face button pays only decisionCost
             // and can dominate exploration once revisits become expensive.
             add('overworld_inaction', matrix.inaction, 'penalty', {
@@ -276,7 +277,7 @@ export class UnitTestRewards {
             // a wall press forever without ever reaching the escalating stuck
             // penalty.
             this._advanceStationaryPressure(add, matrix);
-        } else if (action !== 'start') {
+        } else {
             this.stuckCounter = 0;
         }
 
@@ -290,8 +291,11 @@ export class UnitTestRewards {
         const eligible = Math.max(prev?.party?.length || 0, curr?.party?.length || 0) > 0;
 
         // Title/name-selection screens are required progression, not optional
-        // menu browsing. A real party is the robust boundary for Start menus.
-        if (!eligible) {
+        // menu browsing. Once RAM exposes an active map, however, opening the
+        // pre-starter Start menu is optional and must not be a zero-cost local
+        // optimum. This was the observed E4 hardstuck after 91 fresh starts.
+        const activePreStarterMenu = !eligible && (isActiveGameMap(prev) || isActiveGameMap(curr));
+        if (!eligible && !activePreStarterMenu) {
             this.menuSteps = 0;
             return;
         }

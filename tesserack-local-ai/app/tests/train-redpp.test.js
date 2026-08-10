@@ -158,7 +158,35 @@ test('ineffective overworld face buttons cannot become a safe local optimum', ()
         < Math.abs(REDPP_REWARD_MATRIX.overworld.twoCycle));
 
     const start = rewards.evaluate(unchanged, unchanged, 'start');
-    assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), false);
+    assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), true);
+});
+
+test('pre-starter Start menus cannot become a zero-cost local optimum', () => {
+    const rewards = new UnitTestRewards();
+    const closed = state({ party: [] });
+    const open = state({
+        party: [],
+        menu: { open: true, currentItem: 0, listScrollOffset: 0, screenHash: 77 },
+    });
+
+    const opened = rewards.evaluate(closed, open, 'start');
+    assert.ok(opened.firedTests.some(event => event.id === 'menu_decision_cost'));
+    assert.ok(opened.total < 0);
+
+    let idle;
+    for (let step = 0; step < REDPP_REWARD_MATRIX.menu.graceSteps; step++) {
+        idle = rewards.evaluate(open, open, 'start');
+    }
+    assert.ok(idle.firedTests.some(event => event.id === 'menu_idle'));
+
+    const inactive = state({
+        location: 'NO ACTIVE MAP',
+        coordinates: { x: 0, y: 0 },
+        party: [],
+        menu: { open: true, currentItem: 0, listScrollOffset: 0, screenHash: 77 },
+    });
+    const boot = new UnitTestRewards().evaluate(inactive, inactive, 'start');
+    assert.equal(boot.total, 0, 'required title/name boot controls remain unpenalized');
 });
 
 test('alternating face-button no-ops and blocked movement cannot evade stuck pressure', () => {
