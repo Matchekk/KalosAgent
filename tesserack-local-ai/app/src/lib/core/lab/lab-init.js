@@ -38,7 +38,13 @@ import {
     restoreTrainingProgress,
     shouldRecycleEnvironments,
 } from './training-recovery.js';
-import { clearPureRLPolicy, getPureRLPolicy, setPureRLPolicy } from '../persistence.js';
+import {
+    clearPureRLPolicy,
+    getPureRLAutonomy,
+    getPureRLPolicy,
+    setPureRLAutonomy,
+    setPureRLPolicy,
+} from '../persistence.js';
 
 // Lab mode instances
 let labEmulator = null;
@@ -103,6 +109,7 @@ export const pureRLMetrics = writable({
     checkpointWorker: null,
     archiveSize: 0,
     archiveSelections: 0,
+    autonomy: null,
     workers: [],
     memoryDiagnostics: null,
     // Chart history (rolling window of last 50 rollouts)
@@ -121,7 +128,12 @@ async function persistPureRLPolicy() {
     const snapshot = labPureRLAgent.exportPolicy();
     policyPersistInFlight = true;
     try {
-        if (await setPureRLPolicy(snapshot)) lastPersistedTrainStep = trainStep;
+        if (await setPureRLPolicy(snapshot)) {
+            lastPersistedTrainStep = trainStep;
+            if (parallelTrainer) {
+                await setPureRLAutonomy(parallelTrainer.exportAutonomousProgress());
+            }
+        }
     } finally {
         policyPersistInFlight = false;
     }
@@ -214,6 +226,7 @@ function handlePureRLStep(stepData) {
             checkpointWorker: stepData.checkpointWorker ?? prev.checkpointWorker,
             archiveSize: stepData.archiveSize ?? prev.archiveSize,
             archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
+            autonomy: stepData.autonomy ?? prev.autonomy,
             workers: stepData.workers ?? prev.workers,
             memoryDiagnostics: stepData.memoryDiagnostics ?? prev.memoryDiagnostics,
             // Preserve history
@@ -474,6 +487,8 @@ async function ensureParallelTrainer() {
                     feedSystem(`Global checkpoint: environment ${candidate.workerId + 1} advanced durable Red++ progress.`);
                 },
             });
+            const savedAutonomy = await getPureRLAutonomy();
+            if (savedAutonomy) parallelTrainer.restoreAutonomousProgress(savedAutonomy);
             parallelLifecycleStartSamples = parallelTrainer.totalSamples;
             feedSystem(`Parallel Train ready: ${agents.length} environments share one policy; environment ${parallelPlan.startWorker + 1} rehearses from ROM start.`);
             return parallelTrainer;
@@ -810,6 +825,7 @@ export function resetLab() {
         checkpointWorker: null,
         archiveSize: 0,
         archiveSelections: 0,
+        autonomy: null,
         workers: [],
         history: {
             returns: [],

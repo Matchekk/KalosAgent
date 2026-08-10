@@ -117,6 +117,8 @@ export class UnitTestRewards {
             this._resetSpatialPenaltyState();
         } else if (context === REWARD_CONTEXT.MENU) {
             this._evaluateMenu(prevState, currState, action, add);
+        } else if (context === REWARD_CONTEXT.INACTIVE) {
+            this._resetSpatialPenaltyState();
         } else {
             this._evaluateOverworld(prevState, currState, action, add);
         }
@@ -200,11 +202,24 @@ export class UnitTestRewards {
 
         if (moved && currKey) {
             const visits = this.positionVisits.get(currKey) || 0;
+            const recentVisits = this.recentPositions.reduce(
+                (count, position) => count + (position === currKey ? 1 : 0), 0);
             if (visits === 0) {
                 add('novel_tile', matrix.novelTile, 1, { context: REWARD_CONTEXT.OVERWORLD });
             } else {
                 const revisit = Math.max(matrix.revisitCap, matrix.revisitBase * Math.sqrt(visits));
                 add('revisited_tile', revisit, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, visits });
+            }
+
+            if (recentVisits >= matrix.recentRepeatThreshold) {
+                const excess = recentVisits - matrix.recentRepeatThreshold;
+                const loopPenalty = Math.max(matrix.recentLoopCap,
+                    matrix.recentLoopBase + matrix.recentLoopSlope * excess);
+                add('recent_movement_loop', loopPenalty, 'penalty', {
+                    context: REWARD_CONTEXT.OVERWORLD,
+                    visitsInWindow: recentVisits + 1,
+                    window: matrix.recentWindow,
+                });
             }
 
             const last = this.recentPositions.at(-1);
@@ -463,7 +478,9 @@ export class UnitTestRewards {
         this.positionVisits.set(key, (this.positionVisits.get(key) || 0) + 1);
         this.visitedPositions.add(key);
         this.recentPositions.push(key);
-        if (this.recentPositions.length > 32) this.recentPositions.shift();
+        while (this.recentPositions.length > REDPP_REWARD_MATRIX.overworld.recentWindow) {
+            this.recentPositions.shift();
+        }
     }
 
     _resetSpatialPenaltyState() {

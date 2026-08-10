@@ -5,6 +5,7 @@ const DB_NAME = 'tesserack-db';
 const DB_VERSION = 2;
 // v3 uses the expanded 41-feature state with bounded team-quality signals.
 const PURE_RL_POLICY_KEY = 'tesserack-pure-rl-policy-v3';
+const PURE_RL_AUTONOMY_KEY = 'tesserack-pure-rl-autonomy-v1';
 
 // Store names
 const STORES = {
@@ -498,6 +499,35 @@ export async function clearPureRLPolicy() {
     localStorage.removeItem(PURE_RL_POLICY_KEY);
 }
 
+/** Persist outcome-only clean-start proof independently from policy weights. */
+export async function getPureRLAutonomy() {
+    try {
+        const saved = await getItem(STORES.TRAINING_STATE, PURE_RL_AUTONOMY_KEY);
+        return saved?.value ?? null;
+    } catch (error) {
+        console.warn('[Persistence] Ignoring unreadable autonomy proof:', error);
+        return null;
+    }
+}
+
+export async function setPureRLAutonomy(snapshot) {
+    try {
+        await putItem(STORES.TRAINING_STATE, {
+            id: PURE_RL_AUTONOMY_KEY,
+            savedAt: new Date().toISOString(),
+            value: snapshot,
+        });
+        return true;
+    } catch (error) {
+        console.error('[Persistence] Failed to save autonomy proof:', error);
+        return false;
+    }
+}
+
+export async function clearPureRLAutonomy() {
+    await deleteItem(STORES.TRAINING_STATE, PURE_RL_AUTONOMY_KEY);
+}
+
 const PURE_RL_CHECKPOINT_KEY = 'tesserack-redpp-train-checkpoint-v4';
 
 export async function getPureRLCheckpoint() {
@@ -556,9 +586,10 @@ export async function exportAllData() {
     // Include Lab save states and the learned browser policy
     const labSaveStates = getLabSaveStates();
     const pureRLPolicy = await getPureRLPolicy();
+    const pureRLAutonomy = await getPureRLAutonomy();
 
     return {
-        version: 3,
+        version: 4,
         exportedAt: new Date().toISOString(),
         metadata: loadMetadata(),
         experiences,
@@ -568,6 +599,7 @@ export async function exportAllData() {
         llmTests,
         labSaveStates,
         pureRLPolicy,
+        pureRLAutonomy,
     };
 }
 
@@ -619,6 +651,10 @@ export async function importAllData(data) {
         await setPureRLPolicy(data.pureRLPolicy);
     }
 
+    if (data.pureRLAutonomy) {
+        await setPureRLAutonomy(data.pureRLAutonomy);
+    }
+
     return true;
 }
 
@@ -635,7 +671,7 @@ export async function clearAllData() {
     ]);
     localStorage.removeItem(META_KEY);
     localStorage.removeItem(LAB_STATES_KEY);
-    await Promise.all([clearPureRLPolicy(), clearPureRLCheckpoint()]);
+    await Promise.all([clearPureRLPolicy(), clearPureRLCheckpoint(), clearPureRLAutonomy()]);
     return true;
 }
 

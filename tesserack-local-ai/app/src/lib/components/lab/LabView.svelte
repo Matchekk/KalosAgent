@@ -580,6 +580,52 @@
 
                 <div class="metrics-divider"></div>
 
+                {#if $pureRLMetrics.autonomy}
+                    <div class="autonomy-proof {$pureRLMetrics.autonomy.status}">
+                        <div class="section-header">Autonomous outcome proof</div>
+                        <p class="proof-contract">
+                            E{$pureRLMetrics.autonomy.evaluationWorker + 1}: fresh ROM, no checkpoint restore,
+                            no scripted buttons. A result is verified after
+                            {$pureRLMetrics.autonomy.proofRunsRequired} separate start episodes.
+                        </p>
+                        <div class="metric-row">
+                            <span class="metric-label">Best fresh start</span>
+                            <span class="metric-value mono">{$pureRLMetrics.autonomy.freshBestMilestone}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Verified</span>
+                            <span class="metric-value mono">{$pureRLMetrics.autonomy.verifiedMilestone}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Badge 1 proof</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.autonomy.targetSuccesses}/{$pureRLMetrics.autonomy.attempts} starts
+                                ({($pureRLMetrics.autonomy.targetSuccessRate * 100).toFixed(0)}%)
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Last fresh progress</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.autonomy.samplesSinceFreshProgress.toLocaleString()} samples ago
+                            </span>
+                        </div>
+                        <div class="proof-progress" title="Verified milestone coverage toward Champion">
+                            <div class="proof-progress-fill" style="width: {$pureRLMetrics.autonomy.progressPct}%"></div>
+                        </div>
+                        <div class="proof-verdict">
+                            {#if $pureRLMetrics.autonomy.targetProven}
+                                PROVEN: {$pureRLMetrics.autonomy.targetMilestone} reproduced autonomously
+                            {:else if $pureRLMetrics.autonomy.status === 'stalled'}
+                                STALLED: no RAM-confirmed fresh-start milestone
+                            {:else}
+                                UNPROVEN: training is running, outcome proof is still missing
+                            {/if}
+                        </div>
+                    </div>
+
+                    <div class="metrics-divider"></div>
+                {/if}
+
                 <!-- Train Mode Metrics -->
                 <div class="metrics-section">
                     <div class="metric-row">
@@ -1304,6 +1350,54 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+
+    .autonomy-proof {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid rgba(250, 176, 5, 0.3);
+        border-radius: 7px;
+        background: rgba(250, 176, 5, 0.06);
+    }
+
+    .autonomy-proof.proven {
+        border-color: rgba(0, 184, 148, 0.45);
+        background: rgba(0, 184, 148, 0.08);
+    }
+
+    .autonomy-proof.stalled {
+        border-color: rgba(214, 48, 49, 0.45);
+        background: rgba(214, 48, 49, 0.07);
+    }
+
+    .proof-contract {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 10px;
+        line-height: 1.4;
+    }
+
+    .proof-progress {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: var(--bg-input);
+    }
+
+    .proof-progress-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--accent-primary);
+        transition: width 0.2s ease-out;
+    }
+
+    .proof-verdict {
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
     }
 
     .metrics-divider {

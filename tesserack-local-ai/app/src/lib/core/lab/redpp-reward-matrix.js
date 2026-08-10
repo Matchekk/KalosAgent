@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.3.
+ * Red++ reward matrix, version 3.4.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.3.1';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.4.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
@@ -22,6 +22,9 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
     },
 
     overworld: {
+        // One RL decision advances many emulator frames. Charging per frame
+        // would make 16x change the objective, so efficiency is priced once
+        // per observable decision instead.
         decisionCost: -0.002,
         // A/B that neither moves nor changes any interaction state must not be
         // a safer local optimum than attempting useful navigation.
@@ -30,6 +33,11 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
         revisitBase: -0.015,
         revisitCap: -0.08,
         twoCycle: -0.04,
+        recentWindow: 20,
+        recentRepeatThreshold: 3,
+        recentLoopBase: -0.06,
+        recentLoopSlope: -0.02,
+        recentLoopCap: -0.14,
         blockedMovement: -0.025,
         stuckStart: 12,
         stuckSlope: -0.01,
@@ -87,6 +95,7 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
 });
 
 export const REWARD_CONTEXT = Object.freeze({
+    INACTIVE: 'inactive',
     DIALOG: 'dialog',
     BATTLE: 'battle',
     MENU: 'menu',
@@ -97,6 +106,10 @@ export function classifyRewardContext(prevState, currState) {
     if (prevState?.inBattle || currState?.inBattle) return REWARD_CONTEXT.BATTLE;
     if (dialogText(prevState) || dialogText(currState)) return REWARD_CONTEXT.DIALOG;
     if (prevState?.menu?.open || currState?.menu?.open) return REWARD_CONTEXT.MENU;
+    // Warning/title/loading screens expose zero or stale WRAM. They are
+    // required boot progress, not an overworld on which movement efficiency
+    // or loop penalties are meaningful.
+    if (!activeMap(prevState) || !activeMap(currState)) return REWARD_CONTEXT.INACTIVE;
     return REWARD_CONTEXT.OVERWORLD;
 }
 
@@ -123,6 +136,15 @@ export function clamp(value, min, max) {
 
 function dialogText(state) {
     return String(state?.dialog || '').replace(/\s+/g, ' ').trim();
+}
+
+function activeMap(state) {
+    const location = String(state?.location || '').trim().toUpperCase();
+    return Boolean(location)
+        && location !== 'NO ACTIVE MAP'
+        && !location.startsWith('UNKNOWN (')
+        && Number.isFinite(Number(state?.coordinates?.x))
+        && Number.isFinite(Number(state?.coordinates?.y));
 }
 
 function deepFreeze(value) {

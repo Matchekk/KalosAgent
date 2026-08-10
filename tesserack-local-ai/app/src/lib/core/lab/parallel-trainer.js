@@ -1,4 +1,5 @@
 import { chooseCheckpointCandidate, compareProgressStates, progressScore } from './parallel-training.js';
+import { AutonomousProgressTracker } from './autonomous-progress.js';
 
 /**
  * Coordinates several emulator trajectories around one on-policy learner.
@@ -26,6 +27,8 @@ export class ParallelTrainingCoordinator {
         this.archive = new Map();
         this.archiveLimit = 128;
         this.archiveSelections = 0;
+        this.freshWorker = Math.max(0, agents.findIndex(agent => agent.config?.resetFromInitial));
+        this.autonomousProgress = new AutonomousProgressTracker({ freshWorkerId: this.freshWorker });
 
         const visible = agents[this.visibleWorker];
         this.globalCheckpoint = visible.checkpointState ? {
@@ -108,6 +111,15 @@ export class ParallelTrainingCoordinator {
         for (const agent of this.agents) agent.reset();
         this.totalSamples = 0;
         this.startedAt = nowMs();
+        this.autonomousProgress = new AutonomousProgressTracker({ freshWorkerId: this.freshWorker });
+    }
+
+    exportAutonomousProgress() {
+        return this.autonomousProgress.exportSnapshot();
+    }
+
+    restoreAutonomousProgress(snapshot) {
+        return this.autonomousProgress.restoreSnapshot(snapshot);
     }
 
     _rememberArchive(candidate) {
@@ -179,7 +191,19 @@ export class ParallelTrainingCoordinator {
             }
         }
 
-        const visibleState = visibleAgent.mem.getGameState();
+        const workerStates = this.agents.map(agent => agent.mem.getGameState());
+        for (let workerId = 0; workerId < this.agents.length; workerId++) {
+            const agent = this.agents[workerId];
+            this.autonomousProgress.observe({
+                workerId,
+                state: workerStates[workerId],
+                episode: agent.episode,
+                episodeSteps: agent.episodeSteps,
+                totalSamples: this.totalSamples,
+            });
+        }
+        const autonomy = this.autonomousProgress.summary(this.totalSamples);
+        const visibleState = workerStates[this.visibleWorker];
         return {
             step: this.totalSamples,
             action: visibleResult.actionStr,
@@ -213,6 +237,7 @@ export class ParallelTrainingCoordinator {
             checkpointWorker: this.globalCheckpoint?.workerId ?? null,
             archiveSize: this.archive.size,
             archiveSelections: this.archiveSelections,
+            autonomy,
             currentLocation: rewardStats.currentLocation,
             bundleInfo: rewardStats.bundleInfo,
             totalRewards: rewardStats.totalRewards,
@@ -224,7 +249,7 @@ export class ParallelTrainingCoordinator {
                 episodeSteps: agent.episodeSteps,
                 totalSteps: agent.totalSteps,
                 resetFromInitial: Boolean(agent.config.resetFromInitial),
-                location: agent.mem.getGameState()?.location || 'Unknown',
+                location: workerStates[agent.workerId]?.location || 'Unknown',
             })),
         };
     }

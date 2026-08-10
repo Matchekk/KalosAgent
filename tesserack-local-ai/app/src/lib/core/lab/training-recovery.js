@@ -37,9 +37,10 @@ export function restoreRewardLearningStates(agents = [], snapshots = []) {
 export function captureTrainingProgress(coordinator) {
     const agents = Array.isArray(coordinator?.agents) ? coordinator.agents : [];
     return {
-        version: 1,
+        version: 2,
         checkpointCount: Math.max(1, finiteCounter(coordinator?.checkpointCount)),
         confirmedWins: agents.reduce((sum, agent) => sum + finiteCounter(agent?.confirmedWins), 0),
+        autonomousProgress: coordinator?.exportAutonomousProgress?.() ?? null,
     };
 }
 
@@ -49,7 +50,7 @@ export function captureTrainingProgress(coordinator) {
  * so the coordinator's existing sum-based telemetry remains unchanged.
  */
 export function restoreTrainingProgress(coordinator, snapshot) {
-    if (!coordinator || snapshot?.version !== 1) return false;
+    if (!coordinator || ![1, 2].includes(snapshot?.version)) return false;
     const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
     const visibleWorker = Math.max(0, Math.min(agents.length - 1,
         finiteCounter(coordinator.visibleWorker)));
@@ -68,6 +69,9 @@ export function restoreTrainingProgress(coordinator, snapshot) {
             finiteCounter(agents[visibleWorker].checkpointCount),
             coordinator.checkpointCount,
         );
+    }
+    if (snapshot.version >= 2 && snapshot.autonomousProgress) {
+        coordinator.restoreAutonomousProgress?.(snapshot.autonomousProgress);
     }
     return true;
 }

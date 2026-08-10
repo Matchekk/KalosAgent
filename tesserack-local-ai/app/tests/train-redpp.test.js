@@ -125,6 +125,27 @@ test('Train cannot farm reward by walking in a circle', () => {
 
 });
 
+test('short-window movement loops escalate near minus 0.1 without punishing exploration', () => {
+    const rewards = new UnitTestRewards();
+    const center = state({ coordinates: { x: 5, y: 6 } });
+    const neighbor = state({ coordinates: { x: 6, y: 6 } });
+    let looped;
+    for (let cycle = 0; cycle < 4; cycle++) {
+        rewards.evaluate(center, neighbor, 'right');
+        looped = rewards.evaluate(neighbor, center, 'left');
+    }
+
+    const event = looped.firedTests.find(item => item.id === 'recent_movement_loop');
+    assert.ok(event, 'the fourth visit inside the 20-step window must be identified as a loop');
+    assert.ok(event.reward <= REDPP_REWARD_MATRIX.overworld.recentLoopBase);
+    assert.ok(looped.total < -0.09, `combined loop cost should be near or beyond -0.1, got ${looped.total}`);
+
+    rewards.resetEpisodeState();
+    const fresh = rewards.evaluate(center, neighbor, 'right');
+    assert.equal(fresh.firedTests.some(item => item.id === 'recent_movement_loop'), false);
+    assert.ok(fresh.total > 0, 'a genuinely new tile must remain worth exploring');
+});
+
 test('ineffective overworld face buttons cannot become a safe local optimum', () => {
     const rewards = new UnitTestRewards();
     const unchanged = state();
@@ -311,6 +332,21 @@ test('mandatory dialog never accrues movement, step, or stuck penalties', () => 
             && event.reward <= REDPP_REWARD_MATRIX.dialog.closed));
 });
 
+test('title and loading screens never accrue time, movement, or loop penalties', () => {
+    const rewards = new UnitTestRewards();
+    const inactive = state({ location: 'NO ACTIVE MAP', coordinates: { x: 3, y: 6 } });
+    let result;
+    for (let step = 0; step < 30; step++) result = rewards.evaluate(inactive, inactive, 'down');
+
+    assert.equal(result.context, 'inactive');
+    assert.equal(result.total, 0);
+    const forbidden = new Set([
+        'decision_cost', 'overworld_inaction', 'blocked_movement', 'stuck',
+        'revisited_tile', 'recent_movement_loop',
+    ]);
+    assert.equal(result.firedTests.some(event => forbidden.has(event.id)), false);
+});
+
 test('repeated saves receive an exponentially escalating, capped penalty', () => {
     const rewards = new UnitTestRewards();
     const save = () => rewards.evaluate(
@@ -347,4 +383,8 @@ test('reward hierarchy and normalized battle coefficients stay coherent', () => 
     assert.ok(team.member * 6 + team.fullTeam + team.qualityScale < milestone.badge);
     assert.ok(team.qualityTransitionCap < battle.wildWin);
     assert.ok(REDPP_REWARD_MATRIX.denseRewardCap < battle.wildWin);
+    assert.equal(overworld.recentWindow, 20);
+    assert.ok(Math.abs(overworld.decisionCost) * overworld.recentWindow < overworld.newLocation);
+    assert.ok(Math.abs(overworld.recentLoopBase) > overworld.novelTile);
+    assert.ok(Math.abs(overworld.recentLoopCap) < milestone.levelUnit);
 });

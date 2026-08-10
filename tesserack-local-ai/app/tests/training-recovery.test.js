@@ -51,9 +51,15 @@ test('WASM rotation preserves monotonic checkpoints and confirmed wins', () => {
             { checkpointCount: 1, confirmedWins: 0 },
             { checkpointCount: 1, confirmedWins: 1 },
         ],
+        exportAutonomousProgress: () => ({ version: 1, freshBestLevel: 5 }),
     };
     const snapshot = captureTrainingProgress(before);
-    assert.deepEqual(snapshot, { version: 1, checkpointCount: 5, confirmedWins: 6 });
+    assert.deepEqual(snapshot, {
+        version: 2,
+        checkpointCount: 5,
+        confirmedWins: 6,
+        autonomousProgress: { version: 1, freshBestLevel: 5 },
+    });
 
     const after = {
         checkpointCount: 1,
@@ -64,11 +70,13 @@ test('WASM rotation preserves monotonic checkpoints and confirmed wins', () => {
             { checkpointCount: 1, confirmedWins: 0 },
             { checkpointCount: 1, confirmedWins: 0 },
         ],
+        restoreAutonomousProgress(value) { this.restoredAutonomy = value; },
     };
     assert.equal(restoreTrainingProgress(after, snapshot), true);
     assert.equal(after.checkpointCount, 5);
     assert.equal(after.agents[0].checkpointCount, 5);
     assert.equal(after.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0), 6);
+    assert.deepEqual(after.restoredAutonomy, { version: 1, freshBestLevel: 5 });
 
     restoreTrainingProgress(after, snapshot);
     assert.equal(after.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0), 6,
