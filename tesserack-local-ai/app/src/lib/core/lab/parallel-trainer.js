@@ -234,6 +234,7 @@ export class ParallelTrainingCoordinator {
             checkpointCount: this.checkpointCount,
             confirmedWins: this.agents.reduce((sum, agent) => sum + agent.confirmedWins, 0),
             environmentCount: this.agents.length,
+            visibleWorker: this.visibleWorker,
             samplesPerSecond: lifecycleSamples / elapsedSeconds,
             checkpointWorker: this.globalCheckpoint?.workerId ?? null,
             archiveSize: this.archive.size,

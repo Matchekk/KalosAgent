@@ -112,6 +112,8 @@ export const pureRLMetrics = writable({
     archiveSelections: 0,
     autonomy: null,
     workers: [],
+    visibleWorker: 0,
+    visibleState: null,
     memoryDiagnostics: null,
     // Chart history (rolling window of last 50 rollouts)
     history: {
@@ -229,6 +231,8 @@ function handlePureRLStep(stepData) {
             archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
             autonomy: stepData.autonomy ?? prev.autonomy,
             workers: stepData.workers ?? prev.workers,
+            visibleWorker: stepData.visibleWorker ?? prev.visibleWorker,
+            visibleState: stepData.state ?? prev.visibleState,
             memoryDiagnostics: stepData.memoryDiagnostics ?? prev.memoryDiagnostics,
             // Preserve history
             history: prev.history,
@@ -832,6 +836,8 @@ export function resetLab() {
         archiveSelections: 0,
         autonomy: null,
         workers: [],
+        visibleWorker: 0,
+        visibleState: null,
         history: {
             returns: [],
             entropy: [],

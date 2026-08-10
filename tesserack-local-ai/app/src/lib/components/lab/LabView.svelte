@@ -41,6 +41,7 @@
     import { initBrowserLLM, isReady as isLLMConfigured } from '$lib/core/llm.js';
     import { getLabRunBlockReason } from '$lib/core/lab/lab-readiness.js';
     import { resolveRedppLocation } from '$lib/core/lab/redpp-location-data.js';
+    import { deriveRedppGuideObjectives } from '$lib/core/lab/redpp-objective-progress.js';
 
     let isRunning = false;
     let labInitialized = false;
@@ -97,8 +98,17 @@
     let selectedAlgorithm = 'reinforce';
     let showAlgorithmDropdown = false;
 
-    // Guide context for Play mode
-    $: guideContext = buildGuideContext($currentGraphLocation, $walkthroughGraph, $completedObjectives);
+    // Train uses objective evidence from the currently rendered worker's RAM.
+    // The independent fresh-ROM E4 proof remains separate and is never
+    // promoted by this diagnostic map.
+    $: trainMapCompletedObjectives = deriveRedppGuideObjectives(
+        $pureRLMetrics.visibleState,
+        $pureRLMetrics.completedObjectives,
+    );
+    $: mapCompletedObjectives = mode === 'train'
+        ? trainMapCompletedObjectives
+        : $completedObjectives;
+    $: guideContext = buildGuideContext($currentGraphLocation, $walkthroughGraph, mapCompletedObjectives);
 
     function buildGuideContext(locationName, graph, completed) {
         if (!graph?.nodes?.length || !locationName) return null;
@@ -903,12 +913,19 @@
     <!-- Map Row -->
     <div class="map-row">
         <div class="map-container">
-            <div class="container-label">Kanto Map</div>
+            <div class="container-label">
+                Kanto Map{mode === 'train' ? ` · visible E${$pureRLMetrics.visibleWorker + 1}` : ''}
+            </div>
+            {#if mode === 'train'}
+                <div class="map-scope-note">
+                    RAM map and objectives for the visible worker only; fresh-ROM proof is measured separately above.
+                </div>
+            {/if}
             <div class="map-wrapper">
                 <WalkthroughGraph
                     graphData={$walkthroughGraph}
                     currentLocation={$currentGraphLocation}
-                    completedObjectives={$completedObjectives}
+                    completedObjectives={mapCompletedObjectives}
                 />
             </div>
         </div>
@@ -1309,6 +1326,16 @@
         color: var(--text-muted);
         background: var(--bg-input);
         border-bottom: 1px solid var(--border-color);
+    }
+
+    .map-scope-note {
+        flex-shrink: 0;
+        padding: 5px 12px;
+        color: var(--text-muted);
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-color);
+        font-size: 10px;
+        line-height: 1.35;
     }
 
     .canvas-wrapper {

@@ -15,14 +15,18 @@ const labViewSource = fs.readFileSync(path.join(root, 'src/lib/components/lab/La
 const agentSource = fs.readFileSync(path.join(root, 'src/lib/core/lab/pure-rl-agent.js'), 'utf8');
 
 let locationData = {};
+let objectiveProgress = {};
 try {
     locationData = await import('../src/lib/core/lab/redpp-location-data.js');
+    objectiveProgress = await import('../src/lib/core/lab/redpp-objective-progress.js');
 } catch {
     // The frozen baseline intentionally predates the canonical location layer.
 }
 
 const resolve = locationData.resolveRedppLocation || (name => ({ exactLocation: name, guideLocation: name, progressOrder: 0 }));
 const progress = locationData.getRedppLocationProgress || (() => 0);
+const deriveObjectives = objectiveProgress.deriveRedppGuideObjectives || (() => new Set());
+const objectiveNames = objectiveProgress.REDPP_PROVABLE_OBJECTIVES || {};
 const checks = [];
 
 function check(name, predicate, detail = '') {
@@ -76,6 +80,30 @@ check('checkpoint selection chooses earned later location, not larger reward', (
 check('agent treats increasing mapped location as durable progress', () => /compareProgressStates\(curr, prev\)\s*>\s*0/.test(agentSource));
 check('map UI separates exact location display from guide-parent centering', () => graphSource.includes('exactLocation') && graphSource.includes('guideLocation'));
 check('Lab guide context resolves exact RAM location through the canonical mapper', () => labViewSource.includes('resolveRedppLocation') && labViewSource.includes('exactLocation'));
+check('Train map derives objective completion from visible worker RAM', () => labViewSource.includes('deriveRedppGuideObjectives') && labViewSource.includes('$pureRLMetrics.visibleState'));
+check('Train map labels the visible worker separately from fresh-ROM proof', () => labViewSource.includes('visible E${$pureRLMetrics.visibleWorker + 1}') && labViewSource.includes('fresh-ROM proof is measured separately'));
+check('credible party proves starter selection without claiming Viridian', () => {
+    const completed = deriveObjectives({ location: 'PALLET TOWN', party: [{ speciesId: 1, level: 5 }] });
+    return completed.has(objectiveNames.starter) && !completed.has(objectiveNames.viridian);
+});
+check('standing in Viridian cannot falsely prove parcel delivery', () => {
+    const completed = deriveObjectives({
+        location: 'VIRIDIAN CITY',
+        party: [{ speciesId: 1, level: 5 }],
+        progressFlags: { battledRivalInOaksLab: true },
+    });
+    return completed.has(objectiveNames.viridian) && !completed.has(objectiveNames.oakSequence);
+});
+check('northbound Route 2 with durable opening flag proves Oak sequence', () => deriveObjectives({
+    location: 'ROUTE 2',
+    party: [{ speciesId: 1, level: 5 }],
+    progressFlags: { battledRivalInOaksLab: true },
+}).has(objectiveNames.oakSequence));
+check('Brock objective requires the Boulder badge RAM bit', () => {
+    const before = deriveObjectives({ location: 'PEWTER GYM', party: [{ speciesId: 1, level: 8 }], badges: [] });
+    const after = deriveObjectives({ location: 'PEWTER GYM', party: [{ speciesId: 1, level: 8 }], badges: ['Boulder'] });
+    return !before.has(objectiveNames.boulder) && after.has(objectiveNames.boulder);
+});
 
 const passed = checks.filter(item => item.passed).length;
 const total = checks.length;
