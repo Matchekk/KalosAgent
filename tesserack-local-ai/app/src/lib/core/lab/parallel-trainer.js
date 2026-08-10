@@ -1,5 +1,6 @@
 import { chooseCheckpointCandidate, compareProgressStates, progressScore } from './parallel-training.js';
 import { AutonomousProgressTracker } from './autonomous-progress.js';
+import { SampleLearningAudit } from './sample-learning-audit.js';
 
 /**
  * Coordinates several emulator trajectories around one on-policy learner.
@@ -30,6 +31,7 @@ export class ParallelTrainingCoordinator {
         this.archiveSelections = 0;
         this.freshWorker = Math.max(0, agents.findIndex(agent => agent.config?.resetFromInitial));
         this.autonomousProgress = new AutonomousProgressTracker({ freshWorkerId: this.freshWorker });
+        this.learningAudit = new SampleLearningAudit({ initialTotalSamples: this.totalSamples });
 
         const visible = agents[this.visibleWorker];
         this.globalCheckpoint = visible.checkpointState ? {
@@ -113,13 +115,25 @@ export class ParallelTrainingCoordinator {
         this.totalSamples = 0;
         this.startedAt = nowMs();
         this.autonomousProgress = new AutonomousProgressTracker({ freshWorkerId: this.freshWorker });
+        this.learningAudit = new SampleLearningAudit();
     }
 
     exportAutonomousProgress() {
-        return this.autonomousProgress.exportSnapshot();
+        return {
+            version: 2,
+            autonomousProgress: this.autonomousProgress.exportSnapshot(),
+            learningAudit: this.learningAudit.exportSnapshot(),
+        };
     }
 
     restoreAutonomousProgress(snapshot) {
+        if (snapshot?.version === 2 && snapshot.autonomousProgress) {
+            const autonomyRestored = this.autonomousProgress.restoreSnapshot(snapshot.autonomousProgress);
+            const auditRestored = snapshot.learningAudit
+                ? this.learningAudit.restoreSnapshot(snapshot.learningAudit)
+                : true;
+            return autonomyRestored && auditRestored;
+        }
         return this.autonomousProgress.restoreSnapshot(snapshot);
     }
 
@@ -204,6 +218,14 @@ export class ParallelTrainingCoordinator {
             });
         }
         const autonomy = this.autonomousProgress.summary(this.totalSamples);
+        const learningAudit = this.learningAudit.observe({
+            totalSamples: this.totalSamples,
+            autonomy,
+            trainSteps: core.trainSteps,
+            entropy: core.lastEntropy,
+            avgReturn: core.lastAvgRawReturn,
+            clipFraction: core.lastClipFraction,
+        });
         const visibleState = workerStates[this.visibleWorker];
         return {
             step: this.totalSamples,
@@ -240,6 +262,7 @@ export class ParallelTrainingCoordinator {
             archiveSize: this.archive.size,
             archiveSelections: this.archiveSelections,
             autonomy,
+            learningAudit,
             currentLocation: rewardStats.currentLocation,
             bundleInfo: rewardStats.bundleInfo,
             totalRewards: rewardStats.totalRewards,

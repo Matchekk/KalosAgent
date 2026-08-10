@@ -636,6 +636,44 @@
                     <div class="metrics-divider"></div>
                 {/if}
 
+                {#if $pureRLMetrics.learningAudit}
+                    <div class="autonomy-proof {$pureRLMetrics.learningAudit.last?.verdict || 'collecting'}">
+                        <div class="section-header">50k learning audit</div>
+                        <p class="proof-contract">
+                            Fixed sample boundaries. Only independent fresh-ROM outcomes count as learning;
+                            rewards, returns and checkpoints are diagnostics.
+                        </p>
+                        {#if $pureRLMetrics.learningAudit.last}
+                            <div class="metric-row">
+                                <span class="metric-label">Audited boundary</span>
+                                <span class="metric-value mono">
+                                    {$pureRLMetrics.learningAudit.last.boundarySamples.toLocaleString()} samples
+                                </span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">Verdict</span>
+                                <span class="metric-value mono">{$pureRLMetrics.learningAudit.last.verdict}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">Fresh / verified Δ</span>
+                                <span class="metric-value mono">
+                                    {$pureRLMetrics.learningAudit.last.deltas.freshBestLevel}
+                                    / {$pureRLMetrics.learningAudit.last.deltas.verifiedLevel}
+                                </span>
+                            </div>
+                            <div class="proof-verdict">
+                                {$pureRLMetrics.learningAudit.last.reason}
+                            </div>
+                        {:else}
+                            <div class="proof-verdict">
+                                NEXT AUDIT: {$pureRLMetrics.learningAudit.nextBoundary.toLocaleString()} samples
+                            </div>
+                        {/if}
+                    </div>
+
+                    <div class="metrics-divider"></div>
+                {/if}
+
                 <!-- Train Mode Metrics -->
                 <div class="metrics-section">
                     <div class="metric-row">

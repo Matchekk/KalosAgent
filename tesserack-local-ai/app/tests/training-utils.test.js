@@ -6,6 +6,7 @@ import {
     createReinforceSnapshot,
     executeRepeatedAction,
     formatPositiveRewardEvents,
+    GAME_INPUT_BUTTONS,
     getPositiveRewardEventIds,
     getRewardTelemetry,
     restoreReinforceSnapshot,
@@ -51,11 +52,14 @@ test('rollout resize preserves lowercase policy tensors and learning metrics', (
 });
 
 test('action repetition stays inside one observable environment transition', async () => {
-    const pressed = [];
-    let frames = 0;
+    const active = new Set(['left']);
+    const frames = [];
     const emulator = {
-        pressButton: (action, holdFrames) => pressed.push([action, holdFrames]),
-        runFrame: () => frames++,
+        setButton(action, pressed) {
+            if (pressed) active.add(action);
+            else active.delete(action);
+        },
+        runFrame: () => frames.push([...active]),
     };
 
     await executeRepeatedAction(emulator, 'up', {
@@ -64,8 +68,45 @@ test('action repetition stays inside one observable environment transition', asy
         actionRepeat: 3,
     });
 
-    assert.deepEqual(pressed, [['up', 12], ['up', 12], ['up', 12]]);
-    assert.equal(frames, 48);
+    assert.equal(frames.length, 48);
+    assert.equal(frames.filter(buttons => buttons.length === 1 && buttons[0] === 'up').length, 48);
+    assert.deepEqual([...active], []);
+});
+
+test('training releases every button even when the emulator frame throws', async () => {
+    const active = new Set();
+    let frames = 0;
+    const emulator = {
+        setButton(action, pressed) {
+            if (pressed) active.add(action);
+            else active.delete(action);
+        },
+        runFrame() {
+            frames++;
+            if (frames === 3) throw new Error('frame failed');
+        },
+    };
+
+    await assert.rejects(executeRepeatedAction(emulator, 'a', {
+        actionHoldFrames: 12,
+        frameSkip: 16,
+        actionRepeat: 1,
+    }), /frame failed/);
+    assert.deepEqual([...active], []);
+});
+
+test('training rejects unknown actions before changing emulator input', async () => {
+    const calls = [];
+    await assert.rejects(executeRepeatedAction({
+        setButton: (...args) => calls.push(args),
+        runFrame() {},
+    }, 'turbo', {
+        actionHoldFrames: 12,
+        frameSkip: 16,
+        actionRepeat: 1,
+    }), /Unsupported training action/);
+    assert.deepEqual(calls, []);
+    assert.equal(GAME_INPUT_BUTTONS.length, 8);
 });
 
 test('reward telemetry forwards cumulative bundle statistics', () => {

@@ -31,7 +31,7 @@ import {
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
 export const REDPP_STATE_SIZE = 58;
-export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v3.7';
+export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v3.8';
 // v6 appends behavior memory to the observable Red++ features.
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',

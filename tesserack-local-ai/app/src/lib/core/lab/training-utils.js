@@ -36,18 +36,49 @@ export function getRewardTelemetry(metrics = {}) {
     };
 }
 
-/** Execute every repeat inside one policy transition so the final reward sees all state changes. */
+export const GAME_INPUT_BUTTONS = Object.freeze([
+    'up', 'down', 'left', 'right', 'a', 'b', 'start', 'select',
+]);
+
+function releaseGameInputs(emulator) {
+    for (const button of GAME_INPUT_BUTTONS) emulator.setButton(button, false);
+}
+
+/**
+ * Execute every repeat inside one policy transition so the final reward sees
+ * all state changes. Training input is measured only in emulator frames:
+ * wall-clock timers are throttled in hidden tabs and can otherwise leave old
+ * buttons pressed while a later PPO action is sampled.
+ */
 export async function executeRepeatedAction(emulator, action, {
     actionHoldFrames,
     frameSkip,
     actionRepeat,
 }) {
+    if (!GAME_INPUT_BUTTONS.includes(action)) {
+        throw new Error(`Unsupported training action: ${action}`);
+    }
+    if (typeof emulator?.setButton !== 'function' || typeof emulator?.runFrame !== 'function') {
+        throw new Error('Training emulator requires synchronous setButton and runFrame');
+    }
     const repeats = Math.max(1, Math.trunc(actionRepeat || 1));
-    for (let repeat = 0; repeat < repeats; repeat++) {
-        emulator.pressButton(action, actionHoldFrames);
-        for (let frame = 0; frame < frameSkip; frame++) {
-            emulator.runFrame();
+    const totalFrames = Math.max(1, Math.trunc(frameSkip || actionHoldFrames || 1));
+
+    releaseGameInputs(emulator);
+    try {
+        for (let repeat = 0; repeat < repeats; repeat++) {
+            emulator.setButton(action, true);
+            try {
+                // Deterministic frame-skip contract: the sampled action is the
+                // only active input for every frame represented by this PPO
+                // transition, independent of render visibility or CPU speed.
+                for (let frame = 0; frame < totalFrames; frame++) emulator.runFrame();
+            } finally {
+                emulator.setButton(action, false);
+            }
         }
+    } finally {
+        releaseGameInputs(emulator);
     }
 }
 

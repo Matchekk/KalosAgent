@@ -67,6 +67,7 @@ let parallelSampleCount = 0;
 let parallelLifecycleStartSamples = 0;
 let parallelRecoveryPromise = null;
 let lastFatalParallelRecoveryAt = 0;
+let lastLearningAuditFeedBoundary = 0;
 const PARALLEL_ENVIRONMENT_COUNT = 4;
 const RECOVERY_RETRY_COOLDOWN_MS = 60_000;
 
@@ -111,6 +112,7 @@ export const pureRLMetrics = writable({
     archiveSize: 0,
     archiveSelections: 0,
     autonomy: null,
+    learningAudit: null,
     workers: [],
     visibleWorker: 0,
     visibleState: null,
@@ -230,6 +232,7 @@ function handlePureRLStep(stepData) {
             archiveSize: stepData.archiveSize ?? prev.archiveSize,
             archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
             autonomy: stepData.autonomy ?? prev.autonomy,
+            learningAudit: stepData.learningAudit ?? prev.learningAudit,
             workers: stepData.workers ?? prev.workers,
             visibleWorker: stepData.visibleWorker ?? prev.visibleWorker,
             visibleState: stepData.state ?? prev.visibleState,
@@ -267,6 +270,17 @@ function handlePureRLStep(stepData) {
 
         return newMetrics;
     });
+
+    const audit = stepData.learningAudit?.last;
+    if (audit?.boundarySamples > lastLearningAuditFeedBoundary) {
+        lastLearningAuditFeedBoundary = audit.boundarySamples;
+        const delta = audit.deltas;
+        feedSystem(
+            `50k learning audit @ ${audit.boundarySamples.toLocaleString()}: ${audit.verdict} - `
+            + `${audit.reason}; fresh best delta ${delta.freshBestLevel}, `
+            + `verified delta ${delta.verifiedLevel}, attempts delta ${delta.attempts}.`,
+        );
+    }
 
     // Update game state
     if (stepData.state) {
@@ -495,7 +509,16 @@ async function ensureParallelTrainer() {
                 },
             });
             const savedAutonomy = await getPureRLAutonomy();
-            if (savedAutonomy) parallelTrainer.restoreAutonomousProgress(savedAutonomy);
+            if (savedAutonomy) {
+                parallelTrainer.restoreAutonomousProgress(savedAutonomy);
+                const restoredBoundary = savedAutonomy.version === 2
+                    ? savedAutonomy.learningAudit?.history?.at(-1)?.boundarySamples
+                    : 0;
+                lastLearningAuditFeedBoundary = Math.max(
+                    lastLearningAuditFeedBoundary,
+                    Number(restoredBoundary) || 0,
+                );
+            }
             parallelLifecycleStartSamples = parallelTrainer.totalSamples;
             feedSystem(`Parallel Train ready: ${agents.length} environments share one policy; environment ${parallelPlan.startWorker + 1} rehearses from ROM start.`);
             return parallelTrainer;
@@ -784,6 +807,7 @@ export async function stepLabAgent() {
  */
 export function resetLab() {
     stopLabAgent();
+    lastLearningAuditFeedBoundary = 0;
 
     labMetrics.update(m => ({
         ...m,
@@ -835,6 +859,7 @@ export function resetLab() {
         archiveSize: 0,
         archiveSelections: 0,
         autonomy: null,
+        learningAudit: null,
         workers: [],
         visibleWorker: 0,
         visibleState: null,
