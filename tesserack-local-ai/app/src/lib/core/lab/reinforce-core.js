@@ -58,6 +58,8 @@ export class ReinforceCore {
         this.intrinsicRewardScale = config.intrinsicRewardScale ?? 0.01;
         this.intrinsicRewardCap = config.intrinsicRewardCap ?? 0.02;
         this.intrinsicRewardProfiles = config.intrinsicRewardProfiles ?? [1];
+        this.intrinsicLifelongFloor = Math.max(0, Math.min(1,
+            config.intrinsicLifelongFloor ?? 0.25));
         this.normalizeReturns = config.normalizeReturns ?? true;
         this.entropyCoefficient = config.entropyCoefficient ?? 0.01;
         this.entropyTargetRatio = config.entropyTargetRatio ?? 0;
@@ -120,9 +122,12 @@ export class ReinforceCore {
         const profile = this.intrinsicRewardProfiles[
             Math.min(streamId, this.intrinsicRewardProfiles.length - 1)
         ] ?? 1;
+        const episodicNovelty = 1 / Math.sqrt(count);
+        const lifelongNovelty = this.intrinsicLifelongFloor
+            + (1 - this.intrinsicLifelongFloor) / Math.sqrt(lifetimeCount);
         const intrinsicReward = Math.min(
             this.intrinsicRewardCap,
-            (this.intrinsicRewardScale * Math.max(0, profile)) / Math.sqrt(count * lifetimeCount),
+            this.intrinsicRewardScale * Math.max(0, profile) * episodicNovelty * lifelongNovelty,
         );
         this.lastIntrinsicReward = intrinsicReward;
         this.buffer.push(

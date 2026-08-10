@@ -232,6 +232,47 @@ test('episode reset clears loop pressure without renewing globally farmed explor
     assert.ok(continuedCredit < firstCredit, 'durable dialog anti-farming credit must survive episode reset');
 });
 
+test('episode progress reinforces a learned RAM route once per fresh attempt', () => {
+    const rewards = new UnitTestRewards();
+    const house2f = state({ location: 'PLAYERS HOUSE 2F' });
+    const house1f = state({ location: 'PLAYERS HOUSE 1F' });
+    const pallet = state({ location: 'PALLET TOWN' });
+
+    const baseline = rewards.evaluate(house2f, house2f, 'right');
+    assert.equal(baseline.firedTests.some(event => event.id === 'episode_progress'), false);
+
+    const downstairs = rewards.evaluate(house2f, house1f, 'down');
+    const downstairsProgress = downstairs.firedTests.find(event => event.id === 'episode_progress');
+    assert.equal(downstairsProgress.reward, REDPP_REWARD_MATRIX.curriculum.episodeProgressUnit);
+    assert.equal(downstairsProgress.previousLevel, 1);
+    assert.equal(downstairsProgress.level, 2);
+
+    const repeated = rewards.evaluate(house1f, { ...house1f, coordinates: { x: 6, y: 6 } }, 'right');
+    assert.equal(repeated.firedTests.some(event => event.id === 'episode_progress'), false);
+
+    const outdoors = rewards.evaluate(house1f, pallet, 'down');
+    assert.equal(outdoors.firedTests.find(event => event.id === 'episode_progress').reward,
+        REDPP_REWARD_MATRIX.curriculum.episodeProgressUnit);
+
+    rewards.resetEpisodeState();
+    rewards.evaluate(house2f, house2f, 'right');
+    const relearned = rewards.evaluate(house2f, house1f, 'down');
+    assert.equal(relearned.firedTests.find(event => event.id === 'episode_progress').reward,
+        REDPP_REWARD_MATRIX.curriculum.episodeProgressUnit);
+});
+
+test('episode progress baselines checkpoint starts instead of granting retroactive credit', () => {
+    const rewards = new UnitTestRewards();
+    const checkpoint = state({ location: 'PLAYERS HOUSE 1F' });
+    const pallet = state({ location: 'PALLET TOWN' });
+
+    const baseline = rewards.evaluate(checkpoint, checkpoint, 'right');
+    assert.equal(baseline.firedTests.some(event => event.id === 'episode_progress'), false);
+    const forward = rewards.evaluate(checkpoint, pallet, 'down');
+    assert.equal(forward.firedTests.find(event => event.id === 'episode_progress').reward,
+        REDPP_REWARD_MATRIX.curriculum.episodeProgressUnit);
+});
+
 test('PureRLAgent clears trajectory-local rewards whenever an episode reloads', async () => {
     const saved = new Uint8Array([1, 2, 3, 4]);
     const emulator = {

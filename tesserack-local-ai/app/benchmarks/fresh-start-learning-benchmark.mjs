@@ -1,4 +1,4 @@
-import { ReinforceCore } from '../src/lib/core/lab/reinforce-core.js';
+import { adaptiveCoverageCoefficient, ReinforceCore } from '../src/lib/core/lab/reinforce-core.js';
 import { PureRLAgent } from '../src/lib/core/lab/pure-rl-agent.js';
 import { UnitTestRewards } from '../src/lib/core/lab/unit-test-rewards.js';
 
@@ -55,12 +55,17 @@ const secondIntrinsic = core.buffer.intrinsicRewards[1];
 check('intrinsic novelty decays across episodes', secondIntrinsic < firstIntrinsic);
 
 const agent = new PureRLAgent({}, {});
-check('production policy does not force a permanent action-probability floor',
-    agent.core.actionCoverageCoefficient === 0 && agent.core.minimumActionProbability === 0);
+check('production action coverage is adaptive rather than a permanent probability floor',
+    adaptiveCoverageCoefficient({
+        probabilities: Array.from({ length: agent.core.numActions }, () => 1 / agent.core.numActions),
+        coefficient: agent.core.actionCoverageCoefficient,
+        minimumProbability: agent.core.minimumActionProbability,
+    }) === 0
+    && agent.core.actionCoverageCoefficient <= 0.02
+    && agent.core.minimumActionProbability <= 0.01);
 check('production entropy target allows exploitation after learning',
     agent.core.entropyTargetRatio <= 0.6 && agent.core.maxEntropyCoefficient <= 0.05);
 
 const score = Number(((passed / total) * 100).toFixed(3));
 console.log(`RESULT ${passed}/${total}`);
 console.log(`METRIC fresh_start_learning_quality_pct=${score}`);
-

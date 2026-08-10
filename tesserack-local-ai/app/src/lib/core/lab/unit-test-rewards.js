@@ -16,6 +16,7 @@ import {
 } from './redpp-reward-matrix.js';
 import { redppGuideToBundles } from './redpp-guide-data.js';
 import { analyzeRedppTeam } from './redpp-team-quality.js';
+import { detectAutonomousMilestone } from './autonomous-progress.js';
 
 const DIRECTIONS = new Set(['up', 'down', 'left', 'right']);
 const CHAMPION_LOCATIONS = new Set(['HALL OF FAME', 'CHAMPIONS ROOM']);
@@ -58,6 +59,8 @@ export class UnitTestRewards {
         this.maxPartySize = 0;
         this.bestTeamQuality = 0;
         this.lastTeamAnalysis = analyzeRedppTeam([]);
+        this.episodeProgressInitialized = false;
+        this.episodeBestProgressLevel = 0;
 
         this.totalRewards = this._emptyBreakdown(true);
         this.firedTests = [];
@@ -109,6 +112,7 @@ export class UnitTestRewards {
         };
 
         this._evaluateDurableMilestones(prevState, currState, add);
+        this._evaluateEpisodeProgress(currState, add);
 
         if (!isActiveGameMap(prevState) && isActiveGameMap(currState)) {
             add('active_map_entered', REDPP_REWARD_MATRIX.boot.activeMap, 2, {
@@ -186,6 +190,28 @@ export class UnitTestRewards {
             add('dialog_inaction', REDPP_REWARD_MATRIX.dialog.inaction, 'penalty',
                 { context: REWARD_CONTEXT.DIALOG });
         }
+    }
+
+    _evaluateEpisodeProgress(curr, add) {
+        const level = detectAutonomousMilestone(curr);
+        if (level <= 0) return;
+        if (!this.episodeProgressInitialized) {
+            this.episodeProgressInitialized = true;
+            this.episodeBestProgressLevel = level;
+            return;
+        }
+        if (level <= this.episodeBestProgressLevel) return;
+
+        const previousLevel = this.episodeBestProgressLevel;
+        const delta = level - previousLevel;
+        this.episodeBestProgressLevel = level;
+        const matrix = REDPP_REWARD_MATRIX.curriculum;
+        add('episode_progress', Math.min(matrix.transitionCap, delta * matrix.episodeProgressUnit), 2, {
+            context: this.lastContext,
+            previousLevel,
+            level,
+            delta,
+        });
     }
 
     _evaluateOverworld(prev, curr, action, add) {
@@ -557,6 +583,8 @@ export class UnitTestRewards {
         this.stuckCounter = 0;
         this.menuSteps = 0;
         this.firedTests = [];
+        this.episodeProgressInitialized = false;
+        this.episodeBestProgressLevel = 0;
     }
 
     reset() {
@@ -576,6 +604,8 @@ export class UnitTestRewards {
         this.maxPartySize = 0;
         this.bestTeamQuality = 0;
         this.lastTeamAnalysis = analyzeRedppTeam([]);
+        this.episodeProgressInitialized = false;
+        this.episodeBestProgressLevel = 0;
         this.firedOnce.clear();
         this.completedObjectives = [];
         this.totalRewards = this._emptyBreakdown(true);
@@ -651,6 +681,8 @@ export class UnitTestRewards {
         this.stuckCounter = 0;
         this.menuSteps = 0;
         this.firedTests = [];
+        this.episodeProgressInitialized = false;
+        this.episodeBestProgressLevel = 0;
         this.currentLocation = null;
         this.currentBundle = this.bundles?._default || this._getDefaultBundle();
         if (snapshot.currentLocation) {

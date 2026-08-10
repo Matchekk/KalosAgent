@@ -130,6 +130,28 @@ test('novelty is bounded and decays both within and across episodes', () => {
     assert.ok(core.buffer.intrinsicRewards[3] < core.buffer.intrinsicRewards[0]);
 });
 
+test('familiar states retain bounded episodic novelty without enabling same-episode farming', () => {
+    const core = new ReinforceCore({
+        stateSize: 1,
+        numActions: 2,
+        rolloutSize: 128,
+        intrinsicRewardScale: 0.01,
+        intrinsicRewardCap: 0.02,
+        intrinsicLifelongFloor: 0.25,
+    });
+    const state = new Float32Array([0.5]);
+    for (let episode = 0; episode < 64; episode++) {
+        core.observe(state, 0, 0, true, 0, 0, 0, 0, 'known-route-cell');
+    }
+    const firstVisit = core.buffer.intrinsicRewards[63];
+    core.observe(state, 0, 0, false, 0, 0, 0, 0, 'known-route-cell');
+    core.observe(state, 0, 0, false, 0, 0, 0, 0, 'known-route-cell');
+    const repeatedVisit = core.buffer.intrinsicRewards[65];
+
+    assert.ok(firstVisit >= 0.0025 && firstVisit <= 0.01, `first visit bonus was ${firstVisit}`);
+    assert.ok(repeatedVisit < firstVisit, 'same-episode repetition must still decay');
+});
+
 test('advantages are normalized independently for heterogeneous environment streams', () => {
     const advantages = new Float32Array([100, 200, 1, 2]);
     const streams = new Uint8Array([0, 0, 1, 1]);

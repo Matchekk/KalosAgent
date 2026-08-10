@@ -1,5 +1,5 @@
 /**
- * Red++ reward matrix, version 3.4.
+ * Red++ reward matrix, version 3.6.
  *
  * All values are dimensionless reward units. The hierarchy is intentional:
  * dense feedback << battle result < durable milestone < Champion.
@@ -7,7 +7,7 @@
  * invariant to level and species. Context gates prevent mutually unrelated
  * penalties (for example movement cost during mandatory dialog).
  */
-export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.5.0';
+export const REDPP_REWARD_MATRIX_VERSION = 'redpp-v3.6.0';
 
 export const REDPP_REWARD_MATRIX = deepFreeze({
     gamma: 0.99,
@@ -15,6 +15,14 @@ export const REDPP_REWARD_MATRIX = deepFreeze({
 
     boot: {
         activeMap: 0.5,
+    },
+
+    curriculum: {
+        // Potential-like progress over stable RAM milestones. The episode's
+        // first active state is only a baseline, so checkpoint starts cannot
+        // receive retroactive credit. Each later level can pay at most once.
+        episodeProgressUnit: 0.5,
+        transitionCap: 2,
     },
 
     dialog: {
