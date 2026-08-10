@@ -1,4 +1,8 @@
-export const DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES = 160_000;
+// A four-environment Red++ session consistently exhausted the browser WASM
+// heap at roughly 6,400 lifecycle samples. Rotate with enough margin to finish
+// the 900-step no-progress horizon of the fresh worker (5,000 / 4 = 1,250),
+// while rebuilding before the observed failure window.
+export const DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES = 5_000;
 
 export function isFatalEmulatorError(error) {
     const message = String(error?.message ?? error ?? '');

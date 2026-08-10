@@ -18,6 +18,8 @@ test('recognizes fatal WASM memory failures', () => {
 });
 
 test('recycles only after the per-lifecycle sample budget', () => {
+    assert.equal(DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES, 5_000,
+        'rotation must precede the observed ~6,400-sample WASM failure window');
     assert.equal(shouldRecycleEnvironments(DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES - 1, 0), false);
     assert.equal(shouldRecycleEnvironments(DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES, 0), true);
     assert.equal(shouldRecycleEnvironments(410_000, 250_000), true);
