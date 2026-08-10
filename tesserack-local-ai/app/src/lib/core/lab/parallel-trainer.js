@@ -25,7 +25,8 @@ export class ParallelTrainingCoordinator {
         this.startedAt = nowMs();
         this.checkpointCount = Math.max(1, agents[0].checkpointCount || 0);
         this.archive = new Map();
-        this.archiveLimit = 128;
+        // Four workers capture at most 16 savestates each per WASM lifecycle.
+        this.archiveLimit = 64;
         this.archiveSelections = 0;
         this.freshWorker = Math.max(0, agents.findIndex(agent => agent.config?.resetFromInitial));
         this.autonomousProgress = new AutonomousProgressTracker({ freshWorkerId: this.freshWorker });

@@ -65,7 +65,7 @@ let policyPersistInFlight = false;
 let parallelSampleCount = 0;
 let parallelLifecycleStartSamples = 0;
 let parallelRecoveryPromise = null;
-let lastParallelRecoveryAt = 0;
+let lastFatalParallelRecoveryAt = 0;
 const PARALLEL_ENVIRONMENT_COUNT = 4;
 const RECOVERY_RETRY_COOLDOWN_MS = 60_000;
 
@@ -639,7 +639,7 @@ async function runPureRLLoop() {
         parallelTrainer?.stop();
         if (isFatalEmulatorError(err)) {
             const now = Date.now();
-            if (now - lastParallelRecoveryAt >= RECOVERY_RETRY_COOLDOWN_MS) {
+            if (now - lastFatalParallelRecoveryAt >= RECOVERY_RETRY_COOLDOWN_MS) {
                 void recoverParallelTraining('WASM memory exhaustion');
                 return;
             }
@@ -666,7 +666,9 @@ async function recoverParallelTraining(reason) {
         return false;
     }
 
-    lastParallelRecoveryAt = Date.now();
+    // A planned rotation must not suppress the first real OOM recovery. Only
+    // repeated fatal recoveries are cooldown-limited.
+    if (reason === 'WASM memory exhaustion') lastFatalParallelRecoveryAt = Date.now();
     const romBuffer = labRomBuffer.slice(0);
     const canvas = labCanvas;
     const speed = labSpeed;
@@ -902,7 +904,7 @@ export function cleanupLab() {
     parallelInitPromise = null;
     parallelSampleCount = 0;
     parallelLifecycleStartSamples = 0;
-    lastParallelRecoveryAt = 0;
+    lastFatalParallelRecoveryAt = 0;
     isInitialized = false;
     currentMode = 'llm';
     labMode.set('llm');

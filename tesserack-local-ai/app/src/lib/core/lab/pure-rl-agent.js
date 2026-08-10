@@ -221,6 +221,10 @@ export class PureRLAgent {
             rehearseEvery: agentConfig.rehearseEvery ?? 5,
             autoCheckpoint: agentConfig.autoCheckpoint ?? true,
             persistCheckpoint: agentConfig.persistCheckpoint ?? (this.workerId === 0),
+            // Savestate creation is expensive in binjgb's fixed 16 MiB WASM
+            // heap. A bounded sample of frontier cells is enough for Go-Explore
+            // while preventing novel-tile discovery from exhausting the heap.
+            archiveCaptureLimit: agentConfig.archiveCaptureLimit ?? 16,
             // PPO/GAE config
             rolloutSize: agentConfig.rolloutSize ?? 128,
             learningRate: agentConfig.learningRate ?? 0.0003,
@@ -296,6 +300,7 @@ export class PureRLAgent {
         this.pendingCheckpointCandidate = null;
         this.pendingArchiveCandidate = null;
         this.knownArchiveCells = new Set();
+        this.archiveCaptureCount = 0;
         this.stableLocation = '';
         this.stableLocationSteps = 0;
         this.lastDeltaX = 0;
@@ -418,13 +423,18 @@ export class PureRLAgent {
             if (this.knownArchiveCells.size > 4096) {
                 this.knownArchiveCells.delete(this.knownArchiveCells.values().next().value);
             }
-            this.pendingArchiveCandidate = {
-                key: archiveKey,
-                workerId: this.workerId,
-                steps: this.totalSteps + 1,
-                state: cloneProgressState(currState),
-                checkpoint: this.emu.saveState(),
-            };
+            const archiveCaptureLimit = Math.max(0,
+                Math.trunc(Number(this.config.archiveCaptureLimit) || 0));
+            if (this.archiveCaptureCount < archiveCaptureLimit) {
+                this.pendingArchiveCandidate = {
+                    key: archiveKey,
+                    workerId: this.workerId,
+                    steps: this.totalSteps + 1,
+                    state: cloneProgressState(currState),
+                    checkpoint: this.emu.saveState(),
+                };
+                this.archiveCaptureCount++;
+            }
         }
         const progressBaseline = this.checkpointProgressState || prevState;
         const locationOnlyProgress = this._isLocationOnlyProgress(progressBaseline, currState);

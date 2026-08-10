@@ -253,6 +253,34 @@ test('PureRLAgent clears trajectory-local rewards whenever an episode reloads', 
     assert.equal(agent.rewards.recentPositions.length, 0);
 });
 
+test('frontier savestates stay bounded within the fixed binjgb WASM heap', () => {
+    let saves = 0;
+    const emulator = {
+        saveState: () => {
+            saves++;
+            return new Uint8Array([1, 2, 3, 4]);
+        },
+        loadState: () => {},
+        runFrame: () => {},
+        pressButton: () => {},
+    };
+    const agent = new PureRLAgent(emulator, { getGameState: () => state() }, {
+        archiveCaptureLimit: 4,
+        autoCheckpoint: false,
+    });
+    agent.ensureCheckpoint();
+
+    for (let step = 0; step < 40; step++) {
+        const previous = state({ coordinates: { x: step, y: 1 } });
+        const current = state({ coordinates: { x: step + 1, y: 1 } });
+        agent._checkDone(previous, current);
+        agent.consumeArchiveCandidate();
+    }
+
+    assert.equal(agent.archiveCaptureCount, 4);
+    assert.equal(saves, 5, 'one curriculum checkpoint plus four archive captures');
+});
+
 test('optional menu idling and rapid reopening escalate without locking strategic actions', () => {
     const rewards = new UnitTestRewards();
     const party = [
