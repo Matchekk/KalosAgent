@@ -83,6 +83,7 @@ export class ReinforceCore {
         this.lastClipFraction = 0;
         this.lastIntrinsicReward = 0;
         this._episodicVisits = new Map();
+        this._lifetimeVisits = new Map();
     }
 
     act(stateVec) {
@@ -111,12 +112,17 @@ export class ReinforceCore {
         const count = (visits.get(stateKey) || 0) + 1;
         visits.set(stateKey, count);
         this._episodicVisits.set(streamId, visits);
+        const lifetimeVisits = this._lifetimeVisits.get(streamId) || new Uint32Array(65536);
+        const lifetimeIndex = hashNoveltyKey(stateKey) & 0xffff;
+        const lifetimeCount = Math.min(0xffffffff, lifetimeVisits[lifetimeIndex] + 1);
+        lifetimeVisits[lifetimeIndex] = lifetimeCount;
+        this._lifetimeVisits.set(streamId, lifetimeVisits);
         const profile = this.intrinsicRewardProfiles[
             Math.min(streamId, this.intrinsicRewardProfiles.length - 1)
         ] ?? 1;
         const intrinsicReward = Math.min(
             this.intrinsicRewardCap,
-            (this.intrinsicRewardScale * Math.max(0, profile)) / Math.sqrt(count),
+            (this.intrinsicRewardScale * Math.max(0, profile)) / Math.sqrt(count * lifetimeCount),
         );
         this.lastIntrinsicReward = intrinsicReward;
         this.buffer.push(
@@ -177,13 +183,7 @@ export class ReinforceCore {
         this.lastAvgRawReturn = returnSum / n;
 
         if (this.normalizeReturns) {
-            let mean = 0;
-            for (let t = 0; t < n; t++) mean += this._advantages[t];
-            mean /= n;
-            let variance = 0;
-            for (let t = 0; t < n; t++) variance += (this._advantages[t] - mean) ** 2;
-            const deviation = Math.sqrt(variance / n) + 1e-8;
-            for (let t = 0; t < n; t++) this._advantages[t] = (this._advantages[t] - mean) / deviation;
+            normalizeAdvantagesByStream(this._advantages, this.buffer.streamIds, n);
         }
 
         const entropyCoefficient = adaptiveEntropyCoefficient({
@@ -282,6 +282,29 @@ export class ReinforceCore {
     }
 }
 
+export function normalizeAdvantagesByStream(advantages, streamIds, length = advantages?.length || 0) {
+    const stats = new Map();
+    for (let index = 0; index < length; index++) {
+        const stream = streamIds[index];
+        const current = stats.get(stream) || { count: 0, sum: 0, squareSum: 0 };
+        const value = Number(advantages[index]) || 0;
+        current.count++;
+        current.sum += value;
+        current.squareSum += value * value;
+        stats.set(stream, current);
+    }
+    for (const current of stats.values()) {
+        current.mean = current.sum / Math.max(1, current.count);
+        const variance = Math.max(0, current.squareSum / Math.max(1, current.count) - current.mean ** 2);
+        current.deviation = Math.sqrt(variance) + 1e-8;
+    }
+    for (let index = 0; index < length; index++) {
+        const current = stats.get(streamIds[index]);
+        advantages[index] = (advantages[index] - current.mean) / current.deviation;
+    }
+    return advantages;
+}
+
 export default ReinforceCore;
 
 function hashState(stateVec) {
@@ -289,6 +312,17 @@ function hashState(stateVec) {
     for (let index = 0; index < stateVec.length; index++) {
         const quantized = Math.round((Number(stateVec[index]) || 0) * 1024);
         hash ^= quantized & 0xffff;
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function hashNoveltyKey(value) {
+    if (typeof value === 'number') return value >>> 0;
+    const text = String(value ?? '');
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index++) {
+        hash ^= text.charCodeAt(index);
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;

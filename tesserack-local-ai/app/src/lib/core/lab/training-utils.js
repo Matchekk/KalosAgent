@@ -87,6 +87,7 @@ export function createReinforceSnapshot(core) {
     return {
         version: isPPO ? 2 : 1,
         algorithm: isPPO ? 'ppo-gae' : 'reinforce',
+        objectiveVersion: core.trainingObjectiveVersion || null,
         architecture: {
             stateSize: core.stateSize,
             hiddenSize: core.policy.hiddenSize,

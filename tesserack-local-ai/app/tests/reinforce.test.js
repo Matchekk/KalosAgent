@@ -4,7 +4,12 @@ import assert from 'node:assert/strict';
 globalThis.requestAnimationFrame = callback => callback();
 
 const { runGradientCheck, runSixActionBanditTest } = await import('../src/lib/core/lab/bandit-test.js');
-const { ReinforceCore, adaptiveEntropyCoefficient, adaptiveCoverageCoefficient } = await import('../src/lib/core/lab/reinforce-core.js');
+const {
+    ReinforceCore,
+    adaptiveEntropyCoefficient,
+    adaptiveCoverageCoefficient,
+    normalizeAdvantagesByStream,
+} = await import('../src/lib/core/lab/reinforce-core.js');
 const { SimplePolicy } = await import('../src/lib/core/lab/simple-policy.js');
 
 test('adaptive entropy pressure is bounded and activates only below target', () => {
@@ -105,7 +110,7 @@ test('seeded policy learns the rewarding action reproducibly', async () => {
     assert.deepEqual(first.probs, second.probs);
 });
 
-test('episodic novelty is bounded, decays on repeats, and resets only at episode end', () => {
+test('novelty is bounded and decays both within and across episodes', () => {
     const core = new ReinforceCore({
         stateSize: 1,
         numActions: 2,
@@ -122,7 +127,15 @@ test('episodic novelty is bounded, decays on repeats, and resets only at episode
     assert.ok(Math.abs(core.buffer.intrinsicRewards[0] - 0.04) < 1e-7);
     assert.ok(core.buffer.intrinsicRewards[1] < core.buffer.intrinsicRewards[0]);
     assert.ok(core.buffer.intrinsicRewards[2] < core.buffer.intrinsicRewards[1]);
-    assert.ok(Math.abs(core.buffer.intrinsicRewards[3] - 0.04) < 1e-7);
+    assert.ok(core.buffer.intrinsicRewards[3] < core.buffer.intrinsicRewards[0]);
+});
+
+test('advantages are normalized independently for heterogeneous environment streams', () => {
+    const advantages = new Float32Array([100, 200, 1, 2]);
+    const streams = new Uint8Array([0, 0, 1, 1]);
+    normalizeAdvantagesByStream(advantages, streams, advantages.length);
+
+    assert.deepEqual([...advantages].map(value => Math.round(value)), [-1, 1, -1, 1]);
 });
 
 test('GAE bootstraps truncations but never crosses terminal boundaries', () => {

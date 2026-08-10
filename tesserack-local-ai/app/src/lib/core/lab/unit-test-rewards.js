@@ -110,6 +110,12 @@ export class UnitTestRewards {
 
         this._evaluateDurableMilestones(prevState, currState, add);
 
+        if (!isActiveGameMap(prevState) && isActiveGameMap(currState)) {
+            add('active_map_entered', REDPP_REWARD_MATRIX.boot.activeMap, 2, {
+                context: REWARD_CONTEXT.INACTIVE,
+            });
+        }
+
         if (context === REWARD_CONTEXT.DIALOG) {
             this._evaluateDialog(prevState, currState, action, add);
         } else if (context === REWARD_CONTEXT.BATTLE) {
@@ -204,9 +210,9 @@ export class UnitTestRewards {
             const visits = this.positionVisits.get(currKey) || 0;
             const recentVisits = this.recentPositions.reduce(
                 (count, position) => count + (position === currKey ? 1 : 0), 0);
-            if (visits === 0) {
+            if (visits === 0 && !this.visitedPositions.has(currKey)) {
                 add('novel_tile', matrix.novelTile, 1, { context: REWARD_CONTEXT.OVERWORLD });
-            } else {
+            } else if (visits > 0) {
                 const revisit = Math.max(matrix.revisitCap, matrix.revisitBase * Math.sqrt(visits));
                 add('revisited_tile', revisit, 'penalty', { context: REWARD_CONTEXT.OVERWORLD, visits });
             }
@@ -718,6 +724,15 @@ function finiteNonNegativeInteger(value) {
 
 function finiteOrNegativeInfinity(value) {
     return Number.isFinite(Number(value)) ? Number(value) : -Infinity;
+}
+
+function isActiveGameMap(state) {
+    const location = String(state?.location || '').trim().toUpperCase();
+    return Boolean(location)
+        && location !== 'NO ACTIVE MAP'
+        && !location.startsWith('UNKNOWN (')
+        && Number.isFinite(Number(state?.coordinates?.x))
+        && Number.isFinite(Number(state?.coordinates?.y));
 }
 
 export default UnitTestRewards;

@@ -12,7 +12,8 @@
     "benchmark:parallel": "node benchmarks/parallel-training-benchmark.mjs",
     "benchmark:map-curriculum": "node benchmarks/redpp-map-curriculum-benchmark.mjs",
     "benchmark:learning": "node benchmarks/learning-quality-benchmark.mjs",
-    "benchmark:autonomy": "node benchmarks/autonomous-progress-benchmark.mjs"
+    "benchmark:autonomy": "node benchmarks/autonomous-progress-benchmark.mjs",
+    "benchmark:fresh-start": "node benchmarks/fresh-start-learning-benchmark.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "3.0.10",

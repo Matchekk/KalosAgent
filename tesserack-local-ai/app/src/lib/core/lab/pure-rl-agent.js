@@ -31,6 +31,7 @@ import {
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
 export const REDPP_STATE_SIZE = 58;
+export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v3.5';
 // v6 appends behavior memory to the observable Red++ features.
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
@@ -238,12 +239,12 @@ export class PureRLAgent {
             intrinsicRewardScale: agentConfig.intrinsicRewardScale ?? 0.01,
             intrinsicRewardProfiles: agentConfig.intrinsicRewardProfiles ?? [0, 0.75, 1.5, 1],
             normalizeReturns: agentConfig.normalizeReturns ?? true,
-            entropyCoefficient: agentConfig.entropyCoefficient ?? 0.01,
-            entropyTargetRatio: agentConfig.entropyTargetRatio ?? 0.75,
-            maxEntropyCoefficient: agentConfig.maxEntropyCoefficient ?? 0.15,
+            entropyCoefficient: agentConfig.entropyCoefficient ?? 0.003,
+            entropyTargetRatio: agentConfig.entropyTargetRatio ?? 0.55,
+            maxEntropyCoefficient: agentConfig.maxEntropyCoefficient ?? 0.03,
             entropyResponseGain: agentConfig.entropyResponseGain ?? 4,
-            actionCoverageCoefficient: agentConfig.actionCoverageCoefficient ?? 0.05,
-            minimumActionProbability: agentConfig.minimumActionProbability ?? 0.05,
+            actionCoverageCoefficient: agentConfig.actionCoverageCoefficient ?? 0,
+            minimumActionProbability: agentConfig.minimumActionProbability ?? 0,
             ...agentConfig
         };
 
@@ -276,6 +277,7 @@ export class PureRLAgent {
             actionCoverageCoefficient: this.config.actionCoverageCoefficient,
             minimumActionProbability: this.config.minimumActionProbability,
         });
+        this.core.trainingObjectiveVersion = REDPP_TRAINING_OBJECTIVE_VERSION;
 
         // Create runner (canonical loop)
         this.runner = new RLRunner(this.core, this.env);

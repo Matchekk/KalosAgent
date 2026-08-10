@@ -11,7 +11,7 @@ import { get, writable } from 'svelte/store';
 import { Emulator } from '../emulator.js';
 import { MemoryReader } from '../memory-reader.js';
 import { GuideAgent } from './guide-agent.js';
-import { PureRLAgent } from './pure-rl-agent.js';
+import { PureRLAgent, REDPP_TRAINING_OBJECTIVE_VERSION } from './pure-rl-agent.js';
 import { ParallelTrainingCoordinator } from './parallel-trainer.js';
 import { createParallelTrainingPlan, trainingIntervalMs, trainingRoundsPerTick } from './parallel-training.js';
 import { CombinedRewardSystem } from '../adaptive-rewards.js';
@@ -39,6 +39,7 @@ import {
     shouldRecycleEnvironments,
 } from './training-recovery.js';
 import {
+    clearPureRLAutonomy,
     clearPureRLPolicy,
     getPureRLAutonomy,
     getPureRLPolicy,
@@ -374,8 +375,9 @@ export async function initializeLab(romBuffer, canvas) {
         const savedPolicy = await getPureRLPolicy();
         if (savedPolicy) {
             try {
-                if (savedPolicy.version !== 2 || savedPolicy.algorithm !== 'ppo-gae') {
-                    throw new Error('pre-PPO policy snapshots cannot supply a compatible value function');
+                if (savedPolicy.version !== 2 || savedPolicy.algorithm !== 'ppo-gae'
+                    || savedPolicy.objectiveVersion !== REDPP_TRAINING_OBJECTIVE_VERSION) {
+                    throw new Error('saved policy targets an incompatible training objective');
                 }
                 labPureRLAgent.loadPolicy(savedPolicy);
                 lastPersistedTrainStep = labPureRLAgent.core.trainSteps;
@@ -390,7 +392,8 @@ export async function initializeLab(romBuffer, canvas) {
             } catch (err) {
                 console.warn('[Lab] Saved Pure RL policy is incompatible:', err.message);
                 await clearPureRLPolicy();
-                feedSystem('The ineffective pre-PPO Train policy was reset for the new learner.');
+                await clearPureRLAutonomy();
+                feedSystem('The saved Train policy and its proof counters were reset for the corrected objective.');
             }
         }
 

@@ -141,7 +141,7 @@ test('short-window movement loops escalate near minus 0.1 without punishing expl
     assert.ok(looped.total < -0.09, `combined loop cost should be near or beyond -0.1, got ${looped.total}`);
 
     rewards.resetEpisodeState();
-    const fresh = rewards.evaluate(center, neighbor, 'right');
+    const fresh = rewards.evaluate(center, state({ coordinates: { x: 7, y: 6 } }), 'right');
     assert.equal(fresh.firedTests.some(item => item.id === 'recent_movement_loop'), false);
     assert.ok(fresh.total > 0, 'a genuinely new tile must remain worth exploring');
 });
@@ -206,7 +206,7 @@ test('reward learning memory survives scheduled WASM environment rotation', () =
     assert.ok(continuedCredit < firstCredit, 'dialog credit must not reset during WASM rotation');
 });
 
-test('episode reset renews exploration without erasing durable anti-farming memory', () => {
+test('episode reset clears loop pressure without renewing globally farmed exploration', () => {
     const rewards = new UnitTestRewards();
     const a = state({ coordinates: { x: 5, y: 6 } });
     const b = state({ coordinates: { x: 6, y: 6 } });
@@ -221,10 +221,11 @@ test('episode reset renews exploration without erasing durable anti-farming memo
 
     rewards.resetEpisodeState();
     const renewedVisit = rewards.evaluate(a, b, 'right');
-    assert.ok(renewedVisit.firedTests.some(event => event.id === 'novel_tile'),
-        'checkpoint reload must start a fresh episodic exploration map');
-    assert.ok(rewards.getStats().totalRewards.total > totalBeforeReset,
-        'cumulative training telemetry must survive episode reset');
+    assert.equal(renewedVisit.firedTests.some(event => event.id === 'novel_tile'), false,
+        'checkpoint reload must not make a globally familiar tile novel again');
+    assert.ok(Math.abs(rewards.getStats().totalRewards.total
+        - (totalBeforeReset + renewedVisit.total)) < 1e-9,
+    'cumulative training telemetry must survive episode reset');
 
     const continuedDialog = rewards.evaluate(dialogB, { ...dialogB, dialog: 'NEXT' }, 'a');
     const continuedCredit = continuedDialog.firedTests.find(event => event.id === 'dialog_advanced').reward;
