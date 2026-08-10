@@ -16,6 +16,8 @@ export class SimplePolicy {
         this.b1 = new Float32Array(hiddenSize);
         this.w2 = new Float32Array(hiddenSize * outputSize);
         this.b2 = new Float32Array(outputSize);
+        this.wv = new Float32Array(hiddenSize);
+        this.bv = new Float32Array(1);
 
         this._initWeights();
 
@@ -28,6 +30,17 @@ export class SimplePolicy {
         // Scratch arrays for backward pass
         this._dLogits = new Float32Array(outputSize);
         this._dHidden = new Float32Array(hiddenSize);
+
+        // Adam state. Keeping it beside the tensors makes optimizer updates
+        // allocation-free and lets the browser train for days without SGD
+        // oscillation from sparse, differently-scaled rewards.
+        this._adamStep = 0;
+        this._adamM = {};
+        this._adamV = {};
+        for (const key of ['w1', 'b1', 'w2', 'b2', 'wv', 'bv']) {
+            this._adamM[key] = new Float32Array(this[key].length);
+            this._adamV[key] = new Float32Array(this[key].length);
+        }
     }
 
     _initWeights() {
@@ -40,6 +53,10 @@ export class SimplePolicy {
         }
         for (let i = 0; i < this.w2.length; i++) {
             this.w2[i] = (this.rng() * 2 - 1) * scale2;
+        }
+        const valueScale = Math.sqrt(2.0 / (this.hiddenSize + 1));
+        for (let i = 0; i < this.wv.length; i++) {
+            this.wv[i] = (this.rng() * 2 - 1) * valueScale;
         }
         // Biases start at 0
         this.b1.fill(0);
@@ -76,7 +93,7 @@ export class SimplePolicy {
                 sum += stateVec[i] * this.w1[i * this.hiddenSize + j];
             }
             hiddenPreRelu[j] = sum;
-            hidden[j] = Math.max(0, sum); // ReLU
+            hidden[j] = sum > 0 ? sum : 0.05 * sum; // Leaky ReLU avoids dead sparse-state features.
         }
 
         // Output layer: softmax(hidden * W2 + b2)
@@ -101,7 +118,10 @@ export class SimplePolicy {
         }
 
         // Return views into scratch arrays (caller must not hold references)
-        return { hiddenPreRelu, hidden, logits, probs };
+        let value = this.bv[0];
+        for (let i = 0; i < this.hiddenSize; i++) value += hidden[i] * this.wv[i];
+
+        return { hiddenPreRelu, hidden, logits, probs, value };
     }
 
     /**
@@ -170,7 +190,7 @@ export class SimplePolicy {
                 sum += dLogits[j] * this.w2[i * this.outputSize + j];
             }
             // ReLU derivative: 1 if pre-activation > 0, else 0
-            dHidden[i] = sum * (hiddenPreRelu[i] > 0 ? 1 : 0);
+            dHidden[i] = sum * (hiddenPreRelu[i] > 0 ? 1 : 0.05);
         }
 
         // Gradient for W1
@@ -184,6 +204,98 @@ export class SimplePolicy {
         for (let j = 0; j < this.hiddenSize; j++) {
             acc.gb1[j] += dHidden[j];
         }
+    }
+
+    /** Accumulate a clipped PPO actor-critic objective (gradient ascent). */
+    computePPOGradientsInto(acc, stateVec, actionIdx, oldLogProb, advantage,
+        valueTarget, cache, {
+            clipRatio = 0.2,
+            entropyCoefficient = 0.01,
+            valueCoefficient = 0.5,
+            coverageCoefficient = 0,
+        } = {}) {
+        const { hiddenPreRelu, hidden, probs, value } = cache;
+        const currentLogProb = Math.log(probs[actionIdx] + 1e-8);
+        const ratio = Math.exp(Math.max(-20, Math.min(20, currentLogProb - oldLogProb)));
+        const clipped = Math.max(1 - clipRatio, Math.min(1 + clipRatio, ratio));
+        const useUnclipped = advantage >= 0 ? ratio <= clipped : ratio >= clipped;
+        const policyWeight = useUnclipped ? ratio * Math.max(-8, Math.min(8, advantage)) : 0;
+
+        let entropy = 0;
+        for (let index = 0; index < this.outputSize; index++) {
+            if (probs[index] > 1e-8) entropy -= probs[index] * Math.log(probs[index]);
+        }
+        for (let index = 0; index < this.outputSize; index++) {
+            const policySignal = policyWeight * (((index === actionIdx) ? 1 : 0) - probs[index]);
+            const entropySignal = entropyCoefficient > 0
+                ? -entropyCoefficient * probs[index] * (Math.log(probs[index] + 1e-8) + entropy)
+                : 0;
+            const coverageSignal = coverageCoefficient > 0
+                ? coverageCoefficient * ((1 / this.outputSize) - probs[index])
+                : 0;
+            this._dLogits[index] = policySignal + entropySignal + coverageSignal;
+        }
+
+        const valueSignal = valueCoefficient * Math.max(-10, Math.min(10, valueTarget - value));
+        for (let hiddenIndex = 0; hiddenIndex < this.hiddenSize; hiddenIndex++) {
+            for (let action = 0; action < this.outputSize; action++) {
+                acc.gW2[hiddenIndex * this.outputSize + action]
+                    += hidden[hiddenIndex] * this._dLogits[action];
+            }
+            acc.gWv[hiddenIndex] += hidden[hiddenIndex] * valueSignal;
+        }
+        for (let action = 0; action < this.outputSize; action++) acc.gb2[action] += this._dLogits[action];
+        acc.gbv[0] += valueSignal;
+
+        for (let hiddenIndex = 0; hiddenIndex < this.hiddenSize; hiddenIndex++) {
+            let signal = valueSignal * this.wv[hiddenIndex];
+            for (let action = 0; action < this.outputSize; action++) {
+                signal += this._dLogits[action] * this.w2[hiddenIndex * this.outputSize + action];
+            }
+            this._dHidden[hiddenIndex] = signal * (hiddenPreRelu[hiddenIndex] > 0 ? 1 : 0.05);
+        }
+        for (let input = 0; input < this.stateSize; input++) {
+            for (let hiddenIndex = 0; hiddenIndex < this.hiddenSize; hiddenIndex++) {
+                acc.gW1[input * this.hiddenSize + hiddenIndex]
+                    += stateVec[input] * this._dHidden[hiddenIndex];
+            }
+        }
+        for (let hiddenIndex = 0; hiddenIndex < this.hiddenSize; hiddenIndex++) {
+            acc.gb1[hiddenIndex] += this._dHidden[hiddenIndex];
+        }
+        return { entropy, valueError: valueTarget - value, ratio };
+    }
+
+    /** Adam ascent with global-norm clipping. */
+    applyAdam(acc, learningRate, { beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, maxGradNorm = 0.5 } = {}) {
+        const pairs = [
+            ['w1', 'gW1'], ['b1', 'gb1'], ['w2', 'gW2'],
+            ['b2', 'gb2'], ['wv', 'gWv'], ['bv', 'gbv'],
+        ];
+        let normSquared = 0;
+        for (const [, gradientKey] of pairs) {
+            for (const value of acc[gradientKey]) normSquared += value * value;
+        }
+        const norm = Math.sqrt(normSquared);
+        const scale = norm > maxGradNorm ? maxGradNorm / (norm + 1e-8) : 1;
+        this._adamStep++;
+        const correction1 = 1 - (beta1 ** this._adamStep);
+        const correction2 = 1 - (beta2 ** this._adamStep);
+        for (const [tensorKey, gradientKey] of pairs) {
+            const tensor = this[tensorKey];
+            const gradient = acc[gradientKey];
+            const first = this._adamM[tensorKey];
+            const second = this._adamV[tensorKey];
+            for (let index = 0; index < tensor.length; index++) {
+                const grad = gradient[index] * scale;
+                first[index] = beta1 * first[index] + (1 - beta1) * grad;
+                second[index] = beta2 * second[index] + (1 - beta2) * grad * grad;
+                const adjusted = (first[index] / correction1)
+                    / (Math.sqrt(second[index] / correction2) + epsilon);
+                tensor[index] += learningRate * adjusted;
+            }
+        }
+        return norm;
     }
 
     /**
@@ -216,6 +328,8 @@ export class SimplePolicy {
             gb1: new Float32Array(this.hiddenSize),
             gW2: new Float32Array(this.hiddenSize * this.outputSize),
             gb2: new Float32Array(this.outputSize),
+            gWv: new Float32Array(this.hiddenSize),
+            gbv: new Float32Array(1),
         };
     }
 
@@ -228,6 +342,8 @@ export class SimplePolicy {
         acc.gb1.fill(0);
         acc.gW2.fill(0);
         acc.gb2.fill(0);
+        acc.gWv.fill(0);
+        acc.gbv.fill(0);
     }
 }
 

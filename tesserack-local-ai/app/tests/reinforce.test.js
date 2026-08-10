@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.requestAnimationFrame = callback => callback();
 
 const { runGradientCheck, runSixActionBanditTest } = await import('../src/lib/core/lab/bandit-test.js');
-const { adaptiveEntropyCoefficient, adaptiveCoverageCoefficient } = await import('../src/lib/core/lab/reinforce-core.js');
+const { ReinforceCore, adaptiveEntropyCoefficient, adaptiveCoverageCoefficient } = await import('../src/lib/core/lab/reinforce-core.js');
 const { SimplePolicy } = await import('../src/lib/core/lab/simple-policy.js');
 
 test('adaptive entropy pressure is bounded and activates only below target', () => {
@@ -81,12 +81,13 @@ test('reverse-KL coverage gives an almost-dead action a non-vanishing logit grad
     assert.ok(Math.abs(gradientSum) < 1e-7, `coverage gradient sum was ${gradientSum}`);
 });
 
-test('REINFORCE analytical gradient matches Float32 finite differences', () => {
+test('policy gradient matches Float32 finite differences', () => {
     const result = runGradientCheck();
-    assert.equal(result.success, true, `max relative error: ${result.maxRelError}`);
+    assert.equal(result.success, true, `relative=${result.maxRelError}, absolute=${result.maxAbsError}`);
+    assert.ok(result.maxAbsError < 1e-5);
 });
 
-test('seeded REINFORCE learns the rewarding action reproducibly', async () => {
+test('seeded policy learns the rewarding action reproducibly', async () => {
     const options = {
         seed: 42,
         totalEnvSteps: 10000,
@@ -102,4 +103,43 @@ test('seeded REINFORCE learns the rewarding action reproducibly', async () => {
     assert.equal(first.success, true);
     assert.ok(first.probs.b > 0.7, `P(b) was ${first.probs.b}`);
     assert.deepEqual(first.probs, second.probs);
+});
+
+test('episodic novelty is bounded, decays on repeats, and resets only at episode end', () => {
+    const core = new ReinforceCore({
+        stateSize: 1,
+        numActions: 2,
+        rolloutSize: 8,
+        intrinsicRewardScale: 0.04,
+        intrinsicRewardCap: 0.04,
+    });
+    const state = new Float32Array([0.5]);
+    core.observe(state, 0, 0, false, 0, 0);
+    core.observe(state, 0, 0, false, 0, 0);
+    core.observe(state, 0, 0, true, 0, 0);
+    core.observe(state, 0, 0, false, 0, 0);
+
+    assert.ok(Math.abs(core.buffer.intrinsicRewards[0] - 0.04) < 1e-7);
+    assert.ok(core.buffer.intrinsicRewards[1] < core.buffer.intrinsicRewards[0]);
+    assert.ok(core.buffer.intrinsicRewards[2] < core.buffer.intrinsicRewards[1]);
+    assert.ok(Math.abs(core.buffer.intrinsicRewards[3] - 0.04) < 1e-7);
+});
+
+test('GAE bootstraps truncations but never crosses terminal boundaries', () => {
+    const core = new ReinforceCore({
+        stateSize: 1,
+        numActions: 2,
+        rolloutSize: 3,
+        gamma: 0.9,
+        gaeLambda: 1,
+        intrinsicRewardScale: 0,
+        normalizeReturns: false,
+    });
+    const state = new Float32Array([0]);
+    core.observe(state, 0, 1, false, 0, 0, 0.5, 0.75);
+    core.observe(state, 0, 2, true, 0, 0, 0.75, 99);
+    core._computeGAE(2);
+
+    assert.ok(Math.abs(core._advantages[1] - 1.25) < 1e-6);
+    assert.ok(Math.abs(core._advantages[0] - 2.3) < 1e-6);
 });

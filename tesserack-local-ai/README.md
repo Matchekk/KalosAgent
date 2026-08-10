@@ -4,7 +4,7 @@ Browser-based autonomous training and local-LLM play for Pokemon Red++.
 
 ## Training model
 
-Train mode uses a REINFORCE policy that chooses every required Game Boy action itself, including Start and party/battle menus. There is no scripted early-game controller.
+Train mode uses a browser-native PPO/GAE actor-critic that chooses every required Game Boy action itself, including Start and party/battle menus. Four synchronized environments combine a learned value baseline, episodic novelty and an autonomous frontier archive; there is no scripted controller.
 
 Training runs four independent Red++ emulator environments against one shared on-policy learner. The visible environment and two headless environments resume from the strongest RAM-verified checkpoint; a fourth environment always starts from the original ROM state so the policy cannot forget the opening. Checkpoints are ranked by durable progress (Champion, badges, Oak rival, party, route, team quality, levels) and never by noisy short-term reward. Only one emulator is rendered, and the aggregate 512-sample rollout keeps discounted returns isolated per environment.
 

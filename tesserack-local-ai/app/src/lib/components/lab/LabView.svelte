@@ -90,10 +90,9 @@
     let autosaveEnabled = false;
     let autosaveInterval = null;
 
-    // Algorithm options (for future PPO etc)
+    // Historical storage id retained so existing user settings still load.
     const algorithms = [
-        { id: 'reinforce', label: 'REINFORCE' },
-        // { id: 'ppo', label: 'PPO' }, // Future
+        { id: 'reinforce', label: 'PPO/GAE' },
     ];
     let selectedAlgorithm = 'reinforce';
     let showAlgorithmDropdown = false;
@@ -570,12 +569,12 @@
             {#if mode === 'train'}
                 <!-- Train Mode: How it Works (Collapsible) -->
                 <button class="how-it-works-toggle" on:click={() => howItWorksExpanded = !howItWorksExpanded}>
-                    <span class="section-header">REINFORCE Training</span>
+                    <span class="section-header">PPO/GAE Training</span>
                     <ChevronDown size={14} class="toggle-icon {howItWorksExpanded ? 'expanded' : ''}" />
                 </button>
                 {#if howItWorksExpanded}
                     <p class="how-desc">
-                        Four Red++ environments collect on-policy experience for one shared REINFORCE learner. Three resume from the strongest RAM-verified checkpoint while one always rehearses from ROM start. Only environment 1 is rendered; all four choose every button themselves.
+                        Four Red++ environments train one shared PPO/GAE actor-critic. One exploits the strongest RAM-verified checkpoint, two revisit autonomously discovered frontier cells, and one always rehearses from ROM start. No route or button is scripted.
                     </p>
                 {/if}
 
@@ -614,6 +613,16 @@
                     <div class="metric-row">
                         <span class="metric-label">Checkpoints</span>
                         <span class="metric-value mono">{$pureRLMetrics.checkpointCount}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Exploration archive</span>
+                        <span class="metric-value mono">{$pureRLMetrics.archiveSize} cells / {$pureRLMetrics.archiveSelections} restores</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Value loss / PPO clip</span>
+                        <span class="metric-value mono">
+                            {$pureRLMetrics.valueLoss.toFixed(4)} / {($pureRLMetrics.clipFraction * 100).toFixed(1)}%
+                        </span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Best environment</span>

@@ -30,6 +30,7 @@ export class RLRunner {
         if (!env.stateVec) {
             env.stateVec = new Float32Array(core.stateSize);
         }
+        if (!env.nextStateVec) env.nextStateVec = new Float32Array(core.stateSize);
     }
 
     /**
@@ -52,7 +53,7 @@ export class RLRunner {
         env.encodeStateInto(prevState, env.stateVec);
 
         // 2. Act (sample from policy)
-        const { actionIdx, logProb } = core.act(env.stateVec);
+        const { actionIdx, logProb, value = 0 } = core.act(env.stateVec);
         const actionStr = env.ACTIONS[actionIdx];
 
         // 3. Execute action in environment
@@ -71,7 +72,19 @@ export class RLRunner {
         const done = env.checkDone(prevState, nextState);
 
         // 7. Store transition (observe)
-        core.observe(env.stateVec, actionIdx, reward, done, logProb, env.streamId ?? 0);
+        env.encodeStateInto(nextState, env.nextStateVec);
+        const nextValue = done ? 0 : core.getValue(env.nextStateVec);
+        core.observe(
+            env.stateVec,
+            actionIdx,
+            reward,
+            done,
+            logProb,
+            env.streamId ?? 0,
+            value,
+            nextValue,
+            env.noveltyKey?.(nextState) ?? null,
+        );
 
         // 8. Reset env if done
         if (done && env.resetEnv) {

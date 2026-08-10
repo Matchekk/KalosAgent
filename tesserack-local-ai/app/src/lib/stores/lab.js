@@ -220,17 +220,17 @@ export const nextGraphLocation = derived(
 
 // RL Training Hyperparameter Presets
 export const RL_PRESETS = {
-    conservative: { learningRate: 0.005, rolloutSize: 256, gamma: 0.99 },
-    balanced: { learningRate: 0.01, rolloutSize: 128, gamma: 0.99 },
-    fast: { learningRate: 0.05, rolloutSize: 64, gamma: 0.95 },
+    conservative: { learningRate: 0.0001, rolloutSize: 256, gamma: 0.995 },
+    balanced: { learningRate: 0.0003, rolloutSize: 128, gamma: 0.995 },
+    fast: { learningRate: 0.0007, rolloutSize: 96, gamma: 0.99 },
 };
 
-const RL_CONFIG_KEY = 'tesserack-rl-config-v1';
+const RL_CONFIG_KEY = 'tesserack-rl-config-v2';
 const DEFAULT_RL_CONFIG = {
     preset: 'balanced',
-    learningRate: 0.01,
+    learningRate: 0.0003,
     rolloutSize: 128,
-    gamma: 0.99,
+    gamma: 0.995,
 };
 
 function loadRLConfig() {

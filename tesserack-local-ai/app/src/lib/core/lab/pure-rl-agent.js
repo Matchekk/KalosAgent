@@ -1,5 +1,5 @@
 /**
- * Pure RL Agent - Browser-based REINFORCE with unit test rewards.
+ * Pure RL Agent - Browser-based PPO/GAE with deterministic Red++ rewards.
  *
  * Uses the hybrid architecture:
  *   - ReinforceCore: Pure RL math (act, observe, train)
@@ -30,8 +30,8 @@ import {
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
-export const REDPP_STATE_SIZE = 46;
-// v5 appends observable menu context while preserving all v4 feature indices.
+export const REDPP_STATE_SIZE = 58;
+// v6 appends behavior memory to the observable Red++ features.
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -58,7 +58,7 @@ function cloneProgressState(state = {}) {
  * Encode game state into a fixed-size vector for the policy network.
  * Uses sin/cos for location hash to avoid ordering problems.
  */
-export function encodeRedppStateInto(state, outVec) {
+export function encodeRedppStateInto(state, outVec, context = {}) {
     if (!state) {
         outVec.fill(0);
         return;
@@ -152,6 +152,18 @@ export function encodeRedppStateInto(state, outVec) {
     outVec[i++] = menu?.open ? Math.sin(menuAngle) : 0;
     outVec[i++] = menu?.open ? Math.cos(menuAngle) : 0;
 
+    // Short-term memory distinguishes identical-looking frames after different
+    // actions and exposes repetition/stagnation directly to the policy.
+    const previousAction = PURE_RL_ACTIONS.indexOf(context.lastAction);
+    for (let action = 0; action < PURE_RL_ACTIONS.length; action++) {
+        outVec[i++] = action === previousAction ? 1 : 0;
+    }
+    outVec[i++] = Math.max(-1, Math.min(1, Number(context.deltaX) || 0));
+    outVec[i++] = Math.max(-1, Math.min(1, Number(context.deltaY) || 0));
+    outVec[i++] = Math.max(0, Math.min(1, Number(context.stagnation) || 0));
+    outVec[i++] = Math.max(0, Math.min(1, (Number(context.actionStreak) || 0) / 16));
+    outVec[i++] = Math.max(0, Math.min(1, Number(context.explorationProfile) || 0));
+
     // Pad remaining with zeros
     while (i < REDPP_STATE_SIZE) outVec[i++] = 0;
 }
@@ -209,10 +221,18 @@ export class PureRLAgent {
             rehearseEvery: agentConfig.rehearseEvery ?? 5,
             autoCheckpoint: agentConfig.autoCheckpoint ?? true,
             persistCheckpoint: agentConfig.persistCheckpoint ?? (this.workerId === 0),
-            // REINFORCE config
+            // PPO/GAE config
             rolloutSize: agentConfig.rolloutSize ?? 128,
-            learningRate: agentConfig.learningRate ?? 0.001,
-            gamma: agentConfig.gamma ?? 0.99,
+            learningRate: agentConfig.learningRate ?? 0.0003,
+            gamma: agentConfig.gamma ?? 0.995,
+            gaeLambda: agentConfig.gaeLambda ?? 0.95,
+            clipRatio: agentConfig.clipRatio ?? 0.2,
+            updateEpochs: agentConfig.updateEpochs ?? 6,
+            miniBatchSize: agentConfig.miniBatchSize ?? 64,
+            valueCoefficient: agentConfig.valueCoefficient ?? 0.5,
+            maxGradNorm: agentConfig.maxGradNorm ?? 0.5,
+            intrinsicRewardScale: agentConfig.intrinsicRewardScale ?? 0.01,
+            intrinsicRewardProfiles: agentConfig.intrinsicRewardProfiles ?? [0, 0.75, 1.5, 1],
             normalizeReturns: agentConfig.normalizeReturns ?? true,
             entropyCoefficient: agentConfig.entropyCoefficient ?? 0.01,
             entropyTargetRatio: agentConfig.entropyTargetRatio ?? 0.75,
@@ -236,6 +256,14 @@ export class PureRLAgent {
             rolloutSize: this.config.rolloutSize,
             learningRate: this.config.learningRate,
             gamma: this.config.gamma,
+            gaeLambda: this.config.gaeLambda,
+            clipRatio: this.config.clipRatio,
+            updateEpochs: this.config.updateEpochs,
+            miniBatchSize: this.config.miniBatchSize,
+            valueCoefficient: this.config.valueCoefficient,
+            maxGradNorm: this.config.maxGradNorm,
+            intrinsicRewardScale: this.config.intrinsicRewardScale,
+            intrinsicRewardProfiles: this.config.intrinsicRewardProfiles,
             normalizeReturns: this.config.normalizeReturns,
             entropyCoefficient: this.config.entropyCoefficient,
             entropyTargetRatio: this.config.entropyTargetRatio,
@@ -266,13 +294,20 @@ export class PureRLAgent {
         this.confirmedWins = 0;
         this.resetReason = null;
         this.pendingCheckpointCandidate = null;
+        this.pendingArchiveCandidate = null;
+        this.knownArchiveCells = new Set();
         this.stableLocation = '';
         this.stableLocationSteps = 0;
+        this.lastDeltaX = 0;
+        this.lastDeltaY = 0;
+        this.actionStreak = 0;
+        this.lastBehaviorAction = null;
 
         // Checkpoint state for resets
         this.checkpointState = null;
         this.checkpointProgressState = null;
         this.initialState = null;
+        this.explorationState = null;
 
         // Callbacks
         this.onStep = null;
@@ -294,8 +329,12 @@ export class PureRLAgent {
                 return self.mem.getGameState();
             },
 
+            noveltyKey(gameState) {
+                return self._noveltyKey(gameState);
+            },
+
             encodeStateInto(gameState, outVec) {
-                encodeRedppStateInto(gameState, outVec);
+                encodeRedppStateInto(gameState, outVec, self._behaviorContext());
             },
 
             async executeAction(actionStr) {
@@ -303,6 +342,10 @@ export class PureRLAgent {
             },
 
             rewardFn(prevState, nextState, action) {
+                self.lastDeltaX = (nextState?.coordinates?.x ?? 0) - (prevState?.coordinates?.x ?? 0);
+                self.lastDeltaY = (nextState?.coordinates?.y ?? 0) - (prevState?.coordinates?.y ?? 0);
+                self.actionStreak = action === self.lastBehaviorAction ? self.actionStreak + 1 : 1;
+                self.lastBehaviorAction = action;
                 return self.rewards.evaluate(prevState, nextState, action);
             },
 
@@ -314,6 +357,36 @@ export class PureRLAgent {
                 await self._resetEnv();
             },
         };
+    }
+
+    _behaviorContext() {
+        return {
+            lastAction: this.lastBehaviorAction,
+            deltaX: this.lastDeltaX,
+            deltaY: this.lastDeltaY,
+            stagnation: this.config.noProgressSteps > 0
+                ? (this.episodeSteps - this.lastProgressEpisodeStep) / this.config.noProgressSteps
+                : 0,
+            actionStreak: this.actionStreak,
+            explorationProfile: Math.min(1, this.workerId / 3),
+        };
+    }
+
+    _noveltyKey(state) {
+        const location = String(state?.location || 'NO ACTIVE MAP');
+        const x = Math.trunc(Number(state?.coordinates?.x) || 0);
+        const y = Math.trunc(Number(state?.coordinates?.y) || 0);
+        const context = state?.inBattle ? 'battle' : (state?.menu?.open ? 'menu' : (state?.dialog ? 'dialog' : 'world'));
+        const battle = state?.battle;
+        const screen = state?.menu?.open ? (state.menu.screenHash >>> 0) : 0;
+        const dialogHash = state?.dialog ? hashString(state.dialog) : 0;
+        return [
+            location, x, y, context, screen, dialogHash,
+            Number(state?.badgeCount) || 0,
+            state?.party?.length || 0,
+            battle?.opponent?.speciesId || 0,
+            Math.ceil((battle?.opponent?.currentHP || 0) / 4),
+        ].join('|');
     }
 
     /**
@@ -337,6 +410,22 @@ export class PureRLAgent {
             this.stableLocationSteps = 1;
         }
         const progressScore = this._progressScore(currState);
+        const archiveKey = this._archiveCellKey(currState);
+        if (archiveKey && !this.knownArchiveCells.has(archiveKey)) {
+            this.knownArchiveCells.add(archiveKey);
+            // A multi-day browser session must not accumulate an unbounded
+            // Set. The coordinator keeps the strongest restorable cells.
+            if (this.knownArchiveCells.size > 4096) {
+                this.knownArchiveCells.delete(this.knownArchiveCells.values().next().value);
+            }
+            this.pendingArchiveCandidate = {
+                key: archiveKey,
+                workerId: this.workerId,
+                steps: this.totalSteps + 1,
+                state: cloneProgressState(currState),
+                checkpoint: this.emu.saveState(),
+            };
+        }
         const progressBaseline = this.checkpointProgressState || prevState;
         const locationOnlyProgress = this._isLocationOnlyProgress(progressBaseline, currState);
         const stableEnough = !locationOnlyProgress || this.stableLocationSteps >= 3;
@@ -383,7 +472,10 @@ export class PureRLAgent {
         const rehearseEvery = Math.max(0, Math.trunc(Number(this.config.rehearseEvery) || 0));
         const rehearseFromStart = this.config.resetFromInitial
             || (rehearseEvery > 0 && this.episode % rehearseEvery === 0);
-        const state = rehearseFromStart ? this.initialState : this.checkpointState;
+        const state = rehearseFromStart
+            ? this.initialState
+            : (this.explorationState || this.checkpointState);
+        this.explorationState = null;
         this.rewards.resetEpisodeState();
         if (state) {
             this.emu.loadState(state);
@@ -398,6 +490,10 @@ export class PureRLAgent {
         this.lastProgressEpisodeStep = 0;
         this.stableLocation = '';
         this.stableLocationSteps = 0;
+        this.lastDeltaX = 0;
+        this.lastDeltaY = 0;
+        this.actionStreak = 0;
+        this.lastBehaviorAction = null;
     }
 
     /**
@@ -493,6 +589,10 @@ export class PureRLAgent {
         this.lastProgressEpisodeStep = 0;
         this.stableLocation = '';
         this.stableLocationSteps = 0;
+        this.lastDeltaX = 0;
+        this.lastDeltaY = 0;
+        this.actionStreak = 0;
+        this.lastBehaviorAction = null;
         this.rewards.reset();
         // Note: Core (policy weights, buffer) is NOT reset
         // Call resetFull() to also reset learning
@@ -510,6 +610,14 @@ export class PureRLAgent {
             rolloutSize: this.config.rolloutSize,
             learningRate: this.config.learningRate,
             gamma: this.config.gamma,
+            gaeLambda: this.config.gaeLambda,
+            clipRatio: this.config.clipRatio,
+            updateEpochs: this.config.updateEpochs,
+            miniBatchSize: this.config.miniBatchSize,
+            valueCoefficient: this.config.valueCoefficient,
+            maxGradNorm: this.config.maxGradNorm,
+            intrinsicRewardScale: this.config.intrinsicRewardScale,
+            intrinsicRewardProfiles: this.config.intrinsicRewardProfiles,
             normalizeReturns: this.config.normalizeReturns,
             entropyCoefficient: this.config.entropyCoefficient,
             entropyTargetRatio: this.config.entropyTargetRatio,
@@ -591,9 +699,37 @@ export class PureRLAgent {
         return candidate;
     }
 
+    consumeArchiveCandidate() {
+        const candidate = this.pendingArchiveCandidate;
+        this.pendingArchiveCandidate = null;
+        return candidate;
+    }
+
+    adoptExplorationState(stateBytes) {
+        if (!(stateBytes instanceof Uint8Array)) return false;
+        this.explorationState = stateBytes.slice();
+        return true;
+    }
+
+    _archiveCellKey(state) {
+        const location = String(state?.location || '');
+        const x = Number(state?.coordinates?.x);
+        const y = Number(state?.coordinates?.y);
+        if (!location || location === 'NO ACTIVE MAP' || !Number.isFinite(x) || !Number.isFinite(y)) return '';
+        if (state?.inBattle || state?.dialog || state?.menu?.open) return '';
+        return [
+            location,
+            Math.trunc(x),
+            Math.trunc(y),
+            Number(state?.badgeCount) || 0,
+            state?.party?.length || 0,
+            state?.progressFlags?.battledRivalInOaksLab ? 1 : 0,
+        ].join('|');
+    }
+
     setSharedCore(core) {
         if (!core || core.stateSize !== REDPP_STATE_SIZE || core.numActions !== PURE_RL_ACTIONS.length) {
-            throw new Error('Incompatible shared REINFORCE core');
+            throw new Error('Incompatible shared PPO/GAE core');
         }
         this.core = core;
         this.runner = new RLRunner(this.core, this.env);
@@ -656,7 +792,7 @@ export class PureRLAgent {
     getPolicyProbs() {
         const state = this.mem.getGameState();
         const stateVec = new Float32Array(REDPP_STATE_SIZE);
-        encodeRedppStateInto(state, stateVec);
+        encodeRedppStateInto(state, stateVec, this._behaviorContext());
         return this.core.getProbs(stateVec);
     }
 
@@ -709,6 +845,14 @@ export class PureRLAgent {
                 rolloutSize: this.config.rolloutSize,
                 learningRate: this.config.learningRate,
                 gamma: this.config.gamma,
+                gaeLambda: this.config.gaeLambda,
+                clipRatio: this.config.clipRatio,
+                updateEpochs: this.config.updateEpochs,
+                miniBatchSize: this.config.miniBatchSize,
+                valueCoefficient: this.config.valueCoefficient,
+                maxGradNorm: this.config.maxGradNorm,
+                intrinsicRewardScale: this.config.intrinsicRewardScale,
+                intrinsicRewardProfiles: this.config.intrinsicRewardProfiles,
                 normalizeReturns: this.config.normalizeReturns,
                 entropyCoefficient: this.config.entropyCoefficient,
                 entropyTargetRatio: this.config.entropyTargetRatio,

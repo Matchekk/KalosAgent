@@ -53,9 +53,10 @@ export async function executeRepeatedAction(emulator, action, {
 
 /** Copy compatible policy weights and learning counters into a resized core. */
 export function copyReinforceState(sourceCore, targetCore) {
-    for (const key of ['w1', 'b1', 'w2', 'b2']) {
+    for (const key of ['w1', 'b1', 'w2', 'b2', 'wv', 'bv']) {
         const source = sourceCore.policy[key];
         const target = targetCore.policy[key];
+        if (!source && !target && ['wv', 'bv'].includes(key)) continue;
         if (!source || !target || source.length !== target.length) {
             throw new Error(`Incompatible policy tensor: ${key}`);
         }
@@ -65,14 +66,27 @@ export function copyReinforceState(sourceCore, targetCore) {
     targetCore.lastAvgRawReturn = sourceCore.lastAvgRawReturn;
     targetCore.lastEntropy = sourceCore.lastEntropy;
     targetCore.lastEntropyCoefficient = sourceCore.lastEntropyCoefficient;
+    targetCore.lastValueLoss = sourceCore.lastValueLoss;
+    targetCore.lastClipFraction = sourceCore.lastClipFraction;
+    if (sourceCore.policy._adamM && targetCore.policy._adamM) {
+        for (const key of ['w1', 'b1', 'w2', 'b2', 'wv', 'bv']) {
+            targetCore.policy._adamM[key].set(sourceCore.policy._adamM[key]);
+            targetCore.policy._adamV[key].set(sourceCore.policy._adamV[key]);
+        }
+        targetCore.policy._adamStep = sourceCore.policy._adamStep;
+    }
 }
 
-const POLICY_TENSORS = ['w1', 'b1', 'w2', 'b2'];
+const ACTOR_TENSORS = ['w1', 'b1', 'w2', 'b2'];
+const PPO_TENSORS = [...ACTOR_TENSORS, 'wv', 'bv'];
 
-/** Serialize a REINFORCE policy into a JSON-safe, versioned snapshot. */
+/** Serialize the policy/value network into a JSON-safe, versioned snapshot. */
 export function createReinforceSnapshot(core) {
+    const isPPO = core.policy.wv && core.policy.bv;
+    const tensors = isPPO ? PPO_TENSORS : ACTOR_TENSORS;
     return {
-        version: 1,
+        version: isPPO ? 2 : 1,
+        algorithm: isPPO ? 'ppo-gae' : 'reinforce',
         architecture: {
             stateSize: core.stateSize,
             hiddenSize: core.policy.hiddenSize,
@@ -82,14 +96,14 @@ export function createReinforceSnapshot(core) {
         lastAvgRawReturn: core.lastAvgRawReturn,
         lastEntropy: core.lastEntropy,
         weights: Object.fromEntries(
-            POLICY_TENSORS.map(key => [key, Array.from(core.policy[key])])
+            tensors.map(key => [key, Array.from(core.policy[key])])
         ),
     };
 }
 
 /** Validate and restore a policy snapshot without partially mutating the core. */
 export function restoreReinforceSnapshot(core, snapshot) {
-    if (!snapshot || snapshot.version !== 1) {
+    if (!snapshot || ![1, 2].includes(snapshot.version)) {
         throw new Error('Unsupported policy snapshot');
     }
 
@@ -110,8 +124,11 @@ export function restoreReinforceSnapshot(core, snapshot) {
         b1: core.policy.hiddenSize,
         w2: core.policy.hiddenSize * core.numActions,
         b2: core.numActions,
+        wv: core.policy.hiddenSize,
+        bv: 1,
     };
-    for (const key of POLICY_TENSORS) {
+    const tensors = snapshot.version === 2 ? PPO_TENSORS : ACTOR_TENSORS;
+    for (const key of tensors) {
         const values = snapshot.weights?.[key];
         if (!Array.isArray(values) || values.length !== expectedLengths[key]) {
             throw new Error(`Incompatible policy tensor: ${key}`);
@@ -127,6 +144,14 @@ export function restoreReinforceSnapshot(core, snapshot) {
     core.policy.w1.fill(0);
     core.policy.w1.set(validated.w1);
     for (const key of ['b1', 'w2', 'b2']) core.policy[key].set(validated[key]);
+    if (core.policy.wv) {
+        core.policy.wv.fill(0);
+        core.policy.bv.fill(0);
+        if (snapshot.version === 2) {
+            core.policy.wv.set(validated.wv);
+            core.policy.bv.set(validated.bv);
+        }
+    }
     core.trainSteps = Number.isSafeInteger(snapshot.trainSteps) && snapshot.trainSteps >= 0
         ? snapshot.trainSteps : 0;
     core.lastAvgRawReturn = Number.isFinite(snapshot.lastAvgRawReturn)

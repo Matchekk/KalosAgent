@@ -84,12 +84,15 @@ export const pureRLMetrics = writable({
     totalRewards: { tier1: 0, tier2: 0, tier3: 0, penalties: 0, total: 0 },
     completedObjectives: [],
     teamQuality: null,
-    // Training metrics (REINFORCE)
+    // Training metrics (PPO/GAE)
     trainSteps: 0,
     bufferFill: 0,
     bufferSize: 128,
     avgRawReturn: 0,
     policyEntropy: 0,
+    valueLoss: 0,
+    clipFraction: 0,
+    intrinsicReward: 0,
     episode: 1,
     episodeSteps: 0,
     bestProgressScore: 0,
@@ -98,6 +101,8 @@ export const pureRLMetrics = writable({
     environmentCount: PARALLEL_ENVIRONMENT_COUNT,
     samplesPerSecond: 0,
     checkpointWorker: null,
+    archiveSize: 0,
+    archiveSelections: 0,
     workers: [],
     memoryDiagnostics: null,
     // Chart history (rolling window of last 50 rollouts)
@@ -196,6 +201,9 @@ function handlePureRLStep(stepData) {
             bufferSize: stepData.bufferSize ?? 128,
             avgRawReturn: stepData.avgRawReturn ?? 0,
             policyEntropy: stepData.policyEntropy ?? 0,
+            valueLoss: stepData.valueLoss ?? prev.valueLoss,
+            clipFraction: stepData.clipFraction ?? prev.clipFraction,
+            intrinsicReward: stepData.intrinsicReward ?? prev.intrinsicReward,
             episode: stepData.episode ?? prev.episode,
             episodeSteps: stepData.episodeSteps ?? prev.episodeSteps,
             bestProgressScore: stepData.bestProgressScore ?? prev.bestProgressScore,
@@ -204,6 +212,8 @@ function handlePureRLStep(stepData) {
             environmentCount: stepData.environmentCount ?? prev.environmentCount,
             samplesPerSecond: stepData.samplesPerSecond ?? prev.samplesPerSecond,
             checkpointWorker: stepData.checkpointWorker ?? prev.checkpointWorker,
+            archiveSize: stepData.archiveSize ?? prev.archiveSize,
+            archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
             workers: stepData.workers ?? prev.workers,
             memoryDiagnostics: stepData.memoryDiagnostics ?? prev.memoryDiagnostics,
             // Preserve history
@@ -323,7 +333,7 @@ export async function initializeLab(romBuffer, canvas) {
         labRewardSystem = new CombinedRewardSystem(canvas, labReader);
         labAgent.setExternalRewardSource(labRewardSystem);
 
-        // 6. Create pure RL agent (REINFORCE - no epsilon, pure policy sampling)
+        // 6. Create the browser-native PPO/GAE agent.
         const currentRLConfig = get(rlConfig);
         parallelPlan = createParallelTrainingPlan({
             workerCount: PARALLEL_ENVIRONMENT_COUNT,
@@ -337,7 +347,7 @@ export async function initializeLab(romBuffer, canvas) {
             autoCheckpoint: false,
             persistCheckpoint: true,
             rehearseEvery: 0,
-            // REINFORCE config
+            // PPO/GAE config
             rolloutSize: parallelPlan.aggregateRolloutSize,
             learningRate: currentRLConfig.learningRate,
             gamma: currentRLConfig.gamma,
@@ -351,6 +361,9 @@ export async function initializeLab(romBuffer, canvas) {
         const savedPolicy = await getPureRLPolicy();
         if (savedPolicy) {
             try {
+                if (savedPolicy.version !== 2 || savedPolicy.algorithm !== 'ppo-gae') {
+                    throw new Error('pre-PPO policy snapshots cannot supply a compatible value function');
+                }
                 labPureRLAgent.loadPolicy(savedPolicy);
                 lastPersistedTrainStep = labPureRLAgent.core.trainSteps;
                 pureRLMetrics.update(metrics => ({
@@ -364,7 +377,7 @@ export async function initializeLab(romBuffer, canvas) {
             } catch (err) {
                 console.warn('[Lab] Saved Pure RL policy is incompatible:', err.message);
                 await clearPureRLPolicy();
-                feedSystem('Old Train policy was incompatible with Red++ state mapping and was reset.');
+                feedSystem('The ineffective pre-PPO Train policy was reset for the new learner.');
             }
         }
 
@@ -784,6 +797,9 @@ export function resetLab() {
         bufferSize: parallelPlan?.aggregateRolloutSize ?? 512,
         avgRawReturn: 0,
         policyEntropy: 0,
+        valueLoss: 0,
+        clipFraction: 0,
+        intrinsicReward: 0,
         episode: 1,
         episodeSteps: 0,
         bestProgressScore: 0,
@@ -792,6 +808,8 @@ export function resetLab() {
         environmentCount: parallelPlan?.workerCount ?? PARALLEL_ENVIRONMENT_COUNT,
         samplesPerSecond: 0,
         checkpointWorker: null,
+        archiveSize: 0,
+        archiveSelections: 0,
         workers: [],
         history: {
             returns: [],

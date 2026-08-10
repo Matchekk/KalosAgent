@@ -241,6 +241,7 @@ export function runGradientCheck({ eps = 1e-2, seed = 7, verbose = false } = {})
     policy.computeGradientsInto(acc, state, actionIdx, advantage, cache);
 
     let maxRelError = 0;
+    let maxAbsError = 0;
     const errors = [];
 
     // Check a sample of weights
@@ -259,11 +260,13 @@ export function runGradientCheck({ eps = 1e-2, seed = 7, verbose = false } = {})
             const numerical = (jPlus - jMinus) / (2 * eps);
             const analytical = gradArr[idx];
 
-            const relError = Math.abs(numerical - analytical) / (Math.abs(numerical) + Math.abs(analytical) + 1e-8);
+            const absError = Math.abs(numerical - analytical);
+            const relError = absError / (Math.abs(numerical) + Math.abs(analytical) + 1e-8);
             maxRelError = Math.max(maxRelError, relError);
+            maxAbsError = Math.max(maxAbsError, absError);
 
             if (verbose) {
-                errors.push({ param: `${name}[${idx}]`, numerical, analytical, relError });
+                errors.push({ param: `${name}[${idx}]`, numerical, analytical, absError, relError });
             }
         }
     };
@@ -276,28 +279,29 @@ export function runGradientCheck({ eps = 1e-2, seed = 7, verbose = false } = {})
     if (verbose) {
         console.log('\nGradient check results:');
         for (const e of errors) {
-            const status = e.relError < 1e-4 ? 'OK' : 'FAIL';
+            const status = e.relError < 5e-3 ? 'OK' : 'FAIL';
             console.log(`  ${e.param}: numerical=${e.numerical.toExponential(4)}, analytical=${e.analytical.toExponential(4)}, relError=${e.relError.toExponential(2)} [${status}]`);
         }
     }
 
-    // Float32 parameters and softmax arithmetic make 1e-3 the appropriate
-    // finite-difference tolerance; tighter thresholds measure rounding noise.
-    const success = maxRelError < 1e-3;
+    // Tiny Float32 gradients amplify relative error, so require both a tight
+    // absolute bound and a meaningful relative bound.
+    const success = maxRelError < 5e-3 && maxAbsError < 1e-5;
 
     if (verbose) {
         console.log(`\nGradient check ${success ? '✅ PASSED' : '❌ FAILED'}`);
-        console.log(`Max relative error: ${maxRelError.toExponential(4)} (threshold: 1e-3)`);
+        console.log(`Max relative error: ${maxRelError.toExponential(4)} (threshold: 5e-3)`);
+        console.log(`Max absolute error: ${maxAbsError.toExponential(4)} (threshold: 1e-5)`);
     }
 
-    return { success, maxRelError };
+    return { success, maxRelError, maxAbsError };
 }
 
 // -------------------------
 // Run All Tests
 // -------------------------
 export async function runAllTests(verbose = true) {
-    if (verbose) console.log('=== Running REINFORCE Validation Tests ===\n');
+    if (verbose) console.log('=== Running Policy Gradient Validation Tests ===\n');
 
     if (verbose) console.log('--- Gradient Check ---');
     const gradientCheck = runGradientCheck({ verbose });

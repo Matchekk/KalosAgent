@@ -15,7 +15,11 @@ export class RolloutBuffer {
 
         this.actions = new Int16Array(rolloutSize);
         this.rewards = new Float32Array(rolloutSize);
-        this.logProbs = new Float32Array(rolloutSize); // Stored for PPO; unused in REINFORCE
+        this.extrinsicRewards = new Float32Array(rolloutSize);
+        this.intrinsicRewards = new Float32Array(rolloutSize);
+        this.logProbs = new Float32Array(rolloutSize);
+        this.values = new Float32Array(rolloutSize);
+        this.nextValues = new Float32Array(rolloutSize);
         this.dones = new Uint8Array(rolloutSize); // 0/1
         this.streamIds = new Uint16Array(rolloutSize);
 
@@ -38,7 +42,8 @@ export class RolloutBuffer {
      * @param {number} logProb - Log probability of action
      * @param {boolean} done - Episode termination flag
      */
-    push(stateVec, actionIdx, reward, logProb, done, streamId = 0) {
+    push(stateVec, actionIdx, reward, logProb, done, streamId = 0, value = 0, nextValue = 0,
+        extrinsicReward = reward, intrinsicReward = 0) {
         const t = this.length;
         if (t >= this.rolloutSize) return false;
 
@@ -49,7 +54,11 @@ export class RolloutBuffer {
 
         this.actions[t] = actionIdx;
         this.rewards[t] = reward;
+        this.extrinsicRewards[t] = extrinsicReward;
+        this.intrinsicRewards[t] = intrinsicReward;
         this.logProbs[t] = logProb;
+        this.values[t] = Number.isFinite(value) ? value : 0;
+        this.nextValues[t] = done || !Number.isFinite(nextValue) ? 0 : nextValue;
         this.dones[t] = done ? 1 : 0;
         this.streamIds[t] = Math.max(0, Math.trunc(Number(streamId) || 0));
 

@@ -30,7 +30,7 @@
         class:active={mode === 'train'}
         on:click={() => setMode('train')}
         {disabled}
-        title="Train mode - Pure RL learning with REINFORCE"
+        title="Train mode - autonomous PPO/GAE learning"
     >
         <Brain size={14} />
         <span>Train</span>

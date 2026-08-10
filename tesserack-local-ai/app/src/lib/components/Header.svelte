@@ -567,7 +567,7 @@
 
         <h3>Train Mode (Pure RL)</h3>
         <p>
-            The agent learns to play using <strong>REINFORCE</strong>, a vanilla policy gradient algorithm. Each step: read game memory → encode as 16-dimensional state vector → sample action from policy network → execute for ~48 frames → compute reward from deterministic tests. After collecting a rollout (128 steps by default), compute discounted returns and update policy weights via gradient ascent.
+            The agent learns with a browser-native <strong>PPO/GAE actor-critic</strong>. Four synchronized Red++ environments encode RAM and short-term behavior into 58 features, choose every button autonomously, and update a shared policy with clipped multi-epoch gradients plus a learned value baseline.
         </p>
 
         <h3>Reward System</h3>
@@ -580,7 +580,7 @@
 
         <h3>Architecture</h3>
         <p>
-            Two-layer MLP policy (16 → 64 → 6 actions) with softmax output. Pure on-policy learning with configurable hyperparameters: learning rate, rollout size, and discount factor (γ). All computation runs in JavaScript with typed arrays for efficiency.
+            Shared typed-array MLP (58 → 64 → 7 actions plus value head), GAE, Adam, gradient clipping, bounded episodic novelty, and a 128-cell autonomous exploration archive. One worker exploits, two explore frontier states, and one rehearses from the true ROM start.
         </p>
 
         <h3>Roadmap</h3>
@@ -588,10 +588,10 @@
             <li class="done">Deterministic unit-test reward system</li>
             <li class="done">Browser-native Pure RL mode</li>
             <li class="done">Real-time reward breakdown UI</li>
-            <li class="done">REINFORCE policy gradient learning</li>
+            <li class="done">PPO/GAE actor-critic learning</li>
             <li class="done">Configurable hyperparameters with presets</li>
             <li class="done">Learning visualization (charts)</li>
-            <li class="todo">PPO (clipped objective, value baseline)</li>
+            <li class="todo">Recurrent policy memory and prioritized replay</li>
             <li class="todo">Checkpoint-based curriculum shaping</li>
             <li class="todo">Reach Boulder Badge without LLM</li>
         </ul>

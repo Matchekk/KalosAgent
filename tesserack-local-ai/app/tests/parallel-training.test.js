@@ -138,3 +138,30 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
     }]);
     assert.ok(Number.isFinite(result.samplesPerSecond));
 });
+
+test('frontier archive prefers under-restored cells and remains memory-bounded', () => {
+    const core = {};
+    const agents = Array.from({ length: 4 }, (_, workerId) => ({
+        workerId,
+        core,
+        checkpointCount: 1,
+        checkpointState: new Uint8Array([0]),
+        mem: { getGameState: () => ({ location: 'PALLET TOWN', party: [] }) },
+    }));
+    const coordinator = new ParallelTrainingCoordinator({ agents });
+    coordinator.archiveLimit = 2;
+    const make = (key, location, byte) => ({
+        key,
+        state: { location, party: [] },
+        checkpoint: new Uint8Array([byte]),
+    });
+    coordinator._rememberArchive(make('house', "PLAYER'S HOUSE 2F", 1));
+    coordinator._rememberArchive(make('pallet', 'PALLET TOWN', 2));
+    const first = coordinator._selectArchiveCell();
+    const second = coordinator._selectArchiveCell();
+
+    assert.notEqual(first.key, second.key, 'least-restored cells are covered before repetition');
+    coordinator._rememberArchive(make('route1', 'ROUTE 1', 3));
+    assert.equal(coordinator.archive.size, 2);
+    assert.ok([...coordinator.archive.values()].some(cell => cell.state.location === 'ROUTE 1'));
+});

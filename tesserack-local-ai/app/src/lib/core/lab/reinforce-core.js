@@ -1,25 +1,14 @@
 /**
- * ReinforceCore - Pure REINFORCE algorithm (no env knowledge)
+ * Browser-native clipped PPO actor-critic.
  *
- * Layer A of the hybrid architecture:
- *   - Policy forward / sample
- *   - Buffer push
- *   - Compute returns/advantages
- *   - Accumulate gradients
- *   - Apply update
- *
- * Does NOT import emulator, memory, UI, or any env-specific code.
- * Can be unit tested with pure arrays.
+ * The historical class name remains for storage/UI compatibility, but the
+ * update is now PPO + GAE + Adam: a value baseline assigns delayed credit,
+ * clipped ratios bound policy drift, and interleaved emulator streams never
+ * bootstrap from one another.
  */
-
 import { RolloutBuffer } from './rollout-buffer.js';
 import { SimplePolicy } from './simple-policy.js';
 
-/**
- * Increase exploration pressure only when categorical entropy falls below a
- * configured fraction of its theoretical maximum. A target ratio of zero
- * keeps the historical fixed-coefficient behaviour for generic consumers.
- */
 export function adaptiveEntropyCoefficient({
     entropy,
     numActions,
@@ -33,61 +22,42 @@ export function adaptiveEntropyCoefficient({
     const maximum = Math.max(base, Number(maxCoefficient) || base);
     const ratio = Math.max(0, Math.min(1, Number(targetRatio) || 0));
     if (ratio === 0 || maximum === base) return base;
-
     const targetEntropy = ratio * Math.log(actions);
-    const observedEntropy = Math.max(0, Number(entropy) || 0);
-    const deficit = Math.max(0, Math.min(1, (targetEntropy - observedEntropy) / targetEntropy));
+    const observed = Math.max(0, Number(entropy) || 0);
+    const deficit = Math.max(0, Math.min(1, (targetEntropy - observed) / targetEntropy));
     const gain = Math.max(0, Number(responseGain) || 0);
-    // A normalized exponential response is monotonic, smooth at the target,
-    // bounded at `maximum`, and reacts earlier than a linear controller when
-    // action support begins to collapse. gain=0 preserves legacy behaviour.
     const pressure = gain > 0
         ? (1 - Math.exp(-gain * deficit)) / (1 - Math.exp(-gain))
         : deficit;
     return base + (maximum - base) * pressure;
 }
 
-/**
- * Activate a bounded reverse-KL coverage term only while at least one action
- * falls below the configured probability floor. The response reaches the
- * configured coefficient smoothly as the least likely action approaches zero.
- */
-export function adaptiveCoverageCoefficient({
-    probabilities,
-    coefficient = 0,
-    minimumProbability = 0,
-}) {
+export function adaptiveCoverageCoefficient({ probabilities, coefficient = 0, minimumProbability = 0 }) {
     const maximum = Math.max(0, Number(coefficient) || 0);
     const floor = Math.max(0, Math.min(1, Number(minimumProbability) || 0));
     if (maximum === 0 || floor === 0 || !probabilities?.length) return 0;
-
     let minimum = 1;
-    for (let i = 0; i < probabilities.length; i++) {
-        minimum = Math.min(minimum, Math.max(0, Number(probabilities[i]) || 0));
-    }
-    const deficit = Math.max(0, Math.min(1, (floor - minimum) / floor));
-    return maximum * deficit;
+    for (const probability of probabilities) minimum = Math.min(minimum, Math.max(0, Number(probability) || 0));
+    return maximum * Math.max(0, Math.min(1, (floor - minimum) / floor));
 }
 
 export class ReinforceCore {
-    /**
-     * @param {Object} config
-     * @param {number} config.stateSize - Dimension of state vector (default: 16)
-     * @param {number} config.numActions - Number of actions (default: 6)
-     * @param {number} config.hiddenSize - Hidden layer size (default: 64)
-     * @param {number} config.rolloutSize - Steps per update (default: 128)
-     * @param {number} config.learningRate - Learning rate (default: 0.001)
-     * @param {number} config.gamma - Discount factor (default: 0.99)
-     * @param {boolean} config.normalizeReturns - Normalize advantages (default: true)
-     * @param {Function} config.rng - Random number generator (default: Math.random)
-     */
     constructor(config = {}) {
         this.stateSize = config.stateSize ?? 16;
         this.numActions = config.numActions ?? 6;
         this.hiddenSize = config.hiddenSize ?? 64;
         this.rolloutSize = config.rolloutSize ?? 128;
-        this.learningRate = config.learningRate ?? 0.001;
+        this.learningRate = config.learningRate ?? 0.0003;
         this.gamma = config.gamma ?? 0.99;
+        this.gaeLambda = config.gaeLambda ?? 0.95;
+        this.clipRatio = config.clipRatio ?? 0.2;
+        this.updateEpochs = config.updateEpochs ?? 6;
+        this.miniBatchSize = config.miniBatchSize ?? 64;
+        this.valueCoefficient = config.valueCoefficient ?? 0.5;
+        this.maxGradNorm = config.maxGradNorm ?? 0.5;
+        this.intrinsicRewardScale = config.intrinsicRewardScale ?? 0.01;
+        this.intrinsicRewardCap = config.intrinsicRewardCap ?? 0.02;
+        this.intrinsicRewardProfiles = config.intrinsicRewardProfiles ?? [1];
         this.normalizeReturns = config.normalizeReturns ?? true;
         this.entropyCoefficient = config.entropyCoefficient ?? 0.01;
         this.entropyTargetRatio = config.entropyTargetRatio ?? 0;
@@ -97,144 +67,126 @@ export class ReinforceCore {
         this.minimumActionProbability = config.minimumActionProbability ?? 0;
         this.rng = config.rng ?? Math.random;
 
-        // Policy network
         this.policy = new SimplePolicy(this.stateSize, this.hiddenSize, this.numActions, this.rng);
-
-        // Experience buffer
         this.buffer = new RolloutBuffer(this.rolloutSize, this.stateSize);
-
-        // Gradient accumulator (reused to avoid GC)
         this.gradAcc = this.policy.createAccumulator();
-
-        // Scratch arrays for returns computation
         this._returns = new Float32Array(this.rolloutSize);
         this._advantages = new Float32Array(this.rolloutSize);
+        this._valueTargets = new Float32Array(this.rolloutSize);
+        this._indices = new Uint32Array(this.rolloutSize);
 
-        // Metrics
         this.trainSteps = 0;
         this.lastAvgRawReturn = 0;
         this.lastEntropy = 0;
         this.lastEntropyCoefficient = this.entropyCoefficient;
+        this.lastValueLoss = 0;
+        this.lastClipFraction = 0;
+        this.lastIntrinsicReward = 0;
+        this._episodicVisits = new Map();
     }
 
-    /**
-     * Choose action from policy (on-policy sampling, no epsilon)
-     * @param {Float32Array} stateVec - Encoded state vector
-     * @returns {{ actionIdx: number, logProb: number }}
-     */
     act(stateVec) {
         const cache = this.policy.forwardWithCache(stateVec);
-        const probs = cache.probs;
-
-        // Sample from categorical distribution
-        const r = this.rng();
+        const sample = this.rng();
         let cumulative = 0;
-        let actionIdx = probs.length - 1; // fallback
-        for (let i = 0; i < probs.length; i++) {
-            cumulative += probs[i];
-            if (r < cumulative) {
-                actionIdx = i;
+        let actionIdx = cache.probs.length - 1;
+        for (let index = 0; index < cache.probs.length; index++) {
+            cumulative += cache.probs[index];
+            if (sample < cumulative) {
+                actionIdx = index;
                 break;
             }
         }
-
-        const logProb = Math.log(probs[actionIdx] + 1e-8);
-
-        return { actionIdx, logProb };
+        return {
+            actionIdx,
+            logProb: Math.log(cache.probs[actionIdx] + 1e-8),
+            value: cache.value,
+        };
     }
 
-    /**
-     * Store transition in buffer
-     * @param {Float32Array} stateVec - State at time of action
-     * @param {number} actionIdx - Action taken
-     * @param {number} reward - Reward received
-     * @param {boolean} done - Episode ended
-     * @param {number} logProb - Log probability of action
-     */
-    observe(stateVec, actionIdx, reward, done, logProb, streamId = 0) {
-        this.buffer.push(stateVec, actionIdx, reward, logProb, done, streamId);
+    observe(stateVec, actionIdx, reward, done, logProb, streamId = 0, value = 0, nextValue = 0,
+        noveltyKey = null) {
+        const visits = this._episodicVisits.get(streamId) || new Map();
+        const stateKey = noveltyKey ?? hashState(stateVec);
+        const count = (visits.get(stateKey) || 0) + 1;
+        visits.set(stateKey, count);
+        this._episodicVisits.set(streamId, visits);
+        const profile = this.intrinsicRewardProfiles[
+            Math.min(streamId, this.intrinsicRewardProfiles.length - 1)
+        ] ?? 1;
+        const intrinsicReward = Math.min(
+            this.intrinsicRewardCap,
+            (this.intrinsicRewardScale * Math.max(0, profile)) / Math.sqrt(count),
+        );
+        this.lastIntrinsicReward = intrinsicReward;
+        this.buffer.push(
+            stateVec,
+            actionIdx,
+            reward + intrinsicReward,
+            logProb,
+            done,
+            streamId,
+            value,
+            nextValue,
+            reward,
+            intrinsicReward,
+        );
+        if (done) this._episodicVisits.delete(streamId);
     }
 
-    /**
-     * Check if buffer is full and training should occur
-     * @returns {boolean}
-     */
     shouldTrain() {
         return this.buffer.isFull();
     }
 
-    /**
-     * Compute discounted returns-to-go, respecting episode boundaries
-     * @private
-     */
+    /** Historical exact returns helper retained for diagnostics/tests. */
     _computeReturns() {
-        const returns = this._returns;
-        // Interleaved environments must never bootstrap from one another.
-        // A sparse array keeps this allocation proportional to active streams.
         const returnByStream = [];
-
         for (let t = this.buffer.length - 1; t >= 0; t--) {
             const streamId = this.buffer.streamIds[t];
-            // Reset return at episode boundary
-            if (this.buffer.dones[t]) {
-                returnByStream[streamId] = 0;
-            }
-            const futureReturn = returnByStream[streamId] || 0;
-            const currentReturn = this.buffer.rewards[t] + this.gamma * futureReturn;
-            returnByStream[streamId] = currentReturn;
-            returns[t] = currentReturn;
+            if (this.buffer.dones[t]) returnByStream[streamId] = 0;
+            const value = this.buffer.extrinsicRewards[t] + this.gamma * (returnByStream[streamId] || 0);
+            returnByStream[streamId] = value;
+            this._returns[t] = value;
         }
-
-        return returns;
+        return this._returns;
     }
 
-    /**
-     * Train on collected rollout - ONE gradient update
-     * @returns {{ avgRawReturn: number, entropy: number, trainSteps: number }}
-     */
+    _computeGAE(n) {
+        const gaeByStream = [];
+        for (let t = n - 1; t >= 0; t--) {
+            const streamId = this.buffer.streamIds[t];
+            const continuation = this.buffer.dones[t] ? 0 : 1;
+            const delta = this.buffer.rewards[t]
+                + this.gamma * this.buffer.nextValues[t] * continuation
+                - this.buffer.values[t];
+            const gae = delta + this.gamma * this.gaeLambda * continuation * (gaeByStream[streamId] || 0);
+            gaeByStream[streamId] = gae;
+            this._advantages[t] = gae;
+            this._valueTargets[t] = gae + this.buffer.values[t];
+        }
+    }
+
     train() {
         const n = this.buffer.length;
         if (n === 0) {
             return { avgRawReturn: 0, entropy: 0, trainSteps: this.trainSteps };
         }
+        this._computeGAE(n);
+        let returnSum = 0;
+        for (let t = 0; t < n; t++) returnSum += this._valueTargets[t];
+        this.lastAvgRawReturn = returnSum / n;
 
-        // 1. Compute raw returns
-        const rawReturns = this._computeReturns();
-
-        // Track raw metrics before normalization
-        let sumRawReturns = 0;
-        for (let i = 0; i < n; i++) {
-            sumRawReturns += rawReturns[i];
-        }
-        const avgRawReturn = sumRawReturns / n;
-        this.lastAvgRawReturn = avgRawReturn;
-
-        // 2. Compute advantages (optionally normalize)
-        const advantages = this._advantages;
         if (this.normalizeReturns) {
-            const mean = sumRawReturns / n;
+            let mean = 0;
+            for (let t = 0; t < n; t++) mean += this._advantages[t];
+            mean /= n;
             let variance = 0;
-            for (let i = 0; i < n; i++) {
-                variance += (rawReturns[i] - mean) ** 2;
-            }
-            const std = Math.sqrt(variance / n) + 1e-8;
-            for (let i = 0; i < n; i++) {
-                advantages[i] = (rawReturns[i] - mean) / std;
-            }
-        } else {
-            // Use raw returns as advantages
-            for (let i = 0; i < n; i++) {
-                advantages[i] = rawReturns[i];
-            }
+            for (let t = 0; t < n; t++) variance += (this._advantages[t] - mean) ** 2;
+            const deviation = Math.sqrt(variance / n) + 1e-8;
+            for (let t = 0; t < n; t++) this._advantages[t] = (this._advantages[t] - mean) / deviation;
         }
 
-        // 3. Zero gradient accumulator
-        this.policy.zeroAccumulator(this.gradAcc);
-
-        // 4. Accumulate gradients + compute entropy. The previous rollout's
-        // entropy provides a stable one-update-lag controller rather than
-        // changing the objective part-way through this rollout.
-        const effectiveEntropyCoefficient = adaptiveEntropyCoefficient({
+        const entropyCoefficient = adaptiveEntropyCoefficient({
             entropy: this.lastEntropy,
             numActions: this.numActions,
             baseCoefficient: this.entropyCoefficient,
@@ -242,83 +194,102 @@ export class ReinforceCore {
             targetRatio: this.entropyTargetRatio,
             responseGain: this.entropyResponseGain,
         });
-        this.lastEntropyCoefficient = effectiveEntropyCoefficient;
+        this.lastEntropyCoefficient = entropyCoefficient;
+        for (let index = 0; index < n; index++) this._indices[index] = index;
+
         let entropySum = 0;
-        for (let t = 0; t < n; t++) {
-            // Get state from flat buffer
-            const stateOffset = this.buffer.stateOffset(t);
-            const stateVec = this.buffer.states.subarray(stateOffset, stateOffset + this.stateSize);
-
-            const actionIdx = this.buffer.actions[t];
-            const advantage = advantages[t];
-
-            // Forward pass with cache
-            const cache = this.policy.forwardWithCache(stateVec);
-
-            // Compute entropy: -Σ p log p
-            for (let i = 0; i < cache.probs.length; i++) {
-                if (cache.probs[i] > 1e-8) {
-                    entropySum -= cache.probs[i] * Math.log(cache.probs[i]);
+        let valueErrorSquared = 0;
+        let clippedSamples = 0;
+        let evaluatedSamples = 0;
+        for (let epoch = 0; epoch < this.updateEpochs; epoch++) {
+            this._shuffleIndices(n);
+            for (let start = 0; start < n; start += this.miniBatchSize) {
+                const end = Math.min(n, start + this.miniBatchSize);
+                const batchSize = end - start;
+                this.policy.zeroAccumulator(this.gradAcc);
+                for (let cursor = start; cursor < end; cursor++) {
+                    const t = this._indices[cursor];
+                    const offset = this.buffer.stateOffset(t);
+                    const state = this.buffer.states.subarray(offset, offset + this.stateSize);
+                    const cache = this.policy.forwardWithCache(state);
+                    const coverageCoefficient = adaptiveCoverageCoefficient({
+                        probabilities: cache.probs,
+                        coefficient: this.actionCoverageCoefficient,
+                        minimumProbability: this.minimumActionProbability,
+                    });
+                    const result = this.policy.computePPOGradientsInto(
+                        this.gradAcc,
+                        state,
+                        this.buffer.actions[t],
+                        this.buffer.logProbs[t],
+                        this._advantages[t],
+                        this._valueTargets[t],
+                        cache,
+                        {
+                            clipRatio: this.clipRatio,
+                            entropyCoefficient,
+                            valueCoefficient: this.valueCoefficient,
+                            coverageCoefficient,
+                        },
+                    );
+                    entropySum += result.entropy;
+                    valueErrorSquared += result.valueError ** 2;
+                    if (Math.abs(result.ratio - 1) > this.clipRatio) clippedSamples++;
+                    evaluatedSamples++;
                 }
+                for (const key of ['gW1', 'gb1', 'gW2', 'gb2', 'gWv', 'gbv']) {
+                    for (let index = 0; index < this.gradAcc[key].length; index++) {
+                        this.gradAcc[key][index] /= batchSize;
+                    }
+                }
+                this.policy.applyAdam(this.gradAcc, this.learningRate, { maxGradNorm: this.maxGradNorm });
             }
-
-            // Accumulate gradients
-            const effectiveCoverageCoefficient = adaptiveCoverageCoefficient({
-                probabilities: cache.probs,
-                coefficient: this.actionCoverageCoefficient,
-                minimumProbability: this.minimumActionProbability,
-            });
-            this.policy.computeGradientsInto(
-                this.gradAcc,
-                stateVec,
-                actionIdx,
-                advantage,
-                cache,
-                effectiveEntropyCoefficient,
-                effectiveCoverageCoefficient,
-            );
         }
 
-        const entropy = entropySum / n;
-        this.lastEntropy = entropy;
-
-        // 5. Average gradients over rollout
-        const acc = this.gradAcc;
-        for (let i = 0; i < acc.gW1.length; i++) acc.gW1[i] /= n;
-        for (let i = 0; i < acc.gb1.length; i++) acc.gb1[i] /= n;
-        for (let i = 0; i < acc.gW2.length; i++) acc.gW2[i] /= n;
-        for (let i = 0; i < acc.gb2.length; i++) acc.gb2[i] /= n;
-
-        // 6. Apply ONE gradient update
-        this.policy.applyGradients(acc, this.learningRate);
-
+        this.lastEntropy = entropySum / Math.max(1, evaluatedSamples);
+        this.lastValueLoss = valueErrorSquared / Math.max(1, evaluatedSamples);
+        this.lastClipFraction = clippedSamples / Math.max(1, evaluatedSamples);
         this.trainSteps++;
-
-        // 7. Clear buffer
         this.buffer.clear();
-
-        return { avgRawReturn, entropy, trainSteps: this.trainSteps };
+        return {
+            avgRawReturn: this.lastAvgRawReturn,
+            entropy: this.lastEntropy,
+            valueLoss: this.lastValueLoss,
+            clipFraction: this.lastClipFraction,
+            trainSteps: this.trainSteps,
+        };
     }
 
-    /**
-     * Get policy probabilities for a state (useful for debugging/UI)
-     * @param {Float32Array} stateVec
-     * @returns {Float32Array}
-     */
+    _shuffleIndices(n) {
+        for (let index = n - 1; index > 0; index--) {
+            const swap = Math.floor(this.rng() * (index + 1));
+            const value = this._indices[index];
+            this._indices[index] = this._indices[swap];
+            this._indices[swap] = value;
+        }
+    }
+
     getProbs(stateVec) {
         return this.policy.forward(stateVec);
     }
 
-    /**
-     * Get current buffer fill level
-     * @returns {{ length: number, capacity: number }}
-     */
+    getValue(stateVec) {
+        return this.policy.forwardWithCache(stateVec).value;
+    }
+
     getBufferStatus() {
-        return {
-            length: this.buffer.length,
-            capacity: this.rolloutSize,
-        };
+        return { length: this.buffer.length, capacity: this.rolloutSize };
     }
 }
 
 export default ReinforceCore;
+
+function hashState(stateVec) {
+    let hash = 2166136261;
+    for (let index = 0; index < stateVec.length; index++) {
+        const quantized = Math.round((Number(stateVec[index]) || 0) * 1024);
+        hash ^= quantized & 0xffff;
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}

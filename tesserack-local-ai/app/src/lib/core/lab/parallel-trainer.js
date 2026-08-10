@@ -1,4 +1,4 @@
-import { chooseCheckpointCandidate, progressScore } from './parallel-training.js';
+import { chooseCheckpointCandidate, compareProgressStates, progressScore } from './parallel-training.js';
 
 /**
  * Coordinates several emulator trajectories around one on-policy learner.
@@ -12,7 +12,7 @@ export class ParallelTrainingCoordinator {
         }
         const sharedCore = agents[0].core;
         if (!agents.every(agent => agent.core === sharedCore)) {
-            throw new Error('All parallel environments must share one REINFORCE core');
+            throw new Error('All parallel environments must share one PPO/GAE core');
         }
 
         this.agents = agents;
@@ -23,6 +23,9 @@ export class ParallelTrainingCoordinator {
         this.samplesAtStart = this.totalSamples;
         this.startedAt = nowMs();
         this.checkpointCount = Math.max(1, agents[0].checkpointCount || 0);
+        this.archive = new Map();
+        this.archiveLimit = 128;
+        this.archiveSelections = 0;
 
         const visible = agents[this.visibleWorker];
         this.globalCheckpoint = visible.checkpointState ? {
@@ -54,6 +57,17 @@ export class ParallelTrainingCoordinator {
             results.push(result);
             const candidate = agent.consumeCheckpointCandidate();
             if (candidate) candidates.push(candidate);
+            const archiveCandidate = agent.consumeArchiveCandidate?.();
+            if (archiveCandidate) this._rememberArchive(archiveCandidate);
+        }
+
+        // Worker 1 exploits the global curriculum, the last worker always
+        // rehearses from ROM start, and middle workers revisit autonomously
+        // discovered under-sampled cells on their next episode reset.
+        for (let index = 1; index < this.agents.length - 1; index++) {
+            if (!results[index]?.done) continue;
+            const archived = this._selectArchiveCell();
+            if (archived) this.agents[index].adoptExplorationState(archived.checkpoint);
         }
 
         const selected = chooseCheckpointCandidate(this.globalCheckpoint, candidates);
@@ -94,6 +108,40 @@ export class ParallelTrainingCoordinator {
         for (const agent of this.agents) agent.reset();
         this.totalSamples = 0;
         this.startedAt = nowMs();
+    }
+
+    _rememberArchive(candidate) {
+        if (!candidate?.key || !(candidate.checkpoint instanceof Uint8Array)) return;
+        if (!this.archive.has(candidate.key)) {
+            this.archive.set(candidate.key, {
+                ...candidate,
+                checkpoint: candidate.checkpoint.slice(),
+                restores: 0,
+                discoveredAt: this.totalSamples,
+            });
+        }
+        if (this.archive.size <= this.archiveLimit) return;
+        const weakest = [...this.archive.values()].sort((left, right) => {
+            const progress = compareProgressStates(left.state, right.state);
+            if (progress !== 0) return progress;
+            if (left.restores !== right.restores) return right.restores - left.restores;
+            return left.discoveredAt - right.discoveredAt;
+        })[0];
+        if (weakest) this.archive.delete(weakest.key);
+    }
+
+    _selectArchiveCell() {
+        const selected = [...this.archive.values()].sort((left, right) => {
+            if (left.restores !== right.restores) return left.restores - right.restores;
+            const progress = compareProgressStates(right.state, left.state);
+            if (progress !== 0) return progress;
+            return right.discoveredAt - left.discoveredAt;
+        })[0] || null;
+        if (selected) {
+            selected.restores++;
+            this.archiveSelections++;
+        }
+        return selected;
     }
 
     destroy() {
@@ -152,6 +200,9 @@ export class ParallelTrainingCoordinator {
             bufferSize: core.rolloutSize,
             avgRawReturn: core.lastAvgRawReturn,
             policyEntropy: core.lastEntropy,
+            valueLoss: core.lastValueLoss,
+            clipFraction: core.lastClipFraction,
+            intrinsicReward: core.lastIntrinsicReward,
             episode: visibleAgent.episode,
             episodeSteps: visibleAgent.episodeSteps,
             bestProgressScore: this.globalCheckpoint ? progressScore(this.globalCheckpoint.state) : 0,
@@ -160,6 +211,8 @@ export class ParallelTrainingCoordinator {
             environmentCount: this.agents.length,
             samplesPerSecond: lifecycleSamples / elapsedSeconds,
             checkpointWorker: this.globalCheckpoint?.workerId ?? null,
+            archiveSize: this.archive.size,
+            archiveSelections: this.archiveSelections,
             currentLocation: rewardStats.currentLocation,
             bundleInfo: rewardStats.bundleInfo,
             totalRewards: rewardStats.totalRewards,

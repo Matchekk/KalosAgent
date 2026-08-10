@@ -102,7 +102,7 @@
             <div class="info-icon"><Cpu size={20} /></div>
             <div class="info-content">
                 <h3>What's happening?</h3>
-                <p>A REINFORCE policy network learns Red++ from a context-gated, normalized reward matrix. It chooses every button itself; no scripted early-game controller is used.</p>
+                <p>A PPO/GAE actor-critic learns Red++ from a context-gated reward matrix and autonomous exploration archive. It chooses every button itself; no scripted controller is used.</p>
             </div>
         </div>
 
