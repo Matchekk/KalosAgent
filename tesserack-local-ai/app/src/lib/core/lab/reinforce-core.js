@@ -86,6 +86,21 @@ export class ReinforceCore {
         this.lastIntrinsicReward = 0;
         this._episodicVisits = new Map();
         this._lifetimeVisits = new Map();
+
+        // Expert demonstrations are kept separate from on-policy PPO rollouts.
+        // PPO may only use transitions produced by the current policy; mixing
+        // human log-probabilities into that buffer would invalidate the clipped
+        // objective.  Instead we add a small behavior-cloning (BC) update to the
+        // same actor network, then let PPO continue improving it online.
+        this.demonstrationCapacity = Math.max(32, Math.trunc(config.demonstrationCapacity ?? 8192));
+        this.demonstrationStates = new Float32Array(this.demonstrationCapacity * this.stateSize);
+        this.demonstrationActions = new Int16Array(this.demonstrationCapacity);
+        this.demonstrationRewards = new Float32Array(this.demonstrationCapacity);
+        this.demonstrationLength = 0;
+        this.demonstrationPosition = 0;
+        this.demonstrationTrainSteps = 0;
+        this.lastDemonstrationLoss = 0;
+        this.lastDemonstrationAccuracy = 0;
     }
 
     act(stateVec) {
@@ -147,6 +162,91 @@ export class ReinforceCore {
 
     shouldTrain() {
         return this.buffer.isFull();
+    }
+
+    /** Store one expert state/action without contaminating the on-policy rollout. */
+    observeDemonstration(stateVec, actionIdx, reward = 0) {
+        if (!stateVec || stateVec.length !== this.stateSize) {
+            throw new Error('Invalid demonstration state vector');
+        }
+        if (!Number.isSafeInteger(actionIdx) || actionIdx < 0 || actionIdx >= this.numActions) {
+            throw new Error('Invalid demonstration action');
+        }
+        const slot = this.demonstrationPosition;
+        this.demonstrationStates.set(stateVec, slot * this.stateSize);
+        this.demonstrationActions[slot] = actionIdx;
+        this.demonstrationRewards[slot] = Number(reward) || 0;
+        this.demonstrationPosition = (slot + 1) % this.demonstrationCapacity;
+        this.demonstrationLength = Math.min(this.demonstrationCapacity, this.demonstrationLength + 1);
+        return this.demonstrationLength;
+    }
+
+    /**
+     * Supervised actor update on expert actions. Reward is retained for audit,
+     * but does not invert a human label: necessary backtracking or menu actions
+     * can have a small negative dense reward while still being correct.
+     */
+    trainDemonstrations({ epochs = 1, batchSize = 64, coefficient = 1, learningRate = null } = {}) {
+        const n = this.demonstrationLength;
+        if (n === 0) return null;
+        const usableBatch = Math.max(1, Math.min(n, Math.trunc(batchSize) || 64));
+        const indices = Array.from({ length: n }, (_, index) => index);
+        let loss = 0;
+        let correct = 0;
+        let evaluated = 0;
+
+        for (let epoch = 0; epoch < Math.max(1, Math.trunc(epochs) || 1); epoch++) {
+            for (let index = n - 1; index > 0; index--) {
+                const swap = Math.floor(this.rng() * (index + 1));
+                [indices[index], indices[swap]] = [indices[swap], indices[index]];
+            }
+            for (let start = 0; start < n; start += usableBatch) {
+                const end = Math.min(n, start + usableBatch);
+                this.policy.zeroAccumulator(this.gradAcc);
+                for (let cursor = start; cursor < end; cursor++) {
+                    const slot = indices[cursor];
+                    const offset = slot * this.stateSize;
+                    const state = this.demonstrationStates.subarray(offset, offset + this.stateSize);
+                    const action = this.demonstrationActions[slot];
+                    const cache = this.policy.forwardWithCache(state);
+                    this.policy.computeGradientsInto(
+                        this.gradAcc,
+                        state,
+                        action,
+                        Math.max(0.01, Number(coefficient) || 1),
+                        cache,
+                    );
+                    loss -= Math.log(cache.probs[action] + 1e-8);
+                    let predicted = 0;
+                    for (let candidate = 1; candidate < cache.probs.length; candidate++) {
+                        if (cache.probs[candidate] > cache.probs[predicted]) predicted = candidate;
+                    }
+                    if (predicted === action) correct++;
+                    evaluated++;
+                }
+                const count = end - start;
+                for (const key of ['gW1', 'gb1', 'gW2', 'gb2', 'gWv', 'gbv']) {
+                    for (let index = 0; index < this.gradAcc[key].length; index++) {
+                        this.gradAcc[key][index] /= count;
+                    }
+                }
+                this.policy.applyAdam(
+                    this.gradAcc,
+                    learningRate ?? this.learningRate,
+                    { maxGradNorm: this.maxGradNorm },
+                );
+            }
+        }
+
+        this.demonstrationTrainSteps++;
+        this.lastDemonstrationLoss = loss / Math.max(1, evaluated);
+        this.lastDemonstrationAccuracy = correct / Math.max(1, evaluated);
+        return {
+            samples: n,
+            trainSteps: this.demonstrationTrainSteps,
+            loss: this.lastDemonstrationLoss,
+            accuracy: this.lastDemonstrationAccuracy,
+        };
     }
 
     /** Historical exact returns helper retained for diagnostics/tests. */
@@ -256,6 +356,11 @@ export class ReinforceCore {
         this.lastClipFraction = clippedSamples / Math.max(1, evaluatedSamples);
         this.trainSteps++;
         this.buffer.clear();
+        // A light replay pass prevents long autonomous PPO runs from
+        // catastrophically forgetting the demonstrated route.
+        if (this.demonstrationLength > 0) {
+            this.trainDemonstrations({ epochs: 1, coefficient: 0.35, learningRate: this.learningRate * 0.5 });
+        }
         return {
             avgRawReturn: this.lastAvgRawReturn,
             entropy: this.lastEntropy,
@@ -284,6 +389,16 @@ export class ReinforceCore {
 
     getBufferStatus() {
         return { length: this.buffer.length, capacity: this.rolloutSize };
+    }
+
+    getDemonstrationStatus() {
+        return {
+            samples: this.demonstrationLength,
+            capacity: this.demonstrationCapacity,
+            trainSteps: this.demonstrationTrainSteps,
+            loss: this.lastDemonstrationLoss,
+            accuracy: this.lastDemonstrationAccuracy,
+        };
     }
 }
 

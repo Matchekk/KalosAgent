@@ -31,6 +31,11 @@
         labMode,
         labRunStatus,
         pureRLMetrics,
+        labDemonstration,
+        startLabDemonstration,
+        recordLabDemonstrationAction,
+        advanceLabDemonstration,
+        finishLabDemonstration,
         updateRLConfig,
         cleanupLab
     } from '$lib/core/lab/lab-init.js';
@@ -48,6 +53,7 @@
     $: isRunning = $labRunStatus.running || $labRunStatus.recovering;
     let hyperparamsOpen = false;
     let howItWorksExpanded = false;
+    let demonstrationInputBusy = false;
 
     // Mode: 'play' (LLM) or 'train' (RL)
     $: mode = $labMode === 'purerl' ? 'train' : 'play';
@@ -267,7 +273,39 @@
         feedSystem(message);
     }
 
+    async function demonstrate(action) {
+        if (!$labDemonstration.active || demonstrationInputBusy) return;
+        demonstrationInputBusy = true;
+        try {
+            await recordLabDemonstrationAction(action);
+        } finally {
+            demonstrationInputBusy = false;
+        }
+    }
+
+    async function toggleDemonstration() {
+        if ($labDemonstration.active) await finishLabDemonstration();
+        else startLabDemonstration();
+    }
+
     function handleLabKeydown(event) {
+        if ($labDemonstration.active) {
+            if (event.key === ' ') {
+                event.preventDefault();
+                advanceLabDemonstration();
+                return;
+            }
+            const keyMap = {
+                ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+                z: 'a', x: 'b', Enter: 'start',
+            };
+            const action = keyMap[event.key];
+            if (action) {
+                event.preventDefault();
+                void demonstrate(action);
+                return;
+            }
+        }
         if (event.key !== 'Escape' || !isRunning) return;
         event.preventDefault();
         pauseLab('Paused with Escape.');
@@ -461,6 +499,15 @@
                     disabled={isRunning || !labInitialized}
                     on:apply={handleHyperparamsApply}
                 />
+                <button
+                    class="header-btn teach-btn"
+                    class:active={$labDemonstration.active}
+                    on:click={toggleDemonstration}
+                    disabled={isRunning || !labInitialized}
+                    title={$labDemonstration.active ? 'Finish demonstration and consolidate learning' : 'Teach from a fresh ROM start'}
+                >
+                    {$labDemonstration.active ? 'Finish & Learn' : 'Teach AI'}
+                </button>
             {/if}
         </div>
 
@@ -571,6 +618,30 @@
                 <div class="canvas-wrapper">
                     <LabCanvas on:initialized={handleLabInitialized} />
                 </div>
+                {#if $labDemonstration.active}
+                    <div class="teach-panel" aria-label="Human demonstration controls">
+                        <div class="teach-copy">
+                            <strong>TEACHING SHARED PPO</strong>
+                            <span>
+                                {$labDemonstration.samples} transitions ·
+                                {$labDemonstration.trainSteps} BC updates ·
+                                {($labDemonstration.accuracy * 100).toFixed(1)}% accuracy
+                            </span>
+                        </div>
+                        <div class="teach-controls">
+                            <div class="teach-dpad">
+                                <button class="teach-key teach-up" on:click={() => demonstrate('up')}>↑</button>
+                                <button class="teach-key" on:click={() => demonstrate('left')}>←</button>
+                                <button class="teach-key" on:click={() => demonstrate('down')}>↓</button>
+                                <button class="teach-key" on:click={() => demonstrate('right')}>→</button>
+                            </div>
+                            <button class="teach-key teach-menu" title="Advance animation without adding an expert label" on:click={() => advanceLabDemonstration()}>Wait</button>
+                            <button class="teach-key teach-menu" on:click={() => demonstrate('start')}>Start</button>
+                            <button class="teach-key teach-action teach-b" on:click={() => demonstrate('b')}>B</button>
+                            <button class="teach-key teach-action teach-a" on:click={() => demonstrate('a')}>A</button>
+                        </div>
+                    </div>
+                {/if}
             </div>
         </div>
 
@@ -687,6 +758,12 @@
                     <div class="metric-row">
                         <span class="metric-label">Updates</span>
                         <span class="metric-value mono">{$pureRLMetrics.trainSteps}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Human demos / BC</span>
+                        <span class="metric-value mono">
+                            {$pureRLMetrics.demonstration.samples} / {$pureRLMetrics.demonstration.trainSteps}
+                        </span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Environments</span>
@@ -1750,6 +1827,64 @@
         overflow: hidden;
         white-space: nowrap;
     }
+
+    .teach-btn.active {
+        color: #07140e;
+        background: #55efc4;
+        border-color: #55efc4;
+        font-weight: 700;
+    }
+
+    .teach-panel {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(85, 239, 196, 0.55);
+        border-radius: 8px;
+        background: rgba(85, 239, 196, 0.08);
+    }
+
+    .teach-copy {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: #55efc4;
+        font-size: 11px;
+    }
+
+    .teach-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .teach-dpad {
+        display: grid;
+        grid-template-columns: repeat(3, 34px);
+        grid-template-rows: repeat(2, 34px);
+        gap: 3px;
+    }
+
+    .teach-up { grid-column: 2; }
+    .teach-dpad .teach-key:nth-child(2) { grid-column: 1; }
+
+    .teach-key {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 9px;
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    .teach-key:active { transform: scale(0.94); }
+    .teach-action { width: 38px; border-radius: 50%; }
+    .teach-a { background: var(--accent-secondary); }
+    .teach-b { background: var(--accent-primary); }
+    .teach-menu { font-size: 10px; border-radius: 14px; }
 
     /* Bottom Bar */
     .bottom-bar {

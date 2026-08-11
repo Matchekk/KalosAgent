@@ -25,6 +25,22 @@ test('Red++ guide converts to a connected Champion-first graph', () => {
     assert.equal(graph.runtimeRoute.at(-1).ramMapId, '0x36');
 });
 
+test('keeps objectives from repeated guide locations distinct', () => {
+    const graph = redppGuideToGraph(guide);
+    const nodeIds = graph.nodes.map(node => node.id);
+    assert.equal(new Set(nodeIds).size, nodeIds.length, 'every graph node ID must be unique');
+
+    const viridian = graph.nodes.find(node => node.type === 'location' && node.name === 'Viridian City');
+    const viridianObjectives = graph.edges
+        .filter(edge => edge.from === viridian.id && edge.type === 'contains')
+        .map(edge => graph.nodes.find(node => node.id === edge.to)?.name);
+
+    assert.deepEqual(viridianObjectives, [
+        "Complete Oak's parcel and Pokedex sequence",
+        'Defeat Giovanni for the Earth Badge',
+    ]);
+});
+
 test('guide bundles contain context but cannot inject numeric rewards', () => {
     const bundles = redppGuideToBundles(guide);
     assert.ok(bundles['SAFARI ZONE'].objectives.includes('Obtain HM03 Surf'));

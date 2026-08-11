@@ -32,7 +32,11 @@ export function redppGuideToGraph(guide) {
             for (const [index, objective] of (entry.objectives || []).entries()) {
                 const item = typeof objective === 'string' ? { name: objective } : objective;
                 const node = {
-                    id: `objective_${slug(entry.name)}_${index}`,
+                    // A city can legitimately occur in more than one guide
+                    // section (Viridian before Brock and before the League,
+                    // for example). Include the section in child IDs so later
+                    // visits cannot alias the first visit's objective.
+                    id: `objective_${slug(section.id)}_${slug(entry.name)}_${index}`,
                     type: 'objective',
                     name: item.name,
                     description: item.description || '',
@@ -46,7 +50,7 @@ export function redppGuideToGraph(guide) {
             for (const [index, item] of (entry.items || []).entries()) {
                 const value = typeof item === 'string' ? { name: item } : item;
                 const node = {
-                    id: `item_${slug(entry.name)}_${index}`,
+                    id: `item_${slug(section.id)}_${slug(entry.name)}_${index}`,
                     type: 'item',
                     name: value.name,
                     howToGet: value.howToGet || entry.summary || '',
@@ -56,7 +60,7 @@ export function redppGuideToGraph(guide) {
             }
             for (const [index, species] of (entry.encounters || []).entries()) {
                 const node = {
-                    id: `pokemon_${slug(entry.name)}_${index}`,
+                    id: `pokemon_${slug(section.id)}_${slug(entry.name)}_${index}`,
                     type: 'pokemon',
                     name: species,
                     location: entry.name,

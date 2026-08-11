@@ -130,6 +130,28 @@ test('novelty is bounded and decays both within and across episodes', () => {
     assert.ok(core.buffer.intrinsicRewards[3] < core.buffer.intrinsicRewards[0]);
 });
 
+test('expert demonstrations behavior-clone into the PPO actor without entering its rollout', () => {
+    const core = new ReinforceCore({
+        stateSize: 2,
+        numActions: 3,
+        rolloutSize: 8,
+        learningRate: 0.03,
+        demonstrationCapacity: 64,
+        rng: () => 0.42,
+    });
+    const state = new Float32Array([0.75, -0.25]);
+    const before = core.getProbs(state)[2];
+    for (let index = 0; index < 32; index++) core.observeDemonstration(state, 2, -0.1);
+
+    const trained = core.trainDemonstrations({ epochs: 12, batchSize: 16 });
+    const after = core.getProbs(state)[2];
+
+    assert.equal(core.buffer.length, 0, 'off-policy demos must not contaminate PPO rollouts');
+    assert.equal(trained.samples, 32);
+    assert.ok(after > before + 0.25, `expert action probability ${before} -> ${after}`);
+    assert.ok(trained.accuracy > 0.8, `BC accuracy was ${trained.accuracy}`);
+});
+
 test('familiar states retain bounded episodic novelty without enabling same-episode farming', () => {
     const core = new ReinforceCore({
         stateSize: 1,

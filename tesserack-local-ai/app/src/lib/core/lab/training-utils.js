@@ -54,6 +54,7 @@ export async function executeRepeatedAction(emulator, action, {
     actionHoldFrames,
     frameSkip,
     actionRepeat,
+    releaseFrames = 4,
 }) {
     if (!GAME_INPUT_BUTTONS.includes(action)) {
         throw new Error(`Unsupported training action: ${action}`);
@@ -62,20 +63,31 @@ export async function executeRepeatedAction(emulator, action, {
         throw new Error('Training emulator requires synchronous setButton and runFrame');
     }
     const repeats = Math.max(1, Math.trunc(actionRepeat || 1));
-    const totalFrames = Math.max(1, Math.trunc(frameSkip || actionHoldFrames || 1));
+    const framesPerRepeat = Math.max(1, Math.trunc(frameSkip || actionHoldFrames || 1));
+    const requestedReleaseFrames = Math.max(1, Math.trunc(releaseFrames || 1));
+    const requestedHoldFrames = Math.max(1, Math.trunc(
+        actionHoldFrames || (framesPerRepeat - requestedReleaseFrames) || 1,
+    ));
+    const totalHoldFrames = framesPerRepeat === 1
+        ? 1
+        : Math.min(requestedHoldFrames, framesPerRepeat - 1);
+    const totalReleaseFrames = framesPerRepeat - totalHoldFrames;
 
     releaseGameInputs(emulator);
     try {
         for (let repeat = 0; repeat < repeats; repeat++) {
             emulator.setButton(action, true);
             try {
-                // Deterministic frame-skip contract: the sampled action is the
-                // only active input for every frame represented by this PPO
-                // transition, independent of render visibility or CPU speed.
-                for (let frame = 0; frame < totalFrames; frame++) emulator.runFrame();
+                // The sampled action is the only active input during the hold
+                // portion, independent of render visibility or CPU speed.
+                for (let frame = 0; frame < totalHoldFrames; frame++) emulator.runFrame();
             } finally {
                 emulator.setButton(action, false);
             }
+            // A Game Boy input is an edge, not just a held level. Run a short
+            // neutral gap inside the same transition so consecutive identical
+            // samples (notably A through dialog) become distinct presses.
+            for (let frame = 0; frame < totalReleaseFrames; frame++) emulator.runFrame();
         }
     } finally {
         releaseGameInputs(emulator);
@@ -115,6 +127,7 @@ const PPO_TENSORS = [...ACTOR_TENSORS, 'wv', 'bv'];
 export function createReinforceSnapshot(core) {
     const isPPO = core.policy.wv && core.policy.bv;
     const tensors = isPPO ? PPO_TENSORS : ACTOR_TENSORS;
+    const demonstrationLength = Math.max(0, Math.trunc(core.demonstrationLength || 0));
     return {
         version: isPPO ? 2 : 1,
         algorithm: isPPO ? 'ppo-gae' : 'reinforce',
@@ -127,6 +140,19 @@ export function createReinforceSnapshot(core) {
         trainSteps: core.trainSteps,
         lastAvgRawReturn: core.lastAvgRawReturn,
         lastEntropy: core.lastEntropy,
+        demonstrations: demonstrationLength > 0 ? {
+            version: 1,
+            length: demonstrationLength,
+            trainSteps: core.demonstrationTrainSteps || 0,
+            loss: core.lastDemonstrationLoss || 0,
+            accuracy: core.lastDemonstrationAccuracy || 0,
+            states: Array.from(core.demonstrationStates.subarray(
+                0,
+                demonstrationLength * core.stateSize,
+            )),
+            actions: Array.from(core.demonstrationActions.subarray(0, demonstrationLength)),
+            rewards: Array.from(core.demonstrationRewards.subarray(0, demonstrationLength)),
+        } : null,
         weights: Object.fromEntries(
             tensors.map(key => [key, Array.from(core.policy[key])])
         ),
@@ -190,5 +216,28 @@ export function restoreReinforceSnapshot(core, snapshot) {
         ? snapshot.lastAvgRawReturn : 0;
     core.lastEntropy = Number.isFinite(snapshot.lastEntropy)
         ? snapshot.lastEntropy : 0;
+    const demonstrations = snapshot.demonstrations;
+    if (demonstrations?.version === 1 && Number.isSafeInteger(demonstrations.length)) {
+        const length = Math.min(core.demonstrationCapacity || 0, Math.max(0, demonstrations.length));
+        const expectedStates = length * core.stateSize;
+        if (length > 0
+            && Array.isArray(demonstrations.states)
+            && demonstrations.states.length >= expectedStates
+            && Array.isArray(demonstrations.actions)
+            && demonstrations.actions.length >= length
+            && demonstrations.actions.slice(0, length).every(action =>
+                Number.isSafeInteger(action) && action >= 0 && action < core.numActions)) {
+            core.demonstrationStates.set(demonstrations.states.slice(0, expectedStates));
+            core.demonstrationActions.set(demonstrations.actions.slice(0, length));
+            if (Array.isArray(demonstrations.rewards)) {
+                core.demonstrationRewards.set(demonstrations.rewards.slice(0, length));
+            }
+            core.demonstrationLength = length;
+            core.demonstrationPosition = length % core.demonstrationCapacity;
+            core.demonstrationTrainSteps = Math.max(0, Math.trunc(demonstrations.trainSteps || 0));
+            core.lastDemonstrationLoss = Number(demonstrations.loss) || 0;
+            core.lastDemonstrationAccuracy = Number(demonstrations.accuracy) || 0;
+        }
+    }
     return true;
 }

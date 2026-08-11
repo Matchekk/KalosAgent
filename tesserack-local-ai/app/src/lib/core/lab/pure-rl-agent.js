@@ -216,6 +216,7 @@ export class PureRLAgent {
             actionHoldFrames: agentConfig.actionHoldFrames ?? 12,
             frameSkip: agentConfig.frameSkip ?? 16,
             actionRepeat: agentConfig.actionRepeat ?? 1,
+            releaseFrames: agentConfig.releaseFrames ?? 4,
             maxEpisodeSteps: agentConfig.maxEpisodeSteps ?? 4000,
             noProgressSteps: agentConfig.noProgressSteps ?? 900,
             resetFromInitial: agentConfig.resetFromInitial ?? false,
@@ -404,6 +405,72 @@ export class PureRLAgent {
      */
     async _executeAction(action) {
         await executeRepeatedAction(this.emu, action, this.config);
+    }
+
+    /**
+     * Execute and learn one human-demonstrated action. This deliberately does
+     * not touch the PPO rollout or autonomy/checkpoint proof: the transition is
+     * off-policy expert data and is trained with behavior cloning instead.
+     */
+    async demonstrate(action) {
+        const actionIdx = PURE_RL_ACTIONS.indexOf(action);
+        if (actionIdx < 0) throw new Error(`Unsupported demonstration action: ${action}`);
+
+        const prevState = this.mem.getGameState();
+        const stateVec = new Float32Array(REDPP_STATE_SIZE);
+        encodeRedppStateInto(prevState, stateVec, this._behaviorContext());
+        await this._executeAction(action);
+        // Headless PPO workers intentionally skip rendering, but Teach mode is
+        // a visible human session and must show the exact post-action frame.
+        this.emu.render?.();
+        this.emu.frameCallback?.();
+        const nextState = this.mem.getGameState();
+        const rewardResult = this.env.rewardFn(prevState, nextState, action);
+        const reward = Number(rewardResult?.total) || 0;
+
+        this.core.observeDemonstration(stateVec, actionIdx, reward);
+        this.currentAction = action;
+        this.totalSteps++;
+        this.totalReward += reward;
+        this.episodeSteps++;
+        this.episodeReward += reward;
+        this.lastStepResult = {
+            actionIdx,
+            actionStr: action,
+            reward,
+            breakdown: rewardResult?.breakdown || {},
+            firedTests: rewardResult?.firedTests || [],
+            context: rewardResult?.context,
+            matrixVersion: rewardResult?.matrixVersion,
+            done: false,
+        };
+
+        let demonstrationTraining = null;
+        if (this.core.demonstrationLength % 32 === 0) {
+            demonstrationTraining = this.core.trainDemonstrations({ epochs: 3, coefficient: 1 });
+        }
+        return {
+            ...this.lastStepResult,
+            nextState,
+            demonstration: this.core.getDemonstrationStatus(),
+            demonstrationTraining,
+        };
+    }
+
+    /** Advance a boot/fade animation without creating a false expert label. */
+    advanceDemonstration(frames = 20) {
+        const neutralFrames = Math.max(1, Math.trunc(frames || 1));
+        for (const button of ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select']) {
+            this.emu.setButton(button, false);
+        }
+        for (let frame = 0; frame < neutralFrames; frame++) this.emu.runFrame();
+        this.emu.render?.();
+        this.emu.frameCallback?.();
+    }
+
+    /** Finish an expert episode with a stronger supervised consolidation pass. */
+    finishDemonstration() {
+        return this.core.trainDemonstrations({ epochs: 8, coefficient: 1 });
     }
 
     /**
@@ -795,6 +862,7 @@ export class PureRLAgent {
             checkpointCount: this.checkpointCount,
             confirmedWins: this.confirmedWins,
             resetReason: this.resetReason,
+            demonstration: this.core.getDemonstrationStatus(),
 
             // Reward stats
             rewardStats: this.rewards.getStats(),

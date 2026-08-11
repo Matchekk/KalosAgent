@@ -11,6 +11,7 @@ import {
     getRewardTelemetry,
     restoreReinforceSnapshot,
 } from '../src/lib/core/lab/training-utils.js';
+import { ReinforceCore } from '../src/lib/core/lab/reinforce-core.js';
 
 test('reward feed accepts production objects and synthetic string events', () => {
     assert.deepEqual(getPositiveRewardEventIds([
@@ -66,11 +67,31 @@ test('action repetition stays inside one observable environment transition', asy
         actionHoldFrames: 12,
         frameSkip: 16,
         actionRepeat: 3,
+        releaseFrames: 4,
     });
 
     assert.equal(frames.length, 48);
-    assert.equal(frames.filter(buttons => buttons.length === 1 && buttons[0] === 'up').length, 48);
+    assert.equal(frames.filter(buttons => buttons.length === 1 && buttons[0] === 'up').length, 36);
+    assert.equal(frames.filter(buttons => buttons.length === 0).length, 12);
     assert.deepEqual([...active], []);
+});
+
+test('consecutive identical actions contain a neutral release edge', async () => {
+    const active = new Set();
+    const frames = [];
+    const emulator = {
+        setButton(action, pressed) {
+            if (pressed) active.add(action);
+            else active.delete(action);
+        },
+        runFrame: () => frames.push([...active]),
+    };
+
+    const config = { frameSkip: 2, actionRepeat: 1, releaseFrames: 2 };
+    await executeRepeatedAction(emulator, 'a', config);
+    await executeRepeatedAction(emulator, 'a', config);
+
+    assert.deepEqual(frames, [['a'], [], ['a'], []]);
 });
 
 test('training releases every button even when the emulator frame throws', async () => {
@@ -152,6 +173,20 @@ test('policy snapshots round-trip after strict validation', () => {
     invalid.weights.w1[0] = Number.NaN;
     assert.throws(() => restoreReinforceSnapshot(target, invalid), /Invalid policy tensor/);
     assert.deepEqual([...target.policy.w1], [1, 2]);
+});
+
+test('policy snapshots preserve expert demonstration replay for PPO grounding', () => {
+    const source = new ReinforceCore({ stateSize: 2, numActions: 2, demonstrationCapacity: 8 });
+    source.observeDemonstration(new Float32Array([0.2, 0.8]), 1, 3.5);
+    source.trainDemonstrations({ epochs: 1 });
+    const target = new ReinforceCore({ stateSize: 2, numActions: 2, demonstrationCapacity: 8 });
+
+    assert.equal(restoreReinforceSnapshot(target, createReinforceSnapshot(source)), true);
+    assert.equal(target.demonstrationLength, 1);
+    assert.deepEqual([...target.demonstrationStates.subarray(0, 2)], [0.20000000298023224, 0.800000011920929]);
+    assert.equal(target.demonstrationActions[0], 1);
+    assert.equal(target.demonstrationRewards[0], 3.5);
+    assert.equal(target.demonstrationTrainSteps, 1);
 });
 
 test('policy snapshot migration preserves old input rows and zeros appended features', () => {

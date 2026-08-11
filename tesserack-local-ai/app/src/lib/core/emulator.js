@@ -70,6 +70,7 @@ export class Emulator {
         this.frameCallback = null;
         this.rafCancelToken = null;
         this.lastRafSec = 0;
+        this.lastLoopMs = 0;
         this.leftoverTicks = 0;
         this.frameBuffer = null;
         this.imageData = null;
@@ -279,8 +280,23 @@ export class Emulator {
         }
         this.running = true;
         this.lastRafSec = 0;
+        this.lastLoopMs = performance.now();
         this.leftoverTicks = 0;
         this.requestAnimationFrame();
+    }
+
+    /**
+     * Recover a render loop that was dropped while the emulator stayed marked
+     * as running (for example after a background-tab or browser transition).
+     */
+    ensureRunning() {
+        const now = performance.now();
+        if (!this.running || !this.lastLoopMs || now - this.lastLoopMs > 1000) {
+            this.stop();
+            this.start();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -307,6 +323,8 @@ export class Emulator {
      */
     loop(startMs) {
         if (!this.running) return;
+
+        this.lastLoopMs = performance.now();
 
         const startSec = startMs / 1000;
         const deltaSec = Math.max(startSec - (this.lastRafSec || startSec), 0);
@@ -391,10 +409,39 @@ export class Emulator {
      * @param {number} duration - How long to hold in ms (0 for toggle, default 100)
      */
     pressButton(button, duration = 100) {
+        this.ensureRunning();
         this.setButton(button, true);
         if (duration > 0) {
             setTimeout(() => this.setButton(button, false), duration);
         }
+    }
+
+    /**
+     * Execute one deterministic manual input pulse without wall-clock timers.
+     * This guarantees the emulator observes both the press and release edges.
+     */
+    pulseButton(button, frames = 16, releaseFrames = 4) {
+        if (!this.e) return;
+
+        const wasRunning = this.running;
+        this.stop();
+        this.setButton(button, false);
+        this.runFrame();
+        this.setButton(button, true);
+        try {
+            for (let frame = 0; frame < frames; frame++) {
+                this.runFrame();
+            }
+        } finally {
+            this.setButton(button, false);
+        }
+        for (let frame = 0; frame < releaseFrames; frame++) {
+            this.runFrame();
+        }
+        this.render();
+        this.frameCallback?.();
+
+        if (wasRunning) this.start();
     }
 
     /**

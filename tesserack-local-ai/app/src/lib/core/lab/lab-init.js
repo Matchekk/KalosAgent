@@ -62,6 +62,8 @@ let isInitialized = false;
 let labSpeed = 1; // Playback speed multiplier
 let initializationGeneration = 0;
 let lastPersistedTrainStep = -1;
+let lastPersistedDemonstrationTrainStep = -1;
+let lastPersistedDemonstrationLength = -1;
 let policyPersistInFlight = false;
 let parallelSampleCount = 0;
 let parallelLifecycleStartSamples = 0;
@@ -74,7 +76,9 @@ const RECOVERY_RETRY_COOLDOWN_MS = 60_000;
 // Current mode: 'llm' or 'purerl'
 export const labMode = writable('llm');
 export const labRunStatus = writable({ running: false, recovering: false, error: null });
+export const labDemonstration = writable({ active: false, samples: 0, trainSteps: 0, loss: 0, accuracy: 0 });
 let currentMode = 'llm';
+let demonstrationActive = false;
 
 // Pure RL metrics store
 export const pureRLMetrics = writable({
@@ -113,6 +117,7 @@ export const pureRLMetrics = writable({
     archiveSelections: 0,
     autonomy: null,
     learningAudit: null,
+    demonstration: { samples: 0, capacity: 8192, trainSteps: 0, loss: 0, accuracy: 0 },
     workers: [],
     visibleWorker: 0,
     visibleState: null,
@@ -127,14 +132,20 @@ export const pureRLMetrics = writable({
 });
 
 async function persistPureRLPolicy() {
-    if (!labPureRLAgent || policyPersistInFlight
-        || labPureRLAgent.core.trainSteps === lastPersistedTrainStep) return;
+    if (!labPureRLAgent || policyPersistInFlight) return;
     const trainStep = labPureRLAgent.core.trainSteps;
+    const demonstrationTrainStep = labPureRLAgent.core.demonstrationTrainSteps || 0;
+    const demonstrationLength = labPureRLAgent.core.demonstrationLength || 0;
+    if (trainStep === lastPersistedTrainStep
+        && demonstrationTrainStep === lastPersistedDemonstrationTrainStep
+        && demonstrationLength === lastPersistedDemonstrationLength) return;
     const snapshot = labPureRLAgent.exportPolicy();
     policyPersistInFlight = true;
     try {
         if (await setPureRLPolicy(snapshot)) {
             lastPersistedTrainStep = trainStep;
+            lastPersistedDemonstrationTrainStep = demonstrationTrainStep;
+            lastPersistedDemonstrationLength = demonstrationLength;
             if (parallelTrainer) {
                 await setPureRLAutonomy(parallelTrainer.exportAutonomousProgress());
             }
@@ -233,6 +244,7 @@ function handlePureRLStep(stepData) {
             archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
             autonomy: stepData.autonomy ?? prev.autonomy,
             learningAudit: stepData.learningAudit ?? prev.learningAudit,
+            demonstration: stepData.demonstration ?? prev.demonstration,
             workers: stepData.workers ?? prev.workers,
             visibleWorker: stepData.visibleWorker ?? prev.visibleWorker,
             visibleState: stepData.state ?? prev.visibleState,
@@ -399,6 +411,8 @@ export async function initializeLab(romBuffer, canvas) {
                 }
                 labPureRLAgent.loadPolicy(savedPolicy);
                 lastPersistedTrainStep = labPureRLAgent.core.trainSteps;
+                lastPersistedDemonstrationTrainStep = labPureRLAgent.core.demonstrationTrainSteps || 0;
+                lastPersistedDemonstrationLength = labPureRLAgent.core.demonstrationLength || 0;
                 pureRLMetrics.update(metrics => ({
                     ...metrics,
                     trainSteps: labPureRLAgent.core.trainSteps,
@@ -414,6 +428,9 @@ export async function initializeLab(romBuffer, canvas) {
                 feedSystem('The saved Train policy and its proof counters were reset for the corrected objective.');
             }
         }
+        const restoredDemonstrations = labPureRLAgent.core.getDemonstrationStatus();
+        labDemonstration.set({ active: false, ...restoredDemonstrations });
+        pureRLMetrics.update(metrics => ({ ...metrics, demonstration: restoredDemonstrations }));
 
         // 6b. Load Red++ guide metadata. Numeric rewards remain matrix-owned.
         try {
@@ -580,6 +597,7 @@ export function getLabMode() {
  */
 export async function startLabAgent() {
     try {
+        if (demonstrationActive) await finishLabDemonstration();
         if (currentMode === 'purerl') {
             if (!labPureRLAgent) {
                 console.error('[Lab] Pure RL agent not initialized');
@@ -616,6 +634,104 @@ export function stopLabAgent() {
     parallelTrainer?.stop();
     labPureRLAgent?.stop();
     labRunStatus.set({ running: false, recovering: false, error: null });
+}
+
+/** Begin a clean, visible human demonstration from the true ROM start. */
+export function startLabDemonstration() {
+    if (!labPureRLAgent || !labEmulator) return false;
+    stopLabAgent();
+    destroyParallelTrainer();
+    labEmulator.stop();
+    if (!labPureRLAgent.initialState) throw new Error('ROM-start state is unavailable');
+    labEmulator.loadState(labPureRLAgent.initialState);
+    for (let frame = 0; frame < 4; frame++) labEmulator.runFrame();
+    labPureRLAgent.reset();
+    demonstrationActive = true;
+    const status = labPureRLAgent.core.getDemonstrationStatus();
+    labDemonstration.set({ active: true, ...status });
+    updateGameState(labReader.getGameState());
+    feedSystem('Teach mode: fresh ROM. Every manual transition trains the shared PPO actor; autonomy proof remains untouched.');
+    return true;
+}
+
+/** Execute one deterministic manual action and record it as expert data. */
+export async function recordLabDemonstrationAction(action) {
+    if (!demonstrationActive || !labPureRLAgent) return false;
+    const result = await labPureRLAgent.demonstrate(action);
+    const metrics = labPureRLAgent.getMetrics();
+    const rewardStats = metrics.rewardStats || {};
+    const status = result.demonstration;
+    labDemonstration.set({ active: true, ...status });
+    handlePureRLStep({
+        step: labPureRLAgent.totalSteps,
+        action,
+        reward: result.reward,
+        totalReward: labPureRLAgent.totalReward,
+        breakdown: result.breakdown,
+        firedTests: result.firedTests,
+        context: result.context,
+        matrixVersion: result.matrixVersion,
+        trainSteps: labPureRLAgent.core.trainSteps,
+        bufferFill: labPureRLAgent.core.buffer.length,
+        bufferSize: labPureRLAgent.core.rolloutSize,
+        avgRawReturn: labPureRLAgent.core.lastAvgRawReturn,
+        policyEntropy: labPureRLAgent.core.lastEntropy,
+        valueLoss: labPureRLAgent.core.lastValueLoss,
+        clipFraction: labPureRLAgent.core.lastClipFraction,
+        episode: labPureRLAgent.episode,
+        episodeSteps: labPureRLAgent.episodeSteps,
+        confirmedWins: labPureRLAgent.confirmedWins,
+        currentLocation: rewardStats.currentLocation,
+        bundleInfo: rewardStats.bundleInfo,
+        totalRewards: rewardStats.totalRewards,
+        completedObjectives: rewardStats.completedObjectives,
+        teamQuality: rewardStats.teamQuality,
+        demonstration: status,
+        state: result.nextState,
+        memoryDiagnostics: result.nextState?.memoryDiagnostics,
+    });
+    // A browser/tab interruption must not discard the last completed BC block.
+    // Await the IndexedDB snapshot here instead of fire-and-forget: expert
+    // collection is intentionally low-frequency (once per 32 transitions), so
+    // the small pause is preferable to silently losing a teaching episode.
+    if (result.demonstrationTraining) await persistPureRLPolicy();
+    return result;
+}
+
+/** Let non-interactive animation progress without teaching an arbitrary key. */
+export function advanceLabDemonstration(frames = 20) {
+    if (!demonstrationActive || !labPureRLAgent) return false;
+    labPureRLAgent.advanceDemonstration(frames);
+    updateGameState(labReader.getGameState());
+    return true;
+}
+
+/** Consolidate the demonstration and persist both actor weights and demo replay. */
+export async function finishLabDemonstration() {
+    if (!labPureRLAgent) return null;
+    const result = labPureRLAgent.finishDemonstration();
+    demonstrationActive = false;
+    const status = labPureRLAgent.core.getDemonstrationStatus();
+    labDemonstration.set({ active: false, ...status });
+    await persistPureRLPolicy();
+    // Supervision changed the evaluated policy. Previous fresh-ROM attempts
+    // therefore belong to a different policy and must never be combined with
+    // the post-demonstration proof. Keep the learned actor/replay, but restart
+    // the autonomous sample clock, outcome proof and 50k audit from zero.
+    parallelSampleCount = 0;
+    parallelLifecycleStartSamples = 0;
+    lastLearningAuditFeedBoundary = 0;
+    await clearPureRLAutonomy();
+    pureRLMetrics.update(metrics => ({
+        ...metrics,
+        step: 0,
+        autonomy: null,
+        learningAudit: null,
+        demonstration: status,
+    }));
+    feedSystem(`Teach episode learned: ${status.samples} expert transitions, ${(status.accuracy * 100).toFixed(1)}% BC accuracy.`);
+    feedSystem('Autonomous proof reset: the learned policy must now reproduce the route from a fresh ROM without human input.');
+    return result;
 }
 
 /**
@@ -807,6 +923,10 @@ export async function stepLabAgent() {
  */
 export function resetLab() {
     stopLabAgent();
+    demonstrationActive = false;
+    const demoStatus = labPureRLAgent?.core.getDemonstrationStatus()
+        || { samples: 0, capacity: 8192, trainSteps: 0, loss: 0, accuracy: 0 };
+    labDemonstration.set({ active: false, ...demoStatus });
     lastLearningAuditFeedBoundary = 0;
 
     labMetrics.update(m => ({
@@ -860,9 +980,11 @@ export function resetLab() {
         archiveSelections: 0,
         autonomy: null,
         learningAudit: null,
+        demonstration: demoStatus,
         workers: [],
         visibleWorker: 0,
         visibleState: null,
+        memoryDiagnostics: null,
         history: {
             returns: [],
             entropy: [],
@@ -941,6 +1063,8 @@ export function cleanupLab() {
     lastFatalParallelRecoveryAt = 0;
     isInitialized = false;
     currentMode = 'llm';
+    demonstrationActive = false;
     labMode.set('llm');
+    labDemonstration.set({ active: false, samples: 0, trainSteps: 0, loss: 0, accuracy: 0 });
     labRunStatus.set({ running: false, recovering: false, error: null });
 }

@@ -577,7 +577,7 @@ export function isIntroSkipRunning() {
  */
 export function pressButton(button) {
     if (!emu) return;
-    emu.pressButton(button);
+    emu.pulseButton(button);
 
     // Record if in recording mode
     if (collector?.isRecording) {
