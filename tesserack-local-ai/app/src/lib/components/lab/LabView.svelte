@@ -674,7 +674,7 @@
                 </button>
                 {#if howItWorksExpanded}
                     <p class="how-desc">
-                        Four Red++ environments train one shared PPO/GAE actor-critic and are rendered below with independent telemetry. One exploits the strongest RAM-verified checkpoint, two revisit autonomously discovered frontier cells, and one always rehearses from ROM start. No route or button is scripted.
+                        Three Red++ environments train one shared PPO/GAE actor-critic. A fourth Red owns a frozen policy snapshot and evaluates from the true ROM start without learning or checkpoint restores. No route or button is scripted.
                     </p>
                 {/if}
 
@@ -684,8 +684,8 @@
                     <div class="autonomy-proof {$pureRLMetrics.autonomy.status}">
                         <div class="section-header">Autonomous outcome proof</div>
                         <p class="proof-contract">
-                            E{$pureRLMetrics.autonomy.evaluationWorker + 1}: fresh ROM, no checkpoint restore,
-                            no scripted buttons. A result is verified after
+                            E{$pureRLMetrics.autonomy.evaluationWorker + 1}: frozen policy, fresh ROM, no learning,
+                            no checkpoint restore and no scripted buttons. A result is verified after
                             {$pureRLMetrics.autonomy.proofRunsRequired} separate start episodes.
                         </p>
                         <div class="metric-row">
@@ -703,6 +703,14 @@
                                 ({($pureRLMetrics.autonomy.targetSuccessRate * 100).toFixed(0)}%)
                             </span>
                         </div>
+                        {#if $pureRLMetrics.autonomy.targetSuccessInterval}
+                            <div class="metric-row">
+                                <span class="metric-label">95% success interval</span>
+                                <span class="metric-value mono">
+                                    {($pureRLMetrics.autonomy.targetSuccessInterval.lower * 100).toFixed(1)}–{($pureRLMetrics.autonomy.targetSuccessInterval.upper * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                        {/if}
                         <div class="metric-row">
                             <span class="metric-label">Last fresh progress</span>
                             <span class="metric-value mono">
@@ -759,6 +767,31 @@
                                 NEXT AUDIT: {$pureRLMetrics.learningAudit.nextBoundary.toLocaleString()} samples
                             </div>
                         {/if}
+                    </div>
+
+                    <div class="metrics-divider"></div>
+                {/if}
+
+                {#if $pureRLMetrics.curriculum}
+                    <div class="autonomy-proof collecting">
+                        <div class="section-header">Mastery-gated backward curriculum</div>
+                        <p class="proof-contract">
+                            Demonstrated and autonomously discovered savestates are training-only starts.
+                            Stages move backward after ≥75% success over 8+ attempts; at least 25% of
+                            learning episodes remain true-ROM starts. The frozen evaluator never uses them.
+                        </p>
+                        <div class="metric-row">
+                            <span class="metric-label">Stages mastered</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.curriculum.masteredStages}/{$pureRLMetrics.curriculum.stageCount}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">True-ROM training share</span>
+                            <span class="metric-value mono">
+                                {($pureRLMetrics.curriculum.trueRomFraction * 100).toFixed(1)}%
+                            </span>
+                        </div>
                     </div>
 
                     <div class="metrics-divider"></div>

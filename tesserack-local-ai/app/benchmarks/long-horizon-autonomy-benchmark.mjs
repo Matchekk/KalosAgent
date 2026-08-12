@@ -76,7 +76,7 @@ function differs(left, right) {
 
 const neutral = baseState();
 check('state budget can represent long-horizon RAM, context and history', REDPP_STATE_SIZE >= 128);
-check('objective version invalidates the one-bit v3.8 representation', /v4|v5|long-horizon/i.test(REDPP_TRAINING_OBJECTIVE_VERSION));
+check('objective version invalidates the one-bit v3.8 representation', /v4|v5|v6|long-horizon|recurrent/i.test(REDPP_TRAINING_OBJECTIVE_VERSION));
 check('exact map id is observable independently of a display label', () => differs(
     encoded(neutral),
     encoded(baseState({ mapId: 0x25 })),

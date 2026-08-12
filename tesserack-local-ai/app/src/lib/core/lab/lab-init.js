@@ -13,7 +13,12 @@ import { MemoryReader } from '../memory-reader.js';
 import { GuideAgent } from './guide-agent.js';
 import { PureRLAgent, REDPP_TRAINING_OBJECTIVE_VERSION } from './pure-rl-agent.js';
 import { ParallelTrainingCoordinator } from './parallel-trainer.js';
-import { createParallelTrainingPlan, trainingIntervalMs, trainingRoundsPerTick } from './parallel-training.js';
+import {
+    createParallelTrainingPlan,
+    PARALLEL_TRAINING_DEFAULTS,
+    trainingIntervalMs,
+    trainingRoundsPerTick,
+} from './parallel-training.js';
 import { CombinedRewardSystem } from '../adaptive-rewards.js';
 import { feedSystem } from '$lib/stores/feed';
 import {
@@ -118,12 +123,15 @@ export const pureRLMetrics = writable({
     checkpointCount: 0,
     confirmedWins: 0,
     environmentCount: PARALLEL_ENVIRONMENT_COUNT,
+    trainingEnvironmentCount: PARALLEL_ENVIRONMENT_COUNT - 1,
     samplesPerSecond: 0,
     checkpointWorker: null,
     archiveSize: 0,
     archiveSelections: 0,
     autonomy: null,
     learningAudit: null,
+    evaluation: null,
+    curriculum: null,
     demonstration: { samples: 0, capacity: 8192, trainSteps: 0, loss: 0, accuracy: 0 },
     workers: [],
     visibleWorker: 0,
@@ -264,12 +272,15 @@ function handlePureRLStep(stepData) {
             checkpointCount: stepData.checkpointCount ?? prev.checkpointCount,
             confirmedWins: stepData.confirmedWins ?? prev.confirmedWins,
             environmentCount: stepData.environmentCount ?? prev.environmentCount,
+            trainingEnvironmentCount: stepData.trainingEnvironmentCount ?? prev.trainingEnvironmentCount,
             samplesPerSecond: stepData.samplesPerSecond ?? prev.samplesPerSecond,
             checkpointWorker: stepData.checkpointWorker ?? prev.checkpointWorker,
             archiveSize: stepData.archiveSize ?? prev.archiveSize,
             archiveSelections: stepData.archiveSelections ?? prev.archiveSelections,
             autonomy: stepData.autonomy ?? prev.autonomy,
             learningAudit: stepData.learningAudit ?? prev.learningAudit,
+            evaluation: stepData.evaluation ?? prev.evaluation,
+            curriculum: stepData.curriculum ?? prev.curriculum,
             demonstration: stepData.demonstration ?? prev.demonstration,
             workers: stepData.workers ?? prev.workers,
             visibleWorker: stepData.visibleWorker ?? prev.visibleWorker,
@@ -431,7 +442,7 @@ export async function initializeLab(romBuffer, canvas) {
         const savedPolicy = await getPureRLPolicy();
         if (savedPolicy) {
             try {
-                if (savedPolicy.version !== 2 || savedPolicy.algorithm !== 'ppo-gae'
+                if (![2, 3].includes(savedPolicy.version) || savedPolicy.algorithm !== 'ppo-gae'
                     || savedPolicy.objectiveVersion !== REDPP_TRAINING_OBJECTIVE_VERSION) {
                     throw new Error('saved policy targets an incompatible training objective');
                 }
@@ -510,12 +521,20 @@ async function ensureParallelTrainer() {
                 const reader = new MemoryReader(emulator);
                 const agent = new PureRLAgent(emulator, reader, {
                     workerId: worker.workerId,
-                    sharedCore: labPureRLAgent.core,
+                    // The proof worker owns a separate policy snapshot. Sharing
+                    // the mutable PPO core would let it learn during evaluation
+                    // and would invalidate every fresh-ROM success estimate.
+                    sharedCore: worker.evaluationOnly ? undefined : labPureRLAgent.core,
+                    evaluationOnly: worker.evaluationOnly,
                     actionHoldFrames: labPureRLAgent.config.actionHoldFrames,
                     frameSkip: labPureRLAgent.config.frameSkip,
                     actionRepeat: 1,
-                    maxEpisodeSteps: labPureRLAgent.config.maxEpisodeSteps,
-                    noProgressSteps: labPureRLAgent.config.noProgressSteps,
+                    maxEpisodeSteps: worker.evaluationOnly
+                        ? PARALLEL_TRAINING_DEFAULTS.evaluationMaxEpisodeSteps
+                        : labPureRLAgent.config.maxEpisodeSteps,
+                    noProgressSteps: worker.evaluationOnly
+                        ? PARALLEL_TRAINING_DEFAULTS.evaluationNoProgressSteps
+                        : labPureRLAgent.config.noProgressSteps,
                     resetFromInitial: worker.resetFromInitial,
                     rehearseEvery: 0,
                     autoCheckpoint: false,
@@ -528,11 +547,15 @@ async function ensureParallelTrainer() {
                 });
 
                 agent.setInitialState(labPureRLAgent.initialState);
-                agent.adoptCheckpoint(
-                    labPureRLAgent.checkpointState,
-                    labPureRLAgent.bestProgressScore,
-                );
-                if (worker.resetFromInitial) {
+                if (worker.evaluationOnly) {
+                    agent.refreshFrozenPolicy(labPureRLAgent.core, 0x2f6e2b1);
+                } else {
+                    agent.adoptCheckpoint(
+                        labPureRLAgent.checkpointState,
+                        labPureRLAgent.bestProgressScore,
+                    );
+                }
+                if (worker.resetFromInitial || worker.evaluationOnly) {
                     emulator.loadState(agent.initialState);
                 } else {
                     agent.loadCheckpointIntoEnvironment();
@@ -547,6 +570,14 @@ async function ensureParallelTrainer() {
                 agents,
                 visibleWorker: parallelPlan.visibleWorker,
                 initialTotalSamples: parallelSampleCount,
+                curriculumCheckpoints: [
+                    {
+                        level: 0,
+                        source: 'true-rom-start',
+                        checkpoint: labPureRLAgent.initialState,
+                    },
+                    ...labPureRLAgent.getDemonstrationCurriculum(),
+                ],
                 onCheckpoint(candidate) {
                     feedSystem(`Global checkpoint: environment ${candidate.workerId + 1} advanced durable Red++ progress.`);
                 },
@@ -554,7 +585,7 @@ async function ensureParallelTrainer() {
             const savedAutonomy = await getPureRLAutonomy();
             if (savedAutonomy) {
                 parallelTrainer.restoreAutonomousProgress(savedAutonomy);
-                const restoredBoundary = savedAutonomy.version === 2
+                const restoredBoundary = savedAutonomy.version >= 2
                     ? savedAutonomy.learningAudit?.history?.at(-1)?.boundarySamples
                     : 0;
                 lastLearningAuditFeedBoundary = Math.max(
@@ -563,7 +594,7 @@ async function ensureParallelTrainer() {
                 );
             }
             parallelLifecycleStartSamples = parallelTrainer.totalSamples;
-            feedSystem(`Parallel Train ready: ${agents.length} environments share one policy; environment ${parallelPlan.startWorker + 1} rehearses from ROM start.`);
+            feedSystem(`Parallel Train ready: ${parallelPlan.trainingWorkerCount} learning environments share PPO; environment ${parallelPlan.startWorker + 1} is an isolated frozen fresh-ROM evaluator.`);
             return parallelTrainer;
         } catch (error) {
             for (const agent of hiddenAgents) agent.emu.destroy();
@@ -1015,12 +1046,15 @@ export function resetLab() {
         checkpointCount: 0,
         confirmedWins: 0,
         environmentCount: parallelPlan?.workerCount ?? PARALLEL_ENVIRONMENT_COUNT,
+        trainingEnvironmentCount: parallelPlan?.trainingWorkerCount ?? PARALLEL_ENVIRONMENT_COUNT - 1,
         samplesPerSecond: 0,
         checkpointWorker: null,
         archiveSize: 0,
         archiveSelections: 0,
         autonomy: null,
         learningAudit: null,
+        evaluation: null,
+        curriculum: null,
         demonstration: demoStatus,
         workers: [],
         visibleWorker: 0,

@@ -6,6 +6,7 @@ import {
     REDPP_STATE_SIZE,
     encodeRedppStateInto,
     PureRLAgent,
+    sampleRedppVisualFeatures,
 } from '../src/lib/core/lab/pure-rl-agent.js';
 import { UnitTestRewards } from '../src/lib/core/lab/unit-test-rewards.js';
 import { REDPP_REWARD_MATRIX } from '../src/lib/core/lab/redpp-reward-matrix.js';
@@ -159,6 +160,18 @@ test('ineffective overworld face buttons cannot become a safe local optimum', ()
 
     const start = rewards.evaluate(unchanged, unchanged, 'start');
     assert.equal(start.firedTests.some(event => event.id === 'overworld_inaction'), true);
+});
+
+test('multimodal policy receives deterministic framebuffer luminance', () => {
+    const frameBuffer = new Uint8Array(160 * 144 * 4);
+    frameBuffer.fill(255);
+    const white = sampleRedppVisualFeatures({ frameBuffer });
+    assert.equal(white.length, 64);
+    assert.ok(white.every(value => value === 1));
+
+    const vector = new Float32Array(REDPP_STATE_SIZE);
+    encodeRedppStateInto(state(), vector, { visualFeatures: white });
+    assert.deepEqual([...vector.slice(-96, -32)], [...white]);
 });
 
 test('pre-starter Start menus cannot become a zero-cost local optimum', () => {

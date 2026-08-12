@@ -38,14 +38,20 @@ check('parallel plan defaults to four environments', () => {
     return plan?.workerCount === 4 && plan?.visibleWorker === 0 && plan?.startWorker === 3;
 });
 
-check('four environments aggregate exactly four local rollouts', () => {
+check('four environments reserve one evaluator and aggregate three local rollouts', () => {
     const plan = parallelModule?.createParallelTrainingPlan?.({ workerCount: 4, rolloutSize: 128 });
-    return plan?.aggregateRolloutSize === 512;
+    return plan?.aggregateRolloutSize === 384 && plan?.trainingWorkerCount === 3;
 });
 
 check('exactly one worker rehearses from the original start', () => {
     const plan = parallelModule?.createParallelTrainingPlan?.({ workerCount: 4, rolloutSize: 128 });
     return plan?.workers?.filter(worker => worker.resetFromInitial).length === 1;
+});
+
+check('the fresh-start worker is isolated for frozen evaluation', () => {
+    const plan = parallelModule?.createParallelTrainingPlan?.({ workerCount: 4, rolloutSize: 128 });
+    return plan?.workers?.filter(worker => worker.evaluationOnly).length === 1
+        && plan.workers[plan.startWorker].evaluationOnly === true;
 });
 
 check('16x has a true twofold scheduler rate over 8x', () => {

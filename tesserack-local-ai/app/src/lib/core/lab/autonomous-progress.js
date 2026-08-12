@@ -9,7 +9,7 @@ import { normalizeRedppLocation } from './redpp-location-data.js';
  * before the UI calls it verified.
  */
 
-export const AUTONOMOUS_PROGRESS_VERSION = 1;
+export const AUTONOMOUS_PROGRESS_VERSION = 2;
 export const AUTONOMOUS_PROOF_RUNS = 3;
 export const AUTONOMOUS_TARGET_LEVEL = 13; // Boulder Badge
 
@@ -120,10 +120,11 @@ export class AutonomousProgressTracker {
         this.freshBestEpisodeSteps = null;
         this.freshLastProgressSample = 0;
         this.freshAttemptsStarted = 0;
+        this.freshCompletedEpisodes = new Set();
         this.freshEpisodeBase = 0;
     }
 
-    observe({ workerId, state, episode = 1, episodeSteps = 0, totalSamples = 0 } = {}) {
+    observe({ workerId, state, episode = 1, episodeSteps = 0, totalSamples = 0, terminal = false } = {}) {
         const id = Math.max(0, Math.trunc(Number(workerId) || 0));
         const currentEpisode = Math.max(1, Math.trunc(Number(episode) || 1));
         const proofEpisode = id === this.freshWorkerId
@@ -148,7 +149,10 @@ export class AutonomousProgressTracker {
             worker.candidateCount = 1;
         }
 
-        if (worker.candidateCount >= this.stableObservations && detected > worker.bestLevel) {
+        const requiredObservations = terminal && detected >= this.targetLevel
+            ? 1
+            : this.stableObservations;
+        if (worker.candidateCount >= requiredObservations && detected > worker.bestLevel) {
             worker.bestLevel = detected;
             if (detected > this.frontierLevel) {
                 this.frontierLevel = detected;
@@ -163,7 +167,7 @@ export class AutonomousProgressTracker {
                     this.freshLastProgressSample = finiteCounter(totalSamples);
                 }
             }
-        } else if (id === this.freshWorkerId && worker.candidateCount >= this.stableObservations) {
+        } else if (id === this.freshWorkerId && worker.candidateCount >= requiredObservations) {
             this._creditFreshEpisode(proofEpisode, detected);
         }
 
@@ -180,13 +184,23 @@ export class AutonomousProgressTracker {
         }
     }
 
+    /** Mark an evaluator episode complete so rates use finished trials only. */
+    completeFreshEpisode(localEpisode) {
+        const episode = this.freshEpisodeBase
+            + Math.max(1, Math.trunc(Number(localEpisode) || 1));
+        this.freshCompletedEpisodes.add(episode);
+        return episode;
+    }
+
     summary(totalSamples = 0) {
         let verifiedLevel = 0;
         for (let level = 1; level < this.hitEpisodes.length; level++) {
             if (this.hitEpisodes[level].size >= this.proofRuns) verifiedLevel = level;
         }
-        const targetSuccesses = this.hitEpisodes[this.targetLevel]?.size || 0;
-        const attempts = Math.max(1, this.freshAttemptsStarted);
+        const targetSuccesses = [...(this.hitEpisodes[this.targetLevel] || [])]
+            .filter(episode => this.freshCompletedEpisodes.has(episode)).length;
+        const attempts = this.freshCompletedEpisodes.size;
+        const targetSuccessInterval = wilsonInterval(targetSuccesses, attempts);
         const samples = finiteCounter(totalSamples);
         let status = 'collecting';
         if (verifiedLevel >= this.targetLevel) status = 'proven';
@@ -213,7 +227,8 @@ export class AutonomousProgressTracker {
             verifiedProofRuns: this.hitEpisodes[verifiedLevel]?.size || 0,
             attempts,
             targetSuccesses,
-            targetSuccessRate: targetSuccesses / attempts,
+            targetSuccessRate: attempts > 0 ? targetSuccesses / attempts : 0,
+            targetSuccessInterval,
             samplesSinceFreshProgress: Math.max(0, samples - this.freshLastProgressSample),
             progressPct: (verifiedLevel / (AUTONOMOUS_MILESTONES.length - 1)) * 100,
             targetProven: verifiedLevel >= this.targetLevel,
@@ -236,11 +251,12 @@ export class AutonomousProgressTracker {
             freshBestEpisodeSteps: this.freshBestEpisodeSteps,
             freshLastProgressSample: this.freshLastProgressSample,
             freshAttemptsStarted: this.freshAttemptsStarted,
+            freshCompletedEpisodes: [...this.freshCompletedEpisodes],
         };
     }
 
     restoreSnapshot(snapshot) {
-        if (snapshot?.version !== AUTONOMOUS_PROGRESS_VERSION) return false;
+        if (![1, AUTONOMOUS_PROGRESS_VERSION].includes(snapshot?.version)) return false;
         this.frontierLevel = boundedLevel(snapshot.frontierLevel);
         this.frontierWorker = Number.isInteger(snapshot.frontierWorker) ? snapshot.frontierWorker : null;
         this.frontierAtSample = finiteCounter(snapshot.frontierAtSample);
@@ -249,6 +265,13 @@ export class AutonomousProgressTracker {
             ? finiteCounter(snapshot.freshBestEpisodeSteps) : null;
         this.freshLastProgressSample = finiteCounter(snapshot.freshLastProgressSample);
         this.freshAttemptsStarted = finiteCounter(snapshot.freshAttemptsStarted);
+        const completed = Array.isArray(snapshot.freshCompletedEpisodes)
+            ? snapshot.freshCompletedEpisodes
+            : Array.from(
+                { length: Math.max(0, this.freshAttemptsStarted - 1) },
+                (_, index) => index + 1,
+            );
+        this.freshCompletedEpisodes = new Set(completed.map(finiteCounter).filter(Boolean));
         // A browser/process reload restarts the trainer-local episode counter at
         // one. Continue after the persisted attempts so the same episode can
         // never be credited as multiple independent proof runs.
@@ -261,6 +284,23 @@ export class AutonomousProgressTracker {
         }
         return true;
     }
+}
+
+/** 95% Wilson score interval for a Bernoulli success probability. */
+export function wilsonInterval(successes, trials, z = 1.959963984540054) {
+    const n = Math.max(0, Math.trunc(Number(trials) || 0));
+    const k = Math.max(0, Math.min(n, Math.trunc(Number(successes) || 0)));
+    if (n === 0) return Object.freeze({ lower: 0, upper: 1, confidence: 0.95 });
+    const p = k / n;
+    const z2 = z * z;
+    const denominator = 1 + z2 / n;
+    const center = (p + z2 / (2 * n)) / denominator;
+    const margin = (z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denominator;
+    return Object.freeze({
+        lower: Math.max(0, center - margin),
+        upper: Math.min(1, center + margin),
+        confidence: 0.95,
+    });
 }
 
 function boundedLevel(value) {

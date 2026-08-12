@@ -16,6 +16,8 @@ export const PARALLEL_TRAINING_DEFAULTS = Object.freeze({
     minimumIntervalMs: 8,
     backgroundTimerClampMs: 1000,
     maximumRoundsPerTick: 80,
+    evaluationMaxEpisodeSteps: 1200,
+    evaluationNoProgressSteps: 900,
 });
 
 export function createParallelTrainingPlan({
@@ -25,16 +27,21 @@ export function createParallelTrainingPlan({
     const count = clampInteger(workerCount, 1, 8);
     const localRollout = clampInteger(rolloutSize, 16, 2048);
     const startWorker = count - 1;
+    const evaluationWorker = count > 1 ? startWorker : null;
+    const trainingWorkerCount = evaluationWorker === null ? count : count - 1;
     return Object.freeze({
         workerCount: count,
+        trainingWorkerCount,
         visibleWorker: 0,
         startWorker,
+        evaluationWorker,
         perEnvironmentRolloutSize: localRollout,
-        aggregateRolloutSize: count * localRollout,
+        aggregateRolloutSize: trainingWorkerCount * localRollout,
         workers: Object.freeze(Array.from({ length: count }, (_, workerId) => Object.freeze({
             workerId,
             visible: workerId === 0,
-            resetFromInitial: count > 1 && workerId === startWorker,
+            evaluationOnly: workerId === evaluationWorker,
+            resetFromInitial: workerId === evaluationWorker,
         }))),
     });
 }

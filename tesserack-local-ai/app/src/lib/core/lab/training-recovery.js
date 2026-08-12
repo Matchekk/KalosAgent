@@ -1,6 +1,6 @@
 // A four-environment Red++ session consistently exhausted the browser WASM
 // heap at roughly 6,400 lifecycle samples. Rotate with enough margin to finish
-// the 900-step no-progress horizon of the fresh worker (5,000 / 4 = 1,250),
+// the frozen evaluator's 1,200-step budget (5,000 / 3 = 1,666 learning rounds),
 // while rebuilding before the observed failure window.
 export const DEFAULT_ENVIRONMENT_RECYCLE_SAMPLES = 5_000;
 

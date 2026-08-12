@@ -20,6 +20,8 @@ import {
     restoreReinforceSnapshot,
 } from './training-utils.js';
 import { compareProgressStates, progressScore } from './parallel-training.js';
+import { detectAutonomousMilestone } from './autonomous-progress.js';
+import { RecurrentObservationMemory } from './recurrent-observation.js';
 import { analyzeRedppTeam } from './redpp-team-quality.js';
 import {
     clearPureRLCheckpoint,
@@ -30,8 +32,10 @@ import {
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
-export const REDPP_STATE_SIZE = 144;
-export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v4-long-horizon';
+export const REDPP_VISUAL_FEATURES = 64;
+export const REDPP_RECURRENT_FEATURES = 32;
+export const REDPP_STATE_SIZE = 240;
+export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v6-recurrent-curriculum';
 export const REDPP_LEARNING_PHASES = Object.freeze([
     'boot',
     'bedroom',
@@ -302,6 +306,18 @@ export function encodeRedppStateInto(state, outVec, context = {}) {
     outVec[i++] = Math.min(1, Math.max(0, Number(exploration.revisitRatio) || 0));
     outVec[i++] = Math.min(1, Math.max(0, Number(exploration.uniqueMaps) || 0) / 16);
 
+    // Downsample the live framebuffer to an 8x8 luminance grid. RAM captures
+    // durable state; pixels disambiguate menus, geometry and animation frames
+    // that otherwise share the same WRAM summary.
+    const visual = context.visualFeatures || [];
+    for (let pixel = 0; pixel < REDPP_VISUAL_FEATURES; pixel++) {
+        outVec[i++] = Math.max(0, Math.min(1, Number(visual[pixel]) || 0));
+    }
+    const recurrent = context.recurrentFeatures || [];
+    for (let unit = 0; unit < REDPP_RECURRENT_FEATURES; unit++) {
+        outVec[i++] = Math.max(-1, Math.min(1, Number(recurrent[unit]) || 0));
+    }
+
     // Pad remaining with zeros. The exact feature budget is guarded by tests.
     while (i < REDPP_STATE_SIZE) outVec[i++] = 0;
     if (i !== REDPP_STATE_SIZE) {
@@ -360,6 +376,7 @@ export class PureRLAgent {
             maxEpisodeSteps: agentConfig.maxEpisodeSteps ?? 40960,
             noProgressSteps: agentConfig.noProgressSteps ?? 4096,
             resetFromInitial: agentConfig.resetFromInitial ?? false,
+            evaluationOnly: agentConfig.evaluationOnly ?? false,
             rehearseEvery: agentConfig.rehearseEvery ?? 5,
             autoCheckpoint: agentConfig.autoCheckpoint ?? true,
             persistCheckpoint: agentConfig.persistCheckpoint ?? (this.workerId === 0),
@@ -436,6 +453,7 @@ export class PureRLAgent {
 
         this.episode = 1;
         this.episodeSteps = 0;
+        this.lastCompletedEpisodeSteps = 0;
         this.episodeReward = 0;
         this.lastProgressEpisodeStep = 0;
         this.bestProgressScore = -1;
@@ -443,6 +461,12 @@ export class PureRLAgent {
         this.confirmedWins = 0;
         this.resetReason = null;
         this.pendingCheckpointCandidate = null;
+
+        if (this.config.evaluationOnly) {
+            this.config.autoCheckpoint = false;
+            this.config.persistCheckpoint = false;
+            this.config.resetFromInitial = true;
+        }
         this.pendingArchiveCandidate = null;
         this.knownArchiveCells = new Set();
         this.archiveCaptureCount = 0;
@@ -457,12 +481,15 @@ export class PureRLAgent {
         this.episodeMapTiles = new Map();
         this.episodeUniqueMaps = new Set();
         this.recentNovelTiles = [];
+        this.visualFeatures = new Float32Array(REDPP_VISUAL_FEATURES);
+        this.temporalMemory = new RecurrentObservationMemory(REDPP_RECURRENT_FEATURES);
 
         // Checkpoint state for resets
         this.checkpointState = null;
         this.checkpointProgressState = null;
         this.initialState = null;
         this.explorationState = null;
+        this.demonstrationCurriculum = new Map();
 
         // Callbacks
         this.onStep = null;
@@ -479,6 +506,7 @@ export class PureRLAgent {
             ACTIONS: PURE_RL_ACTIONS,
             stateVec: new Float32Array(REDPP_STATE_SIZE),
             streamId: this.workerId,
+            training: !this.config.evaluationOnly,
 
             getState() {
                 return self.mem.getGameState();
@@ -488,8 +516,8 @@ export class PureRLAgent {
                 return self._noveltyKey(gameState);
             },
 
-            encodeStateInto(gameState, outVec) {
-                encodeRedppStateInto(gameState, outVec, self._behaviorContext(gameState));
+            encodeStateInto(gameState, outVec, options = {}) {
+                encodeRedppStateInto(gameState, outVec, self._behaviorContext(gameState, options));
             },
 
             async executeAction(actionStr) {
@@ -515,7 +543,9 @@ export class PureRLAgent {
         };
     }
 
-    _behaviorContext(state = null) {
+    _behaviorContext(state = null, { advanceTemporal = false } = {}) {
+        const visualFeatures = sampleRedppVisualFeatures(this.emu, this.visualFeatures);
+        if (advanceTemporal) this.temporalMemory.update(visualFeatures);
         return {
             lastAction: this.lastBehaviorAction,
             recentActions: this.recentBehaviorActions,
@@ -527,7 +557,29 @@ export class PureRLAgent {
             actionStreak: this.actionStreak,
             explorationProfile: Math.min(1, this.workerId / 3),
             exploration: this._explorationFeatures(state),
+            visualFeatures,
+            recurrentFeatures: this.temporalMemory.state,
         };
+    }
+
+    /** Refresh a frozen evaluator only between complete true-ROM episodes. */
+    refreshFrozenPolicy(sourceCore, seed = 1) {
+        if (!this.config.evaluationOnly) {
+            throw new Error('Only an evaluation-only agent may receive a frozen policy');
+        }
+        copyReinforceState(sourceCore, this.core);
+        const rng = seededEvaluationRng(seed);
+        this.core.rng = rng;
+        this.core.policy.rng = rng;
+        this.core.buffer.clear();
+        if (this.initialState) {
+            this.emu.loadState(this.initialState);
+            for (let frame = 0; frame < 4; frame++) this.emu.runFrame();
+        }
+        this.episodeSteps = 0;
+        this.episodeReward = 0;
+        this.lastProgressEpisodeStep = 0;
+        return true;
     }
 
     _tileKey(state, x = state?.coordinates?.x, y = state?.coordinates?.y) {
@@ -623,6 +675,7 @@ export class PureRLAgent {
         if (actionIdx < 0) throw new Error(`Unsupported demonstration action: ${action}`);
 
         const prevState = this.mem.getGameState();
+        this._rememberDemonstrationCurriculum(prevState);
         const stateVec = new Float32Array(REDPP_STATE_SIZE);
         encodeRedppStateInto(prevState, stateVec, this._behaviorContext(prevState));
         await this._executeAction(action);
@@ -631,6 +684,8 @@ export class PureRLAgent {
         this.emu.render?.();
         this.emu.frameCallback?.();
         const nextState = this.mem.getGameState();
+        this._rememberDemonstrationCurriculum(nextState);
+        this._behaviorContext(nextState, { advanceTemporal: true });
         const rewardResult = this.env.rewardFn(prevState, nextState, action);
         const reward = Number(rewardResult?.total) || 0;
 
@@ -663,6 +718,18 @@ export class PureRLAgent {
             demonstration: this.core.getDemonstrationStatus(),
             demonstrationTraining,
         };
+    }
+
+    _rememberDemonstrationCurriculum(state) {
+        const level = detectAutonomousMilestone(state);
+        if (this.demonstrationCurriculum.has(level) || !this.initialState) return false;
+        this.demonstrationCurriculum.set(level, {
+            level,
+            source: 'human-demonstration',
+            progressState: cloneProgressState(state),
+            checkpoint: this.emu.saveState(),
+        });
+        return true;
     }
 
     /** Advance a boot/fade animation without creating a false expert label. */
@@ -763,6 +830,7 @@ export class PureRLAgent {
      * @private
      */
     async _resetEnv() {
+        this.lastCompletedEpisodeSteps = this.episodeSteps;
         const rehearseEvery = Math.max(0, Math.trunc(Number(this.config.rehearseEvery) || 0));
         const rehearseFromStart = this.config.resetFromInitial
             || (rehearseEvery > 0 && this.episode % rehearseEvery === 0);
@@ -793,6 +861,7 @@ export class PureRLAgent {
         this.episodeMapTiles.clear();
         this.episodeUniqueMaps.clear();
         this.recentNovelTiles = [];
+        this.temporalMemory.reset();
     }
 
     /**
@@ -897,6 +966,7 @@ export class PureRLAgent {
         this.episodeMapTiles.clear();
         this.episodeUniqueMaps.clear();
         this.recentNovelTiles = [];
+        this.temporalMemory.reset();
         this.rewards.reset();
         // Note: Core (policy weights, buffer) is NOT reset
         // Call resetFull() to also reset learning
@@ -1016,6 +1086,31 @@ export class PureRLAgent {
         return true;
     }
 
+    /** Immediately begin a new learning episode from a curriculum state. */
+    loadTrainingStartState(stateBytes) {
+        if (this.config.evaluationOnly || !(stateBytes instanceof Uint8Array)) return false;
+        this.emu.loadState(stateBytes);
+        for (let frame = 0; frame < 4; frame++) this.emu.runFrame();
+        this.explorationState = null;
+        this.rewards.resetEpisodeState();
+        this.episodeSteps = 0;
+        this.episodeReward = 0;
+        this.lastProgressEpisodeStep = 0;
+        this.stableLocation = '';
+        this.stableLocationSteps = 0;
+        this.lastDeltaX = 0;
+        this.lastDeltaY = 0;
+        this.actionStreak = 0;
+        this.lastBehaviorAction = null;
+        this.recentBehaviorActions = [];
+        this.episodeTileVisits.clear();
+        this.episodeMapTiles.clear();
+        this.episodeUniqueMaps.clear();
+        this.recentNovelTiles = [];
+        this.temporalMemory.reset();
+        return true;
+    }
+
     _archiveCellKey(state) {
         const location = String(state?.location || '');
         const x = Number(state?.coordinates?.x);
@@ -1104,12 +1199,41 @@ export class PureRLAgent {
 
     /** Export the learned policy for local autosave and backup. */
     exportPolicy() {
-        return createReinforceSnapshot(this.core);
+        const snapshot = createReinforceSnapshot(this.core);
+        snapshot.version = 3;
+        snapshot.curriculum = [...this.demonstrationCurriculum.values()].map(item => ({
+            level: item.level,
+            source: item.source,
+            progressState: item.progressState,
+            checkpoint: Array.from(item.checkpoint),
+        }));
+        return snapshot;
     }
 
     /** Restore a compatible learned policy. Partial rollouts are intentionally not restored. */
     loadPolicy(snapshot) {
-        return restoreReinforceSnapshot(this.core, snapshot);
+        const restored = restoreReinforceSnapshot(this.core, snapshot);
+        this.demonstrationCurriculum.clear();
+        for (const item of snapshot?.curriculum || []) {
+            const checkpoint = item?.checkpoint instanceof Uint8Array
+                ? item.checkpoint
+                : Array.isArray(item?.checkpoint) ? Uint8Array.from(item.checkpoint) : null;
+            if (!Number.isSafeInteger(item?.level) || !checkpoint) continue;
+            this.demonstrationCurriculum.set(item.level, {
+                level: item.level,
+                source: item.source || 'human-demonstration',
+                progressState: item.progressState || {},
+                checkpoint: checkpoint.slice(),
+            });
+        }
+        return restored;
+    }
+
+    getDemonstrationCurriculum() {
+        return [...this.demonstrationCurriculum.values()].map(item => ({
+            ...item,
+            checkpoint: item.checkpoint.slice(),
+        }));
     }
 
     /**
@@ -1177,6 +1301,38 @@ export class PureRLAgent {
 
         console.log('[PureRLAgent] Config updated:', this.config);
     }
+}
+
+/** Fixed-size visual observation read directly from the emulator RGBA buffer. */
+export function sampleRedppVisualFeatures(emulator, out = new Float32Array(REDPP_VISUAL_FEATURES)) {
+    const frame = emulator?.frameBuffer;
+    if (!frame || frame.length < 160 * 144 * 4) {
+        out.fill(0);
+        return out;
+    }
+    let index = 0;
+    for (let row = 0; row < 8; row++) {
+        const y = Math.min(143, Math.floor((row + 0.5) * 144 / 8));
+        for (let column = 0; column < 8; column++) {
+            const x = Math.min(159, Math.floor((column + 0.5) * 160 / 8));
+            const offset = (y * 160 + x) * 4;
+            out[index++] = (
+                0.2126 * frame[offset]
+                + 0.7152 * frame[offset + 1]
+                + 0.0722 * frame[offset + 2]
+            ) / 255;
+        }
+    }
+    return out;
+}
+
+/** Small deterministic PRNG used only to make frozen evaluation reproducible. */
+export function seededEvaluationRng(seed = 1) {
+    let state = (Math.trunc(Number(seed) || 1) >>> 0) || 1;
+    return () => {
+        state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+        return state / 0x100000000;
+    };
 }
 
 export default PureRLAgent;

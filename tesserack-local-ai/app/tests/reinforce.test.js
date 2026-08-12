@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { RLRunner } from '../src/lib/core/lab/rl-runner.js';
 
 globalThis.requestAnimationFrame = callback => callback();
 
@@ -229,4 +230,39 @@ test('GAE bootstraps truncations but never crosses terminal boundaries', () => {
 
     assert.ok(Math.abs(core._advantages[1] - 1.25) < 1e-6);
     assert.ok(Math.abs(core._advantages[0] - 2.3) < 1e-6);
+});
+
+test('evaluation runner acts but never observes or trains', async () => {
+    let observes = 0;
+    let trains = 0;
+    let resets = 0;
+    const core = {
+        stateSize: 2,
+        act: () => ({ actionIdx: 0, logProb: -0.1, value: 0.25 }),
+        getValue: () => 0.5,
+        observe: () => { observes++; },
+        shouldTrain: () => true,
+        train: () => { trains++; return {}; },
+    };
+    const env = {
+        training: false,
+        ACTIONS: ['down'],
+        streamId: 3,
+        stateVec: new Float32Array(2),
+        nextStateVec: new Float32Array(2),
+        getState: () => ({ location: "PLAYER'S HOUSE 2F" }),
+        encodeStateInto: (_state, out) => out.fill(0),
+        executeAction: async () => {},
+        rewardFn: () => ({ total: 1 }),
+        checkDone: () => true,
+        resetEnv: async () => { resets++; },
+    };
+
+    const result = await new RLRunner(core, env).step();
+
+    assert.equal(result.done, true);
+    assert.equal(observes, 0);
+    assert.equal(trains, 0);
+    assert.equal(resets, 1);
+    assert.equal(result.trainInfo, null);
 });

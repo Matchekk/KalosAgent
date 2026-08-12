@@ -50,7 +50,7 @@ export class RLRunner {
 
         // 1. Observe state s
         const prevState = env.getState();
-        env.encodeStateInto(prevState, env.stateVec);
+        env.encodeStateInto(prevState, env.stateVec, { advanceTemporal: false });
 
         // 2. Act (sample from policy)
         const { actionIdx, logProb, value = 0 } = core.act(env.stateVec);
@@ -72,19 +72,21 @@ export class RLRunner {
         const done = env.checkDone(prevState, nextState);
 
         // 7. Store transition (observe)
-        env.encodeStateInto(nextState, env.nextStateVec);
+        env.encodeStateInto(nextState, env.nextStateVec, { advanceTemporal: true });
         const nextValue = done ? 0 : core.getValue(env.nextStateVec);
-        core.observe(
-            env.stateVec,
-            actionIdx,
-            reward,
-            done,
-            logProb,
-            env.streamId ?? 0,
-            value,
-            nextValue,
-            env.noveltyKey?.(nextState) ?? null,
-        );
+        if (env.training !== false) {
+            core.observe(
+                env.stateVec,
+                actionIdx,
+                reward,
+                done,
+                logProb,
+                env.streamId ?? 0,
+                value,
+                nextValue,
+                env.noveltyKey?.(nextState) ?? null,
+            );
+        }
 
         // 8. Reset env if done
         if (done && env.resetEnv) {
@@ -93,13 +95,15 @@ export class RLRunner {
 
         // 9. Train if buffer full
         let trainInfo = null;
-        if (core.shouldTrain()) {
+        if (env.training !== false && core.shouldTrain()) {
             trainInfo = core.train();
         }
 
         // Return rich object for UI
         return {
             ...rewardResult,
+            prevState,
+            nextState,
             actionIdx,
             actionStr,
             reward,

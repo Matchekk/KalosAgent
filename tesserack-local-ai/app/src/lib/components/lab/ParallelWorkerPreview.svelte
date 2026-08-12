@@ -20,7 +20,7 @@
             action: '-',
             partySize: 0,
             maxLevel: 0,
-            role: isFresh ? 'Fresh-ROM proof' : workerId === 0 ? 'Checkpoint exploit' : 'Frontier replay',
+            role: isFresh ? 'Frozen ROM evaluation' : workerId === 0 ? 'Checkpoint exploit' : 'Frontier replay',
             proofEligible: isFresh,
             checkpointSource: false,
         };
@@ -59,9 +59,9 @@
     <div class="preview-heading">
         <div>
             <strong>Parallel Red live preview</strong>
-            <span>Four independent screens · one shared policy</span>
+            <span>Three learners · one frozen evaluator</span>
         </div>
-        <span class="proof-note">Only the green Fresh-ROM card counts as autonomy proof</span>
+        <span class="proof-note">Only the green frozen-ROM evaluator counts as autonomy proof</span>
     </div>
 
     <div class="worker-grid">

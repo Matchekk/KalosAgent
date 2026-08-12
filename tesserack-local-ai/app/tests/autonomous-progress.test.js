@@ -5,6 +5,7 @@ import {
     AUTONOMOUS_TARGET_LEVEL,
     AutonomousProgressTracker,
     detectAutonomousMilestone,
+    wilsonInterval,
 } from '../src/lib/core/lab/autonomous-progress.js';
 
 function state(overrides = {}) {
@@ -65,8 +66,25 @@ test('one lucky fresh-start result is not called verified', () => {
     const summary = tracker.summary(3);
     assert.equal(summary.freshBestLevel, AUTONOMOUS_TARGET_LEVEL);
     assert.equal(summary.verifiedLevel, 0);
-    assert.equal(summary.targetSuccesses, 1);
+    assert.equal(summary.targetSuccesses, 0, 'an in-flight success is not yet a finished statistical trial');
+    assert.equal(summary.attempts, 0, 'an in-flight episode is not a finished statistical trial');
     assert.equal(summary.targetProven, false);
+});
+
+test('success rate and confidence interval count only completed evaluator episodes', () => {
+    const tracker = new AutonomousProgressTracker({ freshWorkerId: 3, stableObservations: 1 });
+    const badge = state({ location: 'PEWTER GYM', party: starter, badgeCount: 1 });
+    tracker.observe({ workerId: 3, state: badge, episode: 1, totalSamples: 10 });
+    tracker.completeFreshEpisode(1);
+    tracker.observe({ workerId: 3, state: state(), episode: 2, totalSamples: 20 });
+    tracker.completeFreshEpisode(2);
+
+    const summary = tracker.summary(20);
+    assert.equal(summary.attempts, 2);
+    assert.equal(summary.targetSuccessRate, 0.5);
+    assert.ok(summary.targetSuccessInterval.lower < 0.5);
+    assert.ok(summary.targetSuccessInterval.upper > 0.5);
+    assert.deepEqual(wilsonInterval(0, 0), { lower: 0, upper: 1, confidence: 0.95 });
 });
 
 test('three separate clean-start episodes verify a reproducible milestone', () => {

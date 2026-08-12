@@ -187,7 +187,7 @@ export function createReinforceSnapshot(core) {
 
 /** Validate and restore a policy snapshot without partially mutating the core. */
 export function restoreReinforceSnapshot(core, snapshot) {
-    if (!snapshot || ![1, 2].includes(snapshot.version)) {
+    if (!snapshot || ![1, 2, 3].includes(snapshot.version)) {
         throw new Error('Unsupported policy snapshot');
     }
 
@@ -211,7 +211,7 @@ export function restoreReinforceSnapshot(core, snapshot) {
         wv: core.policy.hiddenSize,
         bv: 1,
     };
-    const tensors = snapshot.version === 2 ? PPO_TENSORS : ACTOR_TENSORS;
+    const tensors = snapshot.version >= 2 ? PPO_TENSORS : ACTOR_TENSORS;
     for (const key of tensors) {
         const values = snapshot.weights?.[key];
         if (!Array.isArray(values) || values.length !== expectedLengths[key]) {
@@ -231,7 +231,7 @@ export function restoreReinforceSnapshot(core, snapshot) {
     if (core.policy.wv) {
         core.policy.wv.fill(0);
         core.policy.bv.fill(0);
-        if (snapshot.version === 2) {
+        if (snapshot.version >= 2) {
             core.policy.wv.set(validated.wv);
             core.policy.bv.set(validated.bv);
         }

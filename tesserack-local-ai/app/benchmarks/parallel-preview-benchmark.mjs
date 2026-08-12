@@ -15,7 +15,7 @@ const checks = [
     ['labels each worker role', /worker\.role/.test(preview)],
     ['surfaces location coordinates action episode and team', ['location', 'worker.x', 'worker.y', 'worker.action', 'worker.episode', 'worker.partySize'].every(token => preview.includes(token))],
     ['marks exactly the proof-eligible role in telemetry', /proofEligible/.test(trainer) && /Fresh-ROM proof/.test(trainer)],
-    ['states that only Fresh-ROM counts as proof', /Only the green Fresh-ROM card counts as autonomy proof/.test(preview)],
+    ['states that only the frozen-ROM evaluator counts as proof', /Only the green frozen-ROM evaluator counts as autonomy proof/.test(preview)],
     ['preview copying is exported by the lab runtime', /export function renderLabWorkerPreview/.test(labInit)],
     ['preview copy performs no frame advance or input', !/function renderLabWorkerPreview[\s\S]{0,900}(runFrame|setButton|pressButton|loadState)/.test(labInit)],
     ['preview is mounted in Train mode', /mode === 'train'[\s\S]{0,160}<ParallelWorkerPreview/.test(labView)],

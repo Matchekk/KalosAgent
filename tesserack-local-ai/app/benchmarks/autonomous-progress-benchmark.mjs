@@ -48,7 +48,8 @@ const inactiveRewards = new UnitTestRewards().evaluate(
 check('inactive screens have zero shaping reward', inactiveRewards.total === 0 && inactiveRewards.context === 'inactive');
 check('coordinator observes every worker outcome', /autonomousProgress\.observe/.test(coordinator));
 check('coordinator labels the reset-from-initial worker', /resetFromInitial/.test(coordinator));
-check('UI states the no-checkpoint proof contract', /fresh ROM, no checkpoint restore/.test(ui));
+check('UI states the frozen no-learning no-checkpoint proof contract',
+    /frozen policy, fresh ROM, no learning,[\s\S]{0,100}no checkpoint restore/.test(ui));
 check('UI distinguishes best from verified', /Best fresh start/.test(ui) && />Verified</.test(ui));
 check('UI exposes an explicit unproven verdict', /UNPROVEN/.test(ui));
 

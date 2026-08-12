@@ -7,6 +7,7 @@ import {
     chooseCheckpointCandidate,
     compareProgressStates,
     createParallelTrainingPlan,
+    PARALLEL_TRAINING_DEFAULTS,
     progressScore,
     trainingIntervalMs,
     trainingRoundsPerTick,
@@ -27,16 +28,111 @@ test('interleaved environments retain independent discounted returns', () => {
     assert.deepEqual(Array.from(core._computeReturns().subarray(0, 4)), [2, 20, 2, 20]);
 });
 
-test('parallel plan makes one 512-sample update from four 128-step streams', () => {
+test('parallel plan reserves one worker for frozen evaluation and aggregates only learning streams', () => {
     const plan = createParallelTrainingPlan({ workerCount: 4, rolloutSize: 128 });
-    assert.equal(plan.aggregateRolloutSize, 512);
+    assert.equal(plan.aggregateRolloutSize, 384);
+    assert.equal(plan.trainingWorkerCount, 3);
     assert.equal(plan.workers.length, 4);
     assert.deepEqual(plan.workers.map(worker => worker.resetFromInitial), [false, false, false, true]);
+    assert.deepEqual(plan.workers.map(worker => worker.evaluationOnly), [false, false, false, true]);
+    assert.ok(PARALLEL_TRAINING_DEFAULTS.evaluationMaxEpisodeSteps * plan.trainingWorkerCount < 5_000,
+        'one evaluator trial must finish before scheduled WASM rotation');
     assert.equal(trainingIntervalMs(8), 25);
     assert.equal(trainingIntervalMs(16), 12.5);
     assert.equal(trainingRoundsPerTick(16), 1);
     assert.equal(trainingRoundsPerTick(8, { hidden: true }), 40);
     assert.equal(trainingRoundsPerTick(16, { hidden: true }), 80);
+});
+
+test('frozen evaluator never contributes samples or receives checkpoints', async () => {
+    const trainingCore = {
+        trainSteps: 9,
+        lastAvgRawReturn: 0,
+        lastEntropy: 1,
+        lastValueLoss: 0,
+        lastClipFraction: 0,
+        lastIntrinsicReward: 0,
+        rolloutSize: 384,
+        buffer: { length: 0 },
+    };
+    const evaluatorCore = { ...trainingCore, trainSteps: 9, buffer: { length: 0 } };
+    const adopted = [];
+    const refreshes = [];
+    const agents = Array.from({ length: 4 }, (_, workerId) => {
+        let candidate = workerId === 1 ? {
+            workerId,
+            steps: 20,
+            state: {
+                location: 'VIRIDIAN CITY',
+                coordinates: { x: 12, y: 14 },
+                party: [{ speciesId: 7, level: 5 }],
+                progressFlags: { battledRivalInOaksLab: true },
+            },
+            checkpoint: new Uint8Array([7]),
+        } : null;
+        return {
+            workerId,
+            core: workerId === 3 ? evaluatorCore : trainingCore,
+            checkpointCount: 1,
+            checkpointState: new Uint8Array([0]),
+            checkpointProgressState: workerId === 0 ? {
+                location: 'ROUTE 1',
+                coordinates: { x: 9, y: 11 },
+                party: [{ speciesId: 7, level: 5 }],
+                progressFlags: { battledRivalInOaksLab: true },
+            } : null,
+            confirmedWins: 0,
+            totalReward: 0,
+            totalSteps: 1,
+            episode: 1,
+            episodeSteps: 1,
+            config: { resetFromInitial: workerId === 3, evaluationOnly: workerId === 3 },
+            emu: { render() {}, destroy() {} },
+            mem: { getGameState: () => ({ location: "PLAYER'S HOUSE 2F", party: [] }) },
+            rewards: { getStats: () => ({ totalRewards: {}, completedObjectives: [] }) },
+            async step() {
+                if (workerId === 3) {
+                    return {
+                        actionStr: 'down',
+                        reward: 0,
+                        breakdown: {},
+                        done: true,
+                        nextState: {
+                            location: 'PEWTER GYM',
+                            coordinates: { x: 4, y: 8 },
+                            party: [{ speciesId: 7, level: 12 }],
+                            badgeCount: 1,
+                        },
+                    };
+                }
+                return { actionStr: 'down', reward: 0, breakdown: {}, done: false };
+            },
+            consumeCheckpointCandidate() { const value = candidate; candidate = null; return value; },
+            consumeArchiveCandidate() { return null; },
+            adoptCheckpoint() { adopted.push(workerId); },
+            refreshFrozenPolicy(sourceCore, seed) { refreshes.push({ sourceCore, seed }); },
+            setSharedCore(nextCore) { this.core = nextCore; },
+            stop() {},
+            reset() {},
+        };
+    });
+
+    const coordinator = new ParallelTrainingCoordinator({ agents, initialTotalSamples: 100 });
+    assert.equal(coordinator.globalCheckpoint.state.location, 'ROUTE 1');
+    assert.equal(coordinator.masteryCurriculum.checkpoints.has(7), true,
+        'persisted global progress must remain available to the reverse curriculum');
+    const result = await coordinator.stepRound();
+
+    assert.equal(result.step, 103, 'only the three learning transitions count as samples');
+    assert.equal(result.trainingEnvironmentCount, 3);
+    assert.equal(result.evaluation.noLearning, true);
+    assert.equal(result.workers[3].role, 'Frozen ROM evaluation');
+    assert.equal(result.workers[3].evaluationOnly, true);
+    assert.deepEqual(adopted, [0, 1, 2], 'the evaluator never receives curriculum state');
+    assert.equal(refreshes.length, 1, 'policy refresh occurs only after a completed evaluation episode');
+    assert.equal(refreshes[0].sourceCore, trainingCore);
+    assert.equal(result.autonomy.targetSuccesses, 1,
+        'a target milestone reached on the terminal evaluator action must be credited before reset');
 });
 
 test('durable Red++ progress is strictly lexicographic', () => {
