@@ -275,6 +275,23 @@ export class ParallelTrainingCoordinator {
                 totalSteps: agent.totalSteps,
                 resetFromInitial: Boolean(agent.config.resetFromInitial),
                 location: workerStates[agent.workerId]?.location || 'Unknown',
+                mapId: Number(workerStates[agent.workerId]?.mapId) || 0,
+                x: Number(workerStates[agent.workerId]?.coordinates?.x) || 0,
+                y: Number(workerStates[agent.workerId]?.coordinates?.y) || 0,
+                action: results[agent.workerId]?.actionStr || '-',
+                partySize: workerStates[agent.workerId]?.party?.length || 0,
+                maxLevel: Math.max(
+                    0,
+                    ...(workerStates[agent.workerId]?.party || []).map(mon => Number(mon?.level) || 0),
+                ),
+                role: agent.workerId === this.freshWorker
+                    ? 'Fresh-ROM proof'
+                    : agent.workerId === 0
+                        ? 'Checkpoint exploit'
+                        : 'Frontier replay',
+                proofEligible: agent.workerId === this.freshWorker,
+                visible: agent.workerId === this.visibleWorker,
+                checkpointSource: agent.workerId === this.globalCheckpoint?.workerId,
             })),
         };
     }

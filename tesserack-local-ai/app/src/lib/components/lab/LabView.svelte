@@ -3,6 +3,7 @@
     import { get } from 'svelte/store';
     import { Play, Pause, RotateCcw, Save, FolderOpen, FastForward, SkipForward, ChevronDown, Download, Upload, Check, Loader } from 'lucide-svelte';
     import LabCanvas from './LabCanvas.svelte';
+    import ParallelWorkerPreview from './ParallelWorkerPreview.svelte';
     import ModeToggle from './ModeToggle.svelte';
     import HyperparamsPopover from './HyperparamsPopover.svelte';
     import MetricsChart from './MetricsChart.svelte';
@@ -620,7 +621,7 @@
         {:else if runBlockReason}
             {runBlockReason}
         {:else}
-            {mode === 'train' ? 'Ready to train · 4 environments share one policy (1 visible + 3 headless)' : 'Ready to run'}
+            {mode === 'train' ? 'Ready to train · 4 environments share one policy and four live previews' : 'Ready to run'}
         {/if}
     </div>
 
@@ -633,6 +634,9 @@
                 <div class="canvas-wrapper">
                     <LabCanvas on:initialized={handleLabInitialized} />
                 </div>
+                {#if mode === 'train' && !$labDemonstration.active}
+                    <ParallelWorkerPreview />
+                {/if}
                 {#if $labDemonstration.active}
                     <div class="teach-panel" aria-label="Human demonstration controls">
                         <div class="teach-copy">
@@ -670,7 +674,7 @@
                 </button>
                 {#if howItWorksExpanded}
                     <p class="how-desc">
-                        Four Red++ environments train one shared PPO/GAE actor-critic. One exploits the strongest RAM-verified checkpoint, two revisit autonomously discovered frontier cells, and one always rehearses from ROM start. No route or button is scripted.
+                        Four Red++ environments train one shared PPO/GAE actor-critic and are rendered below with independent telemetry. One exploits the strongest RAM-verified checkpoint, two revisit autonomously discovered frontier cells, and one always rehearses from ROM start. No route or button is scripted.
                     </p>
                 {/if}
 

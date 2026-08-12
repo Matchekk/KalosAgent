@@ -137,6 +137,17 @@ test('coordinator shares one learner and publishes a hidden worker checkpoint to
         id: 'dialog_advanced', reward: 0.04, tier: 1, workerId: 1, visibleWorker: false,
     }]);
     assert.ok(Number.isFinite(result.samplesPerSecond));
+    assert.deepEqual(result.workers.map(worker => worker.role), [
+        'Checkpoint exploit',
+        'Frontier replay',
+        'Frontier replay',
+        'Fresh-ROM proof',
+    ]);
+    assert.deepEqual(result.workers.map(worker => worker.proofEligible), [false, false, false, true]);
+    assert.equal(result.workers[2].checkpointSource, true);
+    assert.equal(result.workers[1].action, 'a');
+    assert.equal(result.workers[2].partySize, 1);
+    assert.equal(result.workers[2].maxLevel, 5);
 });
 
 test('frontier archive prefers under-restored cells and remains memory-bounded', () => {

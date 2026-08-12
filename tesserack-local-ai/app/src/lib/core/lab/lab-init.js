@@ -138,6 +138,25 @@ export const pureRLMetrics = writable({
     maxHistoryLength: 50,
 });
 
+/**
+ * Paint a read-only live view of one parallel worker into a UI canvas.
+ * This copies pixels only: it never advances frames, presses buttons, restores
+ * checkpoints, or changes which worker is eligible for autonomous proof.
+ */
+export function renderLabWorkerPreview(workerId, targetCanvas) {
+    if (!targetCanvas) return false;
+    const normalizedWorker = Math.max(0, Math.trunc(Number(workerId) || 0));
+    const emulator = parallelTrainer?.agents?.[normalizedWorker]?.emu
+        || (normalizedWorker === 0 ? labEmulator : null);
+    if (!emulator?.e || !emulator.canvas) return false;
+
+    emulator.render();
+    const context = targetCanvas.getContext('2d', { alpha: false });
+    context.imageSmoothingEnabled = false;
+    context.drawImage(emulator.canvas, 0, 0, targetCanvas.width, targetCanvas.height);
+    return true;
+}
+
 async function persistPureRLPolicy() {
     if (!labPureRLAgent || policyPersistInFlight) return;
     const trainStep = labPureRLAgent.core.trainSteps;
