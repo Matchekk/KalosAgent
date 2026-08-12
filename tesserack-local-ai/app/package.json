@@ -15,7 +15,8 @@
     "benchmark:autonomy": "node benchmarks/autonomous-progress-benchmark.mjs",
     "benchmark:fresh-start": "node benchmarks/fresh-start-learning-benchmark.mjs",
     "benchmark:hardstuck": "node benchmarks/hardstuck-recovery-benchmark.mjs",
-    "benchmark:input-integrity": "node benchmarks/background-input-integrity-benchmark.mjs"
+    "benchmark:input-integrity": "node benchmarks/background-input-integrity-benchmark.mjs",
+    "benchmark:long-horizon": "node benchmarks/long-horizon-autonomy-benchmark.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "3.0.10",

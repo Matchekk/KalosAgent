@@ -33,6 +33,7 @@
         pureRLMetrics,
         labDemonstration,
         startLabDemonstration,
+        startLabCorrection,
         recordLabDemonstrationAction,
         advanceLabDemonstration,
         finishLabDemonstration,
@@ -288,6 +289,10 @@
         else startLabDemonstration();
     }
 
+    function startCorrection() {
+        if (!$labDemonstration.active) startLabCorrection();
+    }
+
     function handleLabKeydown(event) {
         if ($labDemonstration.active) {
             if (event.key === ' ') {
@@ -508,6 +513,16 @@
                 >
                     {$labDemonstration.active ? 'Finish & Learn' : 'Teach AI'}
                 </button>
+                {#if !$labDemonstration.active}
+                    <button
+                        class="header-btn teach-btn"
+                        on:click={startCorrection}
+                        disabled={isRunning || !labInitialized}
+                        title="Pause on a state reached by the learner and supply corrective actions"
+                    >
+                        Correct AI
+                    </button>
+                {/if}
             {/if}
         </div>
 
@@ -621,7 +636,7 @@
                 {#if $labDemonstration.active}
                     <div class="teach-panel" aria-label="Human demonstration controls">
                         <div class="teach-copy">
-                            <strong>TEACHING SHARED PPO</strong>
+                            <strong>{$labDemonstration.correctionMode ? 'CORRECTING LEARNER STATES' : 'TEACHING FROM FRESH ROM'}</strong>
                             <span>
                                 {$labDemonstration.samples} transitions ·
                                 {$labDemonstration.trainSteps} BC updates ·
@@ -740,6 +755,47 @@
                                 NEXT AUDIT: {$pureRLMetrics.learningAudit.nextBoundary.toLocaleString()} samples
                             </div>
                         {/if}
+                    </div>
+
+                    <div class="metrics-divider"></div>
+                {/if}
+
+                {#if $pureRLMetrics.demonstration}
+                    <div class="autonomy-proof {$pureRLMetrics.demonstration.closedLoopReady ? 'improving' : 'collecting'}">
+                        <div class="section-header">Closed-loop teaching readiness</div>
+                        <p class="proof-contract">
+                            Accuracy alone is not route competence. Readiness also requires low state-label
+                            collisions, broad phase/action coverage and learner-state corrections.
+                        </p>
+                        <div class="metric-row">
+                            <span class="metric-label">BC accuracy / collisions</span>
+                            <span class="metric-value mono">
+                                {($pureRLMetrics.demonstration.accuracy * 100).toFixed(1)}%
+                                / {(($pureRLMetrics.demonstration.collisionRate || 0) * 100).toFixed(2)}%
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Phases / actions covered</span>
+                            <span class="metric-value mono">
+                                {$pureRLMetrics.demonstration.phaseCoverage?.length || 0}
+                                / {$pureRLMetrics.demonstration.actionCoverage?.filter(Boolean).length || 0}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Learner-state corrections</span>
+                            <span class="metric-value mono">{$pureRLMetrics.demonstration.correctionSamples || 0} / 16 min</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">50-decision survival</span>
+                            <span class="metric-value mono">
+                                {(($pureRLMetrics.demonstration.sequenceSuccess50 || 0) * 100).toFixed(3)}%
+                            </span>
+                        </div>
+                        <div class="proof-verdict">
+                            {$pureRLMetrics.demonstration.closedLoopReady
+                                ? 'READY FOR INDEPENDENT FRESH-ROM EVALUATION'
+                                : 'NOT READY: collect or correct more representative states'}
+                        </div>
                     </div>
 
                     <div class="metrics-divider"></div>

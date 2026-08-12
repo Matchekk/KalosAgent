@@ -94,10 +94,10 @@ check('standing in Viridian cannot falsely prove parcel delivery', () => {
     });
     return completed.has(objectiveNames.viridian) && !completed.has(objectiveNames.oakSequence);
 });
-check('northbound Route 2 with durable opening flag proves Oak sequence', () => deriveObjectives({
+check('exact Pokedex event proves Oak sequence without a map heuristic', () => deriveObjectives({
     location: 'ROUTE 2',
     party: [{ speciesId: 1, level: 5 }],
-    progressFlags: { battledRivalInOaksLab: true },
+    progressFlags: { battledRivalInOaksLab: true, gotPokedex: true },
 }).has(objectiveNames.oakSequence));
 check('Brock objective requires the Boulder badge RAM bit', () => {
     const before = deriveObjectives({ location: 'PEWTER GYM', party: [{ speciesId: 1, level: 8 }], badges: [] });

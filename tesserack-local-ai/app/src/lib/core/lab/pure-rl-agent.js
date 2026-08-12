@@ -30,9 +30,80 @@ import {
 // Every action needed to complete Red++. `start` is essential for booting the
 // game and for party/item/save menus; the policy, not a controller, chooses it.
 export const PURE_RL_ACTIONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start'];
-export const REDPP_STATE_SIZE = 58;
-export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v3.8';
-// v6 appends behavior memory to the observable Red++ features.
+export const REDPP_STATE_SIZE = 144;
+export const REDPP_TRAINING_OBJECTIVE_VERSION = 'redpp-ppo-v4-long-horizon';
+export const REDPP_LEARNING_PHASES = Object.freeze([
+    'boot',
+    'bedroom',
+    'house-exit',
+    'pallet-oak',
+    'choose-starter',
+    'lab-rival',
+    'viridian-parcel',
+    'return-parcel',
+    'pokedex-north',
+    'viridian-forest',
+    'pewter-city',
+    'pewter-gym',
+    'boulder-badge',
+    'post-boulder',
+]);
+
+const EARLY_PROGRESS_FLAGS = Object.freeze([
+    'followedOakIntoLab',
+    'palletAfterGettingPokeballs',
+    'oakAskedToChooseMon',
+    'gotStarter',
+    'battledRivalInOaksLab',
+    'gotPokeballsFromOak',
+    'gotPokedex',
+    'oakAppearedInPallet',
+    'oakGotParcel',
+    'gotOaksParcel',
+    'beatPewterGymTrainer',
+    'gotTm34',
+    'beatBrock',
+]);
+
+/** Optimistic exact-sequence probability; real compounding error is worse. */
+export function estimateSequenceSuccess({ perDecisionAccuracy, criticalDecisions }) {
+    const probability = Math.max(0, Math.min(1, Number(perDecisionAccuracy) || 0));
+    const decisions = Math.max(0, Math.trunc(Number(criticalDecisions) || 0));
+    return probability ** decisions;
+}
+
+/**
+ * Derive a coarse objective, never a route or action, from authoritative RAM.
+ * This is hierarchical context for one shared low-level policy. It cannot move
+ * the player and therefore cannot contaminate fresh-ROM autonomy proof.
+ */
+export function deriveRedppLearningPhase(state = {}) {
+    const location = String(state.location || '').toUpperCase();
+    const flags = state.progressFlags || {};
+    const badges = Number(state.badgeCount) || 0;
+    if (badges > 1) return 'post-boulder';
+    if (badges > 0 || flags.beatBrock) return 'boulder-badge';
+    if (location.includes('PEWTER GYM')) return 'pewter-gym';
+    if (location.includes('PEWTER')) return 'pewter-city';
+    if (location.includes('VIRIDIAN FOREST') || location.includes('ROUTE 2')) {
+        return 'viridian-forest';
+    }
+    if (flags.gotPokedex || flags.oakGotParcel) return 'pokedex-north';
+    if (flags.gotOaksParcel) return 'return-parcel';
+    if (location.includes('VIRIDIAN') || location.includes('ROUTE 1')) {
+        return 'viridian-parcel';
+    }
+    if (flags.gotStarter) return 'lab-rival';
+    if (location.includes('OAK') || flags.oakAskedToChooseMon || flags.followedOakIntoLab) {
+        return 'choose-starter';
+    }
+    if (location.includes('PALLET')) return 'pallet-oak';
+    if (location.includes('HOUSE 1F')) return 'house-exit';
+    if (location.includes('HOUSE 2F')) return 'bedroom';
+    return 'boot';
+}
+
+// v7 appends exact early-game RAM, hierarchy and bounded behavior history.
 const TYPE_NAMES = [
     'NORMAL', 'FIGHTING', 'FLYING', 'POISON', 'GROUND', 'ROCK', 'BUG', 'GHOST',
     'STEEL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'PSYCHIC', 'ICE', 'DRAGON',
@@ -52,6 +123,7 @@ function cloneProgressState(state = {}) {
             moves: (mon?.moves || []).map(move => ({ id: Number(move?.id ?? move) || 0 })),
         })),
         progressFlags: { ...(state.progressFlags || {}) },
+        mapId: Number(state.mapId) || 0,
     };
 }
 
@@ -165,8 +237,76 @@ export function encodeRedppStateInto(state, outVec, context = {}) {
     outVec[i++] = Math.max(0, Math.min(1, (Number(context.actionStreak) || 0) / 16));
     outVec[i++] = Math.max(0, Math.min(1, Number(context.explorationProfile) || 0));
 
-    // Pad remaining with zeros
+    // Exact map identity. The label hash above is useful for migration, but it
+    // is neither injective nor stable enough to be the sole map observation.
+    const mapId = Math.max(0, Math.min(255, Number(state.mapId) || 0));
+    const mapAngle = (mapId / 256) * Math.PI * 2;
+    outVec[i++] = mapId / 255;
+    outVec[i++] = Math.sin(mapAngle);
+    outVec[i++] = Math.cos(mapAngle);
+    outVec[i++] = state.location && state.location !== 'NO ACTIVE MAP' ? 1 : 0;
+
+    // Exact durable milestones prevent impossible state aliasing. A party can
+    // faint or change; story events do not. These offsets are verified against
+    // Red++ v3.0.2's event constants and shifted wEventFlags symbol.
+    for (const flag of EARLY_PROGRESS_FLAGS) {
+        outVec[i++] = state.progressFlags?.[flag] ? 1 : 0;
+    }
+    const eventBytes = state.eventBytes || state.progressFlags?.eventBytes || [];
+    for (let byte = 0; byte < 16; byte++) outVec[i++] = (eventBytes[byte] || 0) / 255;
+
+    const phase = deriveRedppLearningPhase(state);
+    for (const candidate of REDPP_LEARNING_PHASES) outVec[i++] = candidate === phase ? 1 : 0;
+
+    // Inventory is required for the parcel and for strategic battle/menu use.
+    const items = Array.isArray(state.items) ? state.items : [];
+    const itemQuantity = pattern => items.reduce((sum, item) =>
+        pattern.test(String(item?.name || '').toUpperCase())
+            ? sum + Math.max(0, Number(item?.quantity) || 0)
+            : sum, 0);
+    const totalItems = items.reduce((sum, item) => sum + Math.max(0, Number(item?.quantity) || 0), 0);
+    outVec[i++] = Math.min(1, items.length / 20);
+    outVec[i++] = Math.min(1, totalItems / 99);
+    outVec[i++] = itemQuantity(/OAKS? PARCEL/) > 0 ? 1 : 0;
+    outVec[i++] = Math.min(1, itemQuantity(/POKE BALL|GREAT BALL|ULTRA BALL|MASTER BALL/) / 20);
+    outVec[i++] = Math.min(1, itemQuantity(/POTION|FULL RESTORE|FRESH WATER|SODA POP|LEMONADE/) / 20);
+    outVec[i++] = Math.min(1, items.filter(item => /^(HM|KEY|BICYCLE|CARD KEY|POKE FLUTE)/
+        .test(String(item?.name || '').toUpperCase())).length / 12);
+
+    // Dialog strings with different required buttons must never collapse into
+    // the same binary observation.
+    const dialogAngle = state.dialog
+        ? ((hashString(state.dialog) >>> 0) / 0xffffffff) * Math.PI * 2
+        : 0;
+    outVec[i++] = state.dialog ? Math.sin(dialogAngle) : 0;
+    outVec[i++] = state.dialog ? Math.cos(dialogAngle) : 0;
+
+    // A four-decision action stack is the vector equivalent of the temporal
+    // frame stack used by practical Pokémon PPO systems. The most recent
+    // action is already present above, so append the preceding three.
+    const recentActions = Array.isArray(context.recentActions) ? context.recentActions.slice(-4, -1) : [];
+    while (recentActions.length < 3) recentActions.unshift(null);
+    for (const recent of recentActions) {
+        for (const action of PURE_RL_ACTIONS) outVec[i++] = recent === action ? 1 : 0;
+    }
+
+    // Episodic per-map visitation makes equal coordinates distinguishable as
+    // new frontier versus a repeated loop without prescribing a direction.
+    const exploration = context.exploration || {};
+    for (const key of ['currentVisits', 'northVisits', 'southVisits', 'eastVisits', 'westVisits']) {
+        outVec[i++] = Math.min(1, Math.max(0, Number(exploration[key]) || 0) / 8);
+    }
+    outVec[i++] = Math.min(1, Math.max(0, Number(exploration.uniqueTiles) || 0) / 256);
+    outVec[i++] = Math.min(1, Math.max(0, Number(exploration.mapUniqueTiles) || 0) / 128);
+    outVec[i++] = Math.min(1, Math.max(0, Number(exploration.recentNewRatio) || 0));
+    outVec[i++] = Math.min(1, Math.max(0, Number(exploration.revisitRatio) || 0));
+    outVec[i++] = Math.min(1, Math.max(0, Number(exploration.uniqueMaps) || 0) / 16);
+
+    // Pad remaining with zeros. The exact feature budget is guarded by tests.
     while (i < REDPP_STATE_SIZE) outVec[i++] = 0;
+    if (i !== REDPP_STATE_SIZE) {
+        throw new Error(`Red++ encoder overflow: ${i} features for ${REDPP_STATE_SIZE}`);
+    }
 }
 
 function ratio(value, max) {
@@ -217,8 +357,8 @@ export class PureRLAgent {
             frameSkip: agentConfig.frameSkip ?? 16,
             actionRepeat: agentConfig.actionRepeat ?? 1,
             releaseFrames: agentConfig.releaseFrames ?? 4,
-            maxEpisodeSteps: agentConfig.maxEpisodeSteps ?? 4000,
-            noProgressSteps: agentConfig.noProgressSteps ?? 900,
+            maxEpisodeSteps: agentConfig.maxEpisodeSteps ?? 40960,
+            noProgressSteps: agentConfig.noProgressSteps ?? 4096,
             resetFromInitial: agentConfig.resetFromInitial ?? false,
             rehearseEvery: agentConfig.rehearseEvery ?? 5,
             autoCheckpoint: agentConfig.autoCheckpoint ?? true,
@@ -228,9 +368,9 @@ export class PureRLAgent {
             // while preventing novel-tile discovery from exhausting the heap.
             archiveCaptureLimit: agentConfig.archiveCaptureLimit ?? 16,
             // PPO/GAE config
-            rolloutSize: agentConfig.rolloutSize ?? 128,
+            rolloutSize: agentConfig.rolloutSize ?? 256,
             learningRate: agentConfig.learningRate ?? 0.0003,
-            gamma: agentConfig.gamma ?? 0.995,
+            gamma: agentConfig.gamma ?? 0.997,
             gaeLambda: agentConfig.gaeLambda ?? 0.95,
             clipRatio: agentConfig.clipRatio ?? 0.2,
             updateEpochs: agentConfig.updateEpochs ?? 6,
@@ -312,6 +452,11 @@ export class PureRLAgent {
         this.lastDeltaY = 0;
         this.actionStreak = 0;
         this.lastBehaviorAction = null;
+        this.recentBehaviorActions = [];
+        this.episodeTileVisits = new Map();
+        this.episodeMapTiles = new Map();
+        this.episodeUniqueMaps = new Set();
+        this.recentNovelTiles = [];
 
         // Checkpoint state for resets
         this.checkpointState = null;
@@ -344,7 +489,7 @@ export class PureRLAgent {
             },
 
             encodeStateInto(gameState, outVec) {
-                encodeRedppStateInto(gameState, outVec, self._behaviorContext());
+                encodeRedppStateInto(gameState, outVec, self._behaviorContext(gameState));
             },
 
             async executeAction(actionStr) {
@@ -356,6 +501,7 @@ export class PureRLAgent {
                 self.lastDeltaY = (nextState?.coordinates?.y ?? 0) - (prevState?.coordinates?.y ?? 0);
                 self.actionStreak = action === self.lastBehaviorAction ? self.actionStreak + 1 : 1;
                 self.lastBehaviorAction = action;
+                self._recordBehaviorTransition(nextState, action);
                 return self.rewards.evaluate(prevState, nextState, action);
             },
 
@@ -369,9 +515,10 @@ export class PureRLAgent {
         };
     }
 
-    _behaviorContext() {
+    _behaviorContext(state = null) {
         return {
             lastAction: this.lastBehaviorAction,
+            recentActions: this.recentBehaviorActions,
             deltaX: this.lastDeltaX,
             deltaY: this.lastDeltaY,
             stagnation: this.config.noProgressSteps > 0
@@ -379,6 +526,65 @@ export class PureRLAgent {
                 : 0,
             actionStreak: this.actionStreak,
             explorationProfile: Math.min(1, this.workerId / 3),
+            exploration: this._explorationFeatures(state),
+        };
+    }
+
+    _tileKey(state, x = state?.coordinates?.x, y = state?.coordinates?.y) {
+        const map = Number.isFinite(Number(state?.mapId))
+            ? Math.trunc(Number(state.mapId))
+            : String(state?.location || 'NO ACTIVE MAP');
+        return `${map}|${Math.trunc(Number(x) || 0)}|${Math.trunc(Number(y) || 0)}`;
+    }
+
+    _recordBehaviorTransition(state, action) {
+        this.recentBehaviorActions.push(action);
+        if (this.recentBehaviorActions.length > 4) this.recentBehaviorActions.shift();
+        if (!state?.location || state.location === 'NO ACTIVE MAP') return;
+
+        const key = this._tileKey(state);
+        const visits = this.episodeTileVisits.get(key) || 0;
+        this.episodeTileVisits.set(key, visits + 1);
+        const mapKey = Number.isFinite(Number(state.mapId))
+            ? Math.trunc(Number(state.mapId))
+            : String(state.location);
+        const mapTiles = this.episodeMapTiles.get(mapKey) || new Set();
+        mapTiles.add(key);
+        this.episodeMapTiles.set(mapKey, mapTiles);
+        this.episodeUniqueMaps.add(mapKey);
+        this.recentNovelTiles.push(visits === 0 ? 1 : 0);
+        if (this.recentNovelTiles.length > 32) this.recentNovelTiles.shift();
+
+        // Multi-day runs must stay bounded. Counts saturate in the encoder, so
+        // discarding the oldest half cannot remove a durable story milestone.
+        if (this.episodeTileVisits.size > 4096) {
+            for (const oldKey of [...this.episodeTileVisits.keys()].slice(0, 2048)) {
+                this.episodeTileVisits.delete(oldKey);
+            }
+        }
+    }
+
+    _explorationFeatures(state) {
+        if (!state?.location || state.location === 'NO ACTIVE MAP') return {};
+        const x = Math.trunc(Number(state.coordinates?.x) || 0);
+        const y = Math.trunc(Number(state.coordinates?.y) || 0);
+        const visits = (dx, dy) => this.episodeTileVisits.get(this._tileKey(state, x + dx, y + dy)) || 0;
+        const mapKey = Number.isFinite(Number(state.mapId))
+            ? Math.trunc(Number(state.mapId))
+            : String(state.location);
+        const recentTotal = this.recentNovelTiles.length;
+        const recentNew = this.recentNovelTiles.reduce((sum, value) => sum + value, 0);
+        return {
+            currentVisits: visits(0, 0),
+            northVisits: visits(0, -1),
+            southVisits: visits(0, 1),
+            eastVisits: visits(1, 0),
+            westVisits: visits(-1, 0),
+            uniqueTiles: this.episodeTileVisits.size,
+            mapUniqueTiles: this.episodeMapTiles.get(mapKey)?.size || 0,
+            recentNewRatio: recentTotal ? recentNew / recentTotal : 1,
+            revisitRatio: recentTotal ? 1 - (recentNew / recentTotal) : 0,
+            uniqueMaps: this.episodeUniqueMaps.size,
         };
     }
 
@@ -412,13 +618,13 @@ export class PureRLAgent {
      * not touch the PPO rollout or autonomy/checkpoint proof: the transition is
      * off-policy expert data and is trained with behavior cloning instead.
      */
-    async demonstrate(action) {
+    async demonstrate(action, { correction = false } = {}) {
         const actionIdx = PURE_RL_ACTIONS.indexOf(action);
         if (actionIdx < 0) throw new Error(`Unsupported demonstration action: ${action}`);
 
         const prevState = this.mem.getGameState();
         const stateVec = new Float32Array(REDPP_STATE_SIZE);
-        encodeRedppStateInto(prevState, stateVec, this._behaviorContext());
+        encodeRedppStateInto(prevState, stateVec, this._behaviorContext(prevState));
         await this._executeAction(action);
         // Headless PPO workers intentionally skip rendering, but Teach mode is
         // a visible human session and must show the exact post-action frame.
@@ -428,7 +634,9 @@ export class PureRLAgent {
         const rewardResult = this.env.rewardFn(prevState, nextState, action);
         const reward = Number(rewardResult?.total) || 0;
 
-        this.core.observeDemonstration(stateVec, actionIdx, reward);
+        const phaseName = deriveRedppLearningPhase(prevState);
+        const phase = Math.max(0, REDPP_LEARNING_PHASES.indexOf(phaseName));
+        this.core.observeDemonstration(stateVec, actionIdx, reward, { phase, correction });
         this.currentAction = action;
         this.totalSteps++;
         this.totalReward += reward;
@@ -470,7 +678,12 @@ export class PureRLAgent {
 
     /** Finish an expert episode with a stronger supervised consolidation pass. */
     finishDemonstration() {
-        return this.core.trainDemonstrations({ epochs: 8, coefficient: 1 });
+        let result = null;
+        for (let round = 0; round < 3; round++) {
+            result = this.core.trainDemonstrations({ epochs: 4, coefficient: 1 });
+            if ((result?.accuracy || 0) >= 0.98) break;
+        }
+        return { ...result, ...this.core.getDemonstrationStatus() };
     }
 
     /**
@@ -575,6 +788,11 @@ export class PureRLAgent {
         this.lastDeltaY = 0;
         this.actionStreak = 0;
         this.lastBehaviorAction = null;
+        this.recentBehaviorActions = [];
+        this.episodeTileVisits.clear();
+        this.episodeMapTiles.clear();
+        this.episodeUniqueMaps.clear();
+        this.recentNovelTiles = [];
     }
 
     /**
@@ -674,6 +892,11 @@ export class PureRLAgent {
         this.lastDeltaY = 0;
         this.actionStreak = 0;
         this.lastBehaviorAction = null;
+        this.recentBehaviorActions = [];
+        this.episodeTileVisits.clear();
+        this.episodeMapTiles.clear();
+        this.episodeUniqueMaps.clear();
+        this.recentNovelTiles = [];
         this.rewards.reset();
         // Note: Core (policy weights, buffer) is NOT reset
         // Call resetFull() to also reset learning
@@ -875,7 +1098,7 @@ export class PureRLAgent {
     getPolicyProbs() {
         const state = this.mem.getGameState();
         const stateVec = new Float32Array(REDPP_STATE_SIZE);
-        encodeRedppStateInto(state, stateVec, this._behaviorContext());
+        encodeRedppStateInto(state, stateVec, this._behaviorContext(state));
         return this.core.getProbs(stateVec);
     }
 

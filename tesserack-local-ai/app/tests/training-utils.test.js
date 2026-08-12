@@ -177,7 +177,7 @@ test('policy snapshots round-trip after strict validation', () => {
 
 test('policy snapshots preserve expert demonstration replay for PPO grounding', () => {
     const source = new ReinforceCore({ stateSize: 2, numActions: 2, demonstrationCapacity: 8 });
-    source.observeDemonstration(new Float32Array([0.2, 0.8]), 1, 3.5);
+    source.observeDemonstration(new Float32Array([0.2, 0.8]), 1, 3.5, { phase: 4, correction: true });
     source.trainDemonstrations({ epochs: 1 });
     const target = new ReinforceCore({ stateSize: 2, numActions: 2, demonstrationCapacity: 8 });
 
@@ -186,6 +186,9 @@ test('policy snapshots preserve expert demonstration replay for PPO grounding', 
     assert.deepEqual([...target.demonstrationStates.subarray(0, 2)], [0.20000000298023224, 0.800000011920929]);
     assert.equal(target.demonstrationActions[0], 1);
     assert.equal(target.demonstrationRewards[0], 3.5);
+    assert.equal(target.demonstrationPhases[0], 4);
+    assert.equal(target.demonstrationKinds[0], 1);
+    assert.equal(target.getDemonstrationStatus().correctionSamples, 1);
     assert.equal(target.demonstrationTrainSteps, 1);
 });
 

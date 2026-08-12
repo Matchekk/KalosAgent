@@ -88,7 +88,11 @@ export function detectAutonomousMilestone(state = {}) {
     if (party && CHAMPION_LOCATIONS.has(location)) return 21;
     if (party && badges > 0) return 12 + badges;
     if (party && state.progressFlags?.battledRivalInOaksLab) {
-        return Math.max(6, LOCATION_LEVELS[location] || 0);
+        const locationLevel = LOCATION_LEVELS[location] || 0;
+        // Route 2 and everything north of it are gated by Oak receiving the
+        // parcel and awarding the Pokedex in the intended Red++ opening.
+        if (locationLevel >= 9 && !state.progressFlags?.gotPokedex) return 8;
+        return Math.max(6, locationLevel);
     }
     if (party) return 5;
     return LOCATION_LEVELS[location] && LOCATION_LEVELS[location] <= 4

@@ -118,6 +118,30 @@ export function copyReinforceState(sourceCore, targetCore) {
         }
         targetCore.policy._adamStep = sourceCore.policy._adamStep;
     }
+    const demonstrations = Math.min(
+        sourceCore.demonstrationLength || 0,
+        targetCore.demonstrationCapacity || 0,
+    );
+    if (demonstrations > 0 && sourceCore.stateSize === targetCore.stateSize) {
+        targetCore.demonstrationStates.set(sourceCore.demonstrationStates.subarray(
+            0,
+            demonstrations * sourceCore.stateSize,
+        ));
+        targetCore.demonstrationActions.set(sourceCore.demonstrationActions.subarray(0, demonstrations));
+        targetCore.demonstrationRewards.set(sourceCore.demonstrationRewards.subarray(0, demonstrations));
+        if (sourceCore.demonstrationPhases && targetCore.demonstrationPhases) {
+            targetCore.demonstrationPhases.set(sourceCore.demonstrationPhases.subarray(0, demonstrations));
+        }
+        if (sourceCore.demonstrationKinds && targetCore.demonstrationKinds) {
+            targetCore.demonstrationKinds.set(sourceCore.demonstrationKinds.subarray(0, demonstrations));
+        }
+        targetCore.demonstrationLength = demonstrations;
+        targetCore.demonstrationPosition = demonstrations % targetCore.demonstrationCapacity;
+        targetCore.demonstrationTrainSteps = sourceCore.demonstrationTrainSteps || 0;
+        targetCore.lastDemonstrationLoss = sourceCore.lastDemonstrationLoss || 0;
+        targetCore.lastDemonstrationAccuracy = sourceCore.lastDemonstrationAccuracy || 0;
+        targetCore._refreshDemonstrationDiagnostics?.();
+    }
 }
 
 const ACTOR_TENSORS = ['w1', 'b1', 'w2', 'b2'];
@@ -141,7 +165,7 @@ export function createReinforceSnapshot(core) {
         lastAvgRawReturn: core.lastAvgRawReturn,
         lastEntropy: core.lastEntropy,
         demonstrations: demonstrationLength > 0 ? {
-            version: 1,
+            version: 2,
             length: demonstrationLength,
             trainSteps: core.demonstrationTrainSteps || 0,
             loss: core.lastDemonstrationLoss || 0,
@@ -152,6 +176,8 @@ export function createReinforceSnapshot(core) {
             )),
             actions: Array.from(core.demonstrationActions.subarray(0, demonstrationLength)),
             rewards: Array.from(core.demonstrationRewards.subarray(0, demonstrationLength)),
+            phases: Array.from(core.demonstrationPhases?.subarray(0, demonstrationLength) || []),
+            kinds: Array.from(core.demonstrationKinds?.subarray(0, demonstrationLength) || []),
         } : null,
         weights: Object.fromEntries(
             tensors.map(key => [key, Array.from(core.policy[key])])
@@ -217,7 +243,7 @@ export function restoreReinforceSnapshot(core, snapshot) {
     core.lastEntropy = Number.isFinite(snapshot.lastEntropy)
         ? snapshot.lastEntropy : 0;
     const demonstrations = snapshot.demonstrations;
-    if (demonstrations?.version === 1 && Number.isSafeInteger(demonstrations.length)) {
+    if ([1, 2].includes(demonstrations?.version) && Number.isSafeInteger(demonstrations.length)) {
         const length = Math.min(core.demonstrationCapacity || 0, Math.max(0, demonstrations.length));
         const expectedStates = length * core.stateSize;
         if (length > 0
@@ -232,11 +258,18 @@ export function restoreReinforceSnapshot(core, snapshot) {
             if (Array.isArray(demonstrations.rewards)) {
                 core.demonstrationRewards.set(demonstrations.rewards.slice(0, length));
             }
+            if (demonstrations.version >= 2 && Array.isArray(demonstrations.phases)) {
+                core.demonstrationPhases?.set(demonstrations.phases.slice(0, length));
+            }
+            if (demonstrations.version >= 2 && Array.isArray(demonstrations.kinds)) {
+                core.demonstrationKinds?.set(demonstrations.kinds.slice(0, length));
+            }
             core.demonstrationLength = length;
             core.demonstrationPosition = length % core.demonstrationCapacity;
             core.demonstrationTrainSteps = Math.max(0, Math.trunc(demonstrations.trainSteps || 0));
             core.lastDemonstrationLoss = Number(demonstrations.loss) || 0;
             core.lastDemonstrationAccuracy = Number(demonstrations.accuracy) || 0;
+            core._refreshDemonstrationDiagnostics?.();
         }
     }
     return true;

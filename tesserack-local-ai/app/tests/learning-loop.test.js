@@ -263,6 +263,31 @@ test('zero-initialized Red++ startup memory is not Pallet Town', () => {
     assert.equal(reader.getLocation(), 'PALLET TOWN');
 });
 
+test('memory reader exposes exact Red++ map and early event flags', () => {
+    const wram = new Uint8Array(0x8000);
+    const writeBit = index => {
+        wram[ADDRESSES.EVENT_FLAGS - 0xC000 + (index >> 3)] |= 1 << (index & 7);
+    };
+    wram[ADDRESSES.MAP_ID - 0xC000] = 0x36;
+    writeBit(0x022);
+    writeBit(0x025);
+    writeBit(0x039);
+    writeBit(0x077);
+    const reader = new MemoryReader({
+        getWRAM: () => wram,
+        readMemory: () => 0,
+    });
+
+    const flags = reader.getProgressFlags();
+    assert.equal(reader.getMapId(), 0x36);
+    assert.equal(flags.gotStarter, true);
+    assert.equal(flags.gotPokedex, true);
+    assert.equal(flags.gotOaksParcel, true);
+    assert.equal(flags.beatBrock, true);
+    assert.equal(flags.battledRivalInOaksLab, false);
+    assert.equal(flags.eventBytes.length, 16);
+});
+
 test('overworld tilemap glyphs cannot masquerade as Red++ dialog', () => {
     const wram = new Uint8Array(0x8000);
     const tilemapOffset = ADDRESSES.TILEMAP_START - 0xC000;

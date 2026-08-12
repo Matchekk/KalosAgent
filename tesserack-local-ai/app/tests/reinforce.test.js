@@ -152,6 +152,36 @@ test('expert demonstrations behavior-clone into the PPO actor without entering i
     assert.ok(trained.accuracy > 0.8, `BC accuracy was ${trained.accuracy}`);
 });
 
+test('closed-loop teaching readiness requires coverage and learner-state corrections', () => {
+    const core = new ReinforceCore({ stateSize: 2, numActions: 7, demonstrationCapacity: 256 });
+    core.lastDemonstrationAccuracy = 0.99;
+    for (let index = 0; index < 128; index++) {
+        core.observeDemonstration(
+            new Float32Array([index / 128, (index * 17 % 131) / 131]),
+            index % 5,
+            0,
+            { phase: index % 4, correction: index < 16 },
+        );
+    }
+    const status = core.getDemonstrationStatus();
+    assert.equal(status.closedLoopReady, true);
+    assert.equal(status.correctionSamples, 16);
+    assert.equal(status.phaseCoverage.length, 4);
+    assert.equal(status.actionCoverage.filter(Boolean).length, 5);
+    assert.ok(status.sequenceSuccess50 > 0 && status.sequenceSuccess50 < 1);
+});
+
+test('demonstration diagnostics expose contradictory labels for aliased states', () => {
+    const core = new ReinforceCore({ stateSize: 2, numActions: 3 });
+    const state = new Float32Array([0.25, 0.75]);
+    core.observeDemonstration(state, 0);
+    core.observeDemonstration(state, 1);
+    const status = core.getDemonstrationStatus();
+    assert.equal(status.contradictoryStates, 1);
+    assert.equal(status.collisionRate, 1);
+    assert.equal(status.closedLoopReady, false);
+});
+
 test('familiar states retain bounded episodic novelty without enabling same-episode farming', () => {
     const core = new ReinforceCore({
         stateSize: 1,

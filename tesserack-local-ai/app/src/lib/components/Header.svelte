@@ -567,7 +567,7 @@
 
         <h3>Train Mode (Pure RL)</h3>
         <p>
-            The agent learns with a browser-native <strong>PPO/GAE actor-critic</strong>. Four synchronized Red++ environments encode RAM and short-term behavior into 58 features, choose every button autonomously, and update a shared policy with clipped multi-epoch gradients plus a learned value baseline.
+            The agent learns with a browser-native <strong>PPO/GAE actor-critic</strong>. Four synchronized Red++ environments encode exact map/event RAM, objective phase, inventory, dialog identity, visitation and recent actions into 144 features, choose every button autonomously, and update a shared policy with clipped multi-epoch gradients plus a learned value baseline.
         </p>
 
         <h3>Reward System</h3>
@@ -580,7 +580,7 @@
 
         <h3>Architecture</h3>
         <p>
-            Shared typed-array MLP (58 → 64 → 7 actions plus value head), GAE, Adam, gradient clipping, bounded episodic novelty, and a 128-cell autonomous exploration archive. One worker exploits, two explore frontier states, and one rehearses from the true ROM start.
+            Shared typed-array MLP (144 → 128 → 7 actions plus value head), GAE, Adam, gradient clipping, phase-balanced demonstration replay, DAgger-style learner-state corrections, bounded episodic novelty, and a 128-cell autonomous exploration archive. One worker exploits, two explore frontier states, and one independently rehearses from the true ROM start.
         </p>
 
         <h3>Roadmap</h3>

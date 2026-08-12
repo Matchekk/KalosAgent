@@ -44,6 +44,16 @@ test('early milestones require coherent state and Oak progress', () => {
         party: starter,
         progressFlags: { battledRivalInOaksLab: true },
     })), 7);
+    assert.equal(detectAutonomousMilestone(state({
+        location: 'ROUTE 2',
+        party: starter,
+        progressFlags: { battledRivalInOaksLab: true, gotPokedex: false },
+    })), 8, 'Route 2 RAM cannot replace the exact Oak/Pokedex proof');
+    assert.equal(detectAutonomousMilestone(state({
+        location: 'ROUTE 2',
+        party: starter,
+        progressFlags: { battledRivalInOaksLab: true, gotPokedex: true },
+    })), 9);
 });
 
 test('one lucky fresh-start result is not called verified', () => {

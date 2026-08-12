@@ -5,7 +5,7 @@
  */
 
 export class SimplePolicy {
-    constructor(stateSize = 16, hiddenSize = 64, outputSize = 6, rng = Math.random) {
+    constructor(stateSize = 16, hiddenSize = 128, outputSize = 6, rng = Math.random) {
         this.stateSize = stateSize;
         this.hiddenSize = hiddenSize;
         this.outputSize = outputSize;

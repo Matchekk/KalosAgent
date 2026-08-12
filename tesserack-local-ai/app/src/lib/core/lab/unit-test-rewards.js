@@ -410,6 +410,12 @@ export class UnitTestRewards {
             add('oak_rival_defeated', matrix.oakRival, 3);
         }
 
+        for (const [flag, reward] of Object.entries(matrix.events || {})) {
+            if (curr?.progressFlags?.[flag] && !prev?.progressFlags?.[flag]) {
+                add(`event_${flag}`, reward, reward >= 4 ? 3 : 2, { flag });
+            }
+        }
+
         const wasWhiteout = this._allFainted(prev);
         if (this._allFainted(curr) && !wasWhiteout) add('whiteout', matrix.whiteout, 'penalty');
 
@@ -501,7 +507,16 @@ export class UnitTestRewards {
 
     _positionKey(state) {
         if (!state?.location || !Number.isFinite(state?.coordinates?.x) || !Number.isFinite(state?.coordinates?.y)) return null;
-        const progress = `${state.badgeCount || 0}:${state.party?.length || 0}:${state.progressFlags?.battledRivalInOaksLab ? 1 : 0}`;
+        const flags = state.progressFlags || {};
+        const progress = [
+            state.badgeCount || 0,
+            state.party?.length || 0,
+            flags.gotStarter ? 1 : 0,
+            flags.battledRivalInOaksLab ? 1 : 0,
+            flags.gotOaksParcel ? 1 : 0,
+            flags.gotPokedex ? 1 : 0,
+            flags.beatBrock ? 1 : 0,
+        ].join(':');
         return `${progress}:${normalizeLocation(state.location)}:${state.coordinates.x}:${state.coordinates.y}`;
     }
 

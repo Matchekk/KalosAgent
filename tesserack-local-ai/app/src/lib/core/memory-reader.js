@@ -542,6 +542,7 @@ export const TYPE_NAMES = {
 
 // Badge names
 export const BADGE_NAMES = ['Boulder', 'Cascade', 'Thunder', 'Rainbow', 'Soul', 'Marsh', 'Volcano', 'Earth'];
+export const REDPP_EARLY_EVENT_BYTES = 16;
 
 // Status condition masks
 export const STATUS = {
@@ -739,6 +740,11 @@ export class MemoryReader {
         }
         const mapId = this.readByte(ADDRESSES.MAP_ID);
         return MAP_NAMES[mapId] || `UNKNOWN (${mapId})`;
+    }
+
+    /** Exact Red++ map id. Display labels are not a lossless policy input. */
+    getMapId() {
+        return this.readByte(ADDRESSES.MAP_ID);
     }
 
     /**
@@ -1066,12 +1072,29 @@ export class MemoryReader {
     }
 
     getProgressFlags() {
-        // EVENT_BATTLED_RIVAL_IN_OAKS_LAB = $23 (byte 4, bit 3) in
-        // constants/event_constants.asm. These durable flags let a restored
-        // savestate reconstruct milestones without trusting UI history.
-        const openingEvents = this.readByte(ADDRESSES.EVENT_FLAGS + 4);
+        // Event indices are stable Red++ constants. The assembled v3.0.2 ROM
+        // shifts wEventFlags to D7CD, so all reads are relative to the verified
+        // symbol rather than the stale vanilla addresses in source comments.
+        const eventBytes = this.readBytes(ADDRESSES.EVENT_FLAGS, REDPP_EARLY_EVENT_BYTES);
+        const event = index => (eventBytes[index >> 3] & (1 << (index & 7))) !== 0;
         return {
-            battledRivalInOaksLab: (openingEvents & (1 << 3)) !== 0,
+            followedOakIntoLab: event(0x000),
+            palletAfterGettingPokeballs: event(0x006),
+            gotTownMap: event(0x018),
+            enteredBluesHouse: event(0x019),
+            followedOakIntoLab2: event(0x020),
+            oakAskedToChooseMon: event(0x021),
+            gotStarter: event(0x022),
+            battledRivalInOaksLab: event(0x023),
+            gotPokeballsFromOak: event(0x024),
+            gotPokedex: event(0x025),
+            oakAppearedInPallet: event(0x027),
+            oakGotParcel: event(0x038),
+            gotOaksParcel: event(0x039),
+            beatPewterGymTrainer: event(0x072),
+            gotTm34: event(0x076),
+            beatBrock: event(0x077),
+            eventBytes,
         };
     }
 
@@ -1083,10 +1106,12 @@ export class MemoryReader {
         const badges = this.getBadges();
         const inBattle = this.isInBattle();
         const dialog = this.getDialog();
+        const progressFlags = this.getProgressFlags();
         const state = {
             playerName: this.getPlayerName(),
             rivalName: this.getRivalName(),
             location: this.getLocation(),
+            mapId: this.getMapId(),
             coordinates: this.getCoordinates(),
             money: this.getMoney(),
             badges,
@@ -1097,7 +1122,8 @@ export class MemoryReader {
             inBattle,
             battleResult: this.readByte(ADDRESSES.BATTLE_RESULT),
             battle: this.getBattle(),
-            progressFlags: this.getProgressFlags(),
+            progressFlags,
+            eventBytes: progressFlags.eventBytes,
             dialog,
             menu: this.getMenuState(dialog, inBattle),
         };

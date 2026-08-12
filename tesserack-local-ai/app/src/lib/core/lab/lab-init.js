@@ -76,7 +76,14 @@ const RECOVERY_RETRY_COOLDOWN_MS = 60_000;
 // Current mode: 'llm' or 'purerl'
 export const labMode = writable('llm');
 export const labRunStatus = writable({ running: false, recovering: false, error: null });
-export const labDemonstration = writable({ active: false, samples: 0, trainSteps: 0, loss: 0, accuracy: 0 });
+export const labDemonstration = writable({
+    active: false,
+    correctionMode: false,
+    samples: 0,
+    trainSteps: 0,
+    loss: 0,
+    accuracy: 0,
+});
 let currentMode = 'llm';
 let demonstrationActive = false;
 
@@ -648,20 +655,35 @@ export function startLabDemonstration() {
     labPureRLAgent.reset();
     demonstrationActive = true;
     const status = labPureRLAgent.core.getDemonstrationStatus();
-    labDemonstration.set({ active: true, ...status });
+    labDemonstration.set({ active: true, correctionMode: false, ...status });
     updateGameState(labReader.getGameState());
     feedSystem('Teach mode: fresh ROM. Every manual transition trains the shared PPO actor; autonomy proof remains untouched.');
+    return true;
+}
+
+/** Pause the learner and collect DAgger-style labels on states it actually reached. */
+export function startLabCorrection() {
+    if (!labPureRLAgent || !labEmulator) return false;
+    stopLabAgent();
+    destroyParallelTrainer();
+    labEmulator.stop();
+    demonstrationActive = true;
+    const status = labPureRLAgent.core.getDemonstrationStatus();
+    labDemonstration.set({ active: true, correctionMode: true, ...status });
+    updateGameState(labReader.getGameState());
+    feedSystem('Correction mode: label the learner-induced state currently on screen. Autonomous proof remains untouched until the corrected policy is consolidated.');
     return true;
 }
 
 /** Execute one deterministic manual action and record it as expert data. */
 export async function recordLabDemonstrationAction(action) {
     if (!demonstrationActive || !labPureRLAgent) return false;
-    const result = await labPureRLAgent.demonstrate(action);
+    const correctionMode = Boolean(get(labDemonstration).correctionMode);
+    const result = await labPureRLAgent.demonstrate(action, { correction: correctionMode });
     const metrics = labPureRLAgent.getMetrics();
     const rewardStats = metrics.rewardStats || {};
     const status = result.demonstration;
-    labDemonstration.set({ active: true, ...status });
+    labDemonstration.set({ active: true, correctionMode, ...status });
     handlePureRLStep({
         step: labPureRLAgent.totalSteps,
         action,
@@ -712,7 +734,7 @@ export async function finishLabDemonstration() {
     const result = labPureRLAgent.finishDemonstration();
     demonstrationActive = false;
     const status = labPureRLAgent.core.getDemonstrationStatus();
-    labDemonstration.set({ active: false, ...status });
+    labDemonstration.set({ active: false, correctionMode: false, ...status });
     await persistPureRLPolicy();
     // Supervision changed the evaluated policy. Previous fresh-ROM attempts
     // therefore belong to a different policy and must never be combined with
@@ -729,7 +751,7 @@ export async function finishLabDemonstration() {
         learningAudit: null,
         demonstration: status,
     }));
-    feedSystem(`Teach episode learned: ${status.samples} expert transitions, ${(status.accuracy * 100).toFixed(1)}% BC accuracy.`);
+    feedSystem(`Teaching data learned: ${status.samples} transitions, ${(status.accuracy * 100).toFixed(1)}% BC accuracy, ${(status.collisionRate * 100).toFixed(2)}% state-label collisions.`);
     feedSystem('Autonomous proof reset: the learned policy must now reproduce the route from a fresh ROM without human input.');
     return result;
 }

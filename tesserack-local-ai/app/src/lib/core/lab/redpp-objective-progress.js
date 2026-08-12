@@ -53,22 +53,20 @@ export function deriveRedppGuideObjectives(state = {}, existing = []) {
     const location = normalizeRedppLocation(state.location);
     const locationProgress = getRedppLocationProgress(location);
     const viridianProgress = getRedppLocationProgress('VIRIDIAN CITY');
-    const route2Progress = getRedppLocationProgress('ROUTE 2');
     const pewterProgress = getRedppLocationProgress('PEWTER CITY');
 
     if (locationProgress >= viridianProgress) {
         completed.add(REDPP_PROVABLE_OBJECTIVES.viridian);
     }
 
-    // Route 2 is gated behind returning Oak's parcel and receiving the
-    // Pokedex in the normal Red++ opening. Reaching that northbound route (or
-    // anything beyond it) with the durable Oak-rival flag is stronger proof
-    // than merely standing in Viridian while still carrying the parcel.
-    if (state.progressFlags?.battledRivalInOaksLab && locationProgress >= route2Progress) {
+    // Map order cannot prove that Oak received the parcel. Only the durable
+    // Red++ event may complete the objective; imported heuristic snapshots
+    // remain diagnostic data and deliberately do not pass this proof.
+    if (state.progressFlags?.gotPokedex) {
         completed.add(REDPP_PROVABLE_OBJECTIVES.oakSequence);
     }
 
-    if (state.progressFlags?.battledRivalInOaksLab && locationProgress >= pewterProgress) {
+    if (state.progressFlags?.gotPokedex && locationProgress >= pewterProgress) {
         completed.add(REDPP_PROVABLE_OBJECTIVES.forest);
     }
 
@@ -79,4 +77,3 @@ export function deriveRedppGuideObjectives(state = {}, existing = []) {
 
     return completed;
 }
-

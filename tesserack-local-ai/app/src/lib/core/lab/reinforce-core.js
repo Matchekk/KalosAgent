@@ -45,7 +45,7 @@ export class ReinforceCore {
     constructor(config = {}) {
         this.stateSize = config.stateSize ?? 16;
         this.numActions = config.numActions ?? 6;
-        this.hiddenSize = config.hiddenSize ?? 64;
+        this.hiddenSize = config.hiddenSize ?? 128;
         this.rolloutSize = config.rolloutSize ?? 128;
         this.learningRate = config.learningRate ?? 0.0003;
         this.gamma = config.gamma ?? 0.99;
@@ -96,11 +96,14 @@ export class ReinforceCore {
         this.demonstrationStates = new Float32Array(this.demonstrationCapacity * this.stateSize);
         this.demonstrationActions = new Int16Array(this.demonstrationCapacity);
         this.demonstrationRewards = new Float32Array(this.demonstrationCapacity);
+        this.demonstrationPhases = new Uint8Array(this.demonstrationCapacity);
+        this.demonstrationKinds = new Uint8Array(this.demonstrationCapacity);
         this.demonstrationLength = 0;
         this.demonstrationPosition = 0;
         this.demonstrationTrainSteps = 0;
         this.lastDemonstrationLoss = 0;
         this.lastDemonstrationAccuracy = 0;
+        this._demonstrationDiagnostics = emptyDemonstrationDiagnostics(this.numActions);
     }
 
     act(stateVec) {
@@ -165,7 +168,7 @@ export class ReinforceCore {
     }
 
     /** Store one expert state/action without contaminating the on-policy rollout. */
-    observeDemonstration(stateVec, actionIdx, reward = 0) {
+    observeDemonstration(stateVec, actionIdx, reward = 0, { phase = 0, correction = false } = {}) {
         if (!stateVec || stateVec.length !== this.stateSize) {
             throw new Error('Invalid demonstration state vector');
         }
@@ -176,8 +179,11 @@ export class ReinforceCore {
         this.demonstrationStates.set(stateVec, slot * this.stateSize);
         this.demonstrationActions[slot] = actionIdx;
         this.demonstrationRewards[slot] = Number(reward) || 0;
+        this.demonstrationPhases[slot] = Math.max(0, Math.min(255, Math.trunc(Number(phase) || 0)));
+        this.demonstrationKinds[slot] = correction ? 1 : 0;
         this.demonstrationPosition = (slot + 1) % this.demonstrationCapacity;
         this.demonstrationLength = Math.min(this.demonstrationCapacity, this.demonstrationLength + 1);
+        this._refreshDemonstrationDiagnostics();
         return this.demonstrationLength;
     }
 
@@ -191,6 +197,14 @@ export class ReinforceCore {
         if (n === 0) return null;
         const usableBatch = Math.max(1, Math.min(n, Math.trunc(batchSize) || 64));
         const indices = Array.from({ length: n }, (_, index) => index);
+        const phaseCounts = new Uint32Array(256);
+        const actionCounts = new Uint32Array(this.numActions);
+        for (let slot = 0; slot < n; slot++) {
+            phaseCounts[this.demonstrationPhases[slot]]++;
+            actionCounts[this.demonstrationActions[slot]]++;
+        }
+        const activePhases = phaseCounts.reduce((count, value) => count + (value > 0 ? 1 : 0), 0);
+        const activeActions = actionCounts.reduce((count, value) => count + (value > 0 ? 1 : 0), 0);
         let loss = 0;
         let correct = 0;
         let evaluated = 0;
@@ -208,12 +222,21 @@ export class ReinforceCore {
                     const offset = slot * this.stateSize;
                     const state = this.demonstrationStates.subarray(offset, offset + this.stateSize);
                     const action = this.demonstrationActions[slot];
+                    // DAPG-style replay must not let thousands of dialog A
+                    // presses erase short navigation/menu phases. Square-root
+                    // inverse frequency balances phases and actions without the
+                    // variance of full inverse-frequency oversampling.
+                    const phaseWeight = Math.sqrt(n / Math.max(1,
+                        activePhases * phaseCounts[this.demonstrationPhases[slot]]));
+                    const actionWeight = Math.sqrt(n / Math.max(1,
+                        activeActions * actionCounts[action]));
+                    const balanceWeight = Math.max(0.25, Math.min(4, phaseWeight * actionWeight));
                     const cache = this.policy.forwardWithCache(state);
                     this.policy.computeGradientsInto(
                         this.gradAcc,
                         state,
                         action,
-                        Math.max(0.01, Number(coefficient) || 1),
+                        Math.max(0.01, Number(coefficient) || 1) * balanceWeight,
                         cache,
                     );
                     loss -= Math.log(cache.probs[action] + 1e-8);
@@ -241,6 +264,7 @@ export class ReinforceCore {
         this.demonstrationTrainSteps++;
         this.lastDemonstrationLoss = loss / Math.max(1, evaluated);
         this.lastDemonstrationAccuracy = correct / Math.max(1, evaluated);
+        this._refreshDemonstrationDiagnostics();
         return {
             samples: n,
             trainSteps: this.demonstrationTrainSteps,
@@ -392,12 +416,63 @@ export class ReinforceCore {
     }
 
     getDemonstrationStatus() {
+        const sequenceSuccess20 = Math.pow(Math.max(0, Math.min(1, this.lastDemonstrationAccuracy)), 20);
+        const sequenceSuccess50 = Math.pow(Math.max(0, Math.min(1, this.lastDemonstrationAccuracy)), 50);
         return {
             samples: this.demonstrationLength,
             capacity: this.demonstrationCapacity,
             trainSteps: this.demonstrationTrainSteps,
             loss: this.lastDemonstrationLoss,
             accuracy: this.lastDemonstrationAccuracy,
+            sequenceSuccess20,
+            sequenceSuccess50,
+            ...this._demonstrationDiagnostics,
+        };
+    }
+
+    _refreshDemonstrationDiagnostics() {
+        const n = this.demonstrationLength;
+        if (n === 0) {
+            this._demonstrationDiagnostics = emptyDemonstrationDiagnostics(this.numActions);
+            return;
+        }
+        const actionCoverage = new Array(this.numActions).fill(0);
+        const phaseCounts = new Map();
+        const stateActions = new Map();
+        let correctionSamples = 0;
+        for (let slot = 0; slot < n; slot++) {
+            const action = this.demonstrationActions[slot];
+            const phase = this.demonstrationPhases[slot];
+            actionCoverage[action]++;
+            phaseCounts.set(phase, (phaseCounts.get(phase) || 0) + 1);
+            if (this.demonstrationKinds[slot]) correctionSamples++;
+            const offset = slot * this.stateSize;
+            const state = this.demonstrationStates.subarray(offset, offset + this.stateSize);
+            const hash = hashState(state);
+            stateActions.set(hash, (stateActions.get(hash) || 0) | (1 << action));
+        }
+        let contradictoryStates = 0;
+        for (const mask of stateActions.values()) {
+            if ((mask & (mask - 1)) !== 0) contradictoryStates++;
+        }
+        const collisionRate = contradictoryStates / Math.max(1, stateActions.size);
+        const representedPhases = phaseCounts.size;
+        const representedActions = actionCoverage.filter(Boolean).length;
+        this._demonstrationDiagnostics = {
+            collisionRate,
+            contradictoryStates,
+            uniqueStates: stateActions.size,
+            phaseCoverage: [...phaseCounts.entries()]
+                .sort((left, right) => left[0] - right[0])
+                .map(([phase, count]) => ({ phase, count })),
+            actionCoverage,
+            correctionSamples,
+            closedLoopReady: n >= 128
+                && this.lastDemonstrationAccuracy >= 0.98
+                && collisionRate <= 0.02
+                && representedPhases >= 4
+                && representedActions >= 5
+                && correctionSamples >= 16,
         };
     }
 }
@@ -446,4 +521,16 @@ function hashNoveltyKey(value) {
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
+}
+
+function emptyDemonstrationDiagnostics(numActions) {
+    return {
+        collisionRate: 0,
+        contradictoryStates: 0,
+        uniqueStates: 0,
+        phaseCoverage: [],
+        actionCoverage: new Array(numActions).fill(0),
+        correctionSamples: 0,
+        closedLoopReady: false,
+    };
 }
